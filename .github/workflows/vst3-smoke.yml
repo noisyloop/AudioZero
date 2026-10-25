@@ -1,0 +1,17 @@
+name: macOS VST3 smoke test
+on:
+  push:
+    branches: [feature/vst3-ci-smoke-test]
+  pull_request:
+    branches: [main]
+jobs:
+  vst3-smoke:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G Xcode -DAUDIOZERO_BUILD_TESTS=ON
+      - name: Build test host and plugin
+        run: cmake --build build --config Release --target AudioZeroHostSmoke --parallel 4
+      - name: VST3 host integration test
+        run: ctest --test-dir build -C Release --output-on-failure
