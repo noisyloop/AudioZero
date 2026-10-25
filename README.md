@@ -70,7 +70,7 @@ All platforms fetch JUCE 8.0.10 automatically, which needs internet access the f
 | Platform | Requirements | Command |
 | --- | --- | --- |
 | macOS | Xcode, CMake | `bash scripts/build-mac.sh` |
-| Windows | Visual Studio 2022 (C++ workload), CMake | `powershell scripts/build-windows.ps1` |
+| Windows | Visual Studio 2022 or newer (C++ workload), CMake | `powershell scripts/build-windows.ps1` |
 | Linux | CMake, Ninja, ALSA/X11/freetype dev packages (listed in the script) | `bash scripts/build-linux.sh` |
 
 Each build produces:
