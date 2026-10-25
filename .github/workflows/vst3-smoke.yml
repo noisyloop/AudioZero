@@ -1,7 +1,7 @@
 name: macOS VST3 smoke test
 on:
   push:
-    branches: [feature/vst3-ci-smoke-test, feature/builtin-smokesynth, feature/smokesynth-fm]
+    branches: [feature/vst3-ci-smoke-test, feature/builtin-smokesynth, feature/smokesynth-fm, feature/smokesynth-keyboard]
   pull_request:
     branches: [main]
 jobs:
