@@ -20,7 +20,7 @@ public:
     void closeButtonPressed() override { setVisible(false); }
 };
 
-class HostComponent final : public juce::Component
+class HostComponent final : public juce::Component, private juce::MidiKeyboardStateListener
 {
 public:
     HostComponent()
@@ -31,9 +31,12 @@ public:
                        juce::dontSendNotification);
         deviceManager.addAudioCallback(&player);
         deviceManager.addMidiInputDeviceCallback({}, &player);
+        deviceManager.addMidiInputDeviceCallback({}, &keyboardState);
         for (auto* button : { &smokeButton, &loadButton, &editorButton, &saveButton, &restoreButton })
             addAndMakeVisible(button);
         addAndMakeVisible(status);
+        addAndMakeVisible(keyboard);
+        keyboardState.addListener(this);
         smokeButton.setButtonText("SmokeSynth");
         smokeButton.onClick = [this] { loadSmokeSynth(); };
         loadButton.setButtonText("Load VST3");
@@ -44,7 +47,7 @@ public:
         editorButton.onClick = [this] { if (plugin) { if (!pluginWindow) pluginWindow = std::make_unique<PluginWindow>(*plugin); else pluginWindow->setVisible(true); } };
         saveButton.onClick = [this] { saveState(); };
         restoreButton.onClick = [this] { restoreState(); };
-        setSize(850, 180);
+        setSize(850, 290);
         loadSmokeSynth();
     }
 
@@ -54,6 +57,8 @@ public:
         pluginWindow.reset();
         player.setProcessor(nullptr);
         deviceManager.removeMidiInputDeviceCallback({}, &player);
+        deviceManager.removeMidiInputDeviceCallback({}, &keyboardState);
+        keyboardState.removeListener(this);
         deviceManager.removeAudioCallback(&player);
         plugin.reset();
     }
@@ -64,10 +69,22 @@ public:
         auto buttons = area.removeFromTop(42);
         for (auto* button : { &loadButton, &editorButton, &saveButton, &restoreButton })
             button->setBounds(buttons.removeFromLeft(164).reduced(4));
-        status.setBounds(area.removeFromTop(70));
+        status.setBounds(area.removeFromTop(50));
+        keyboard.setBounds(area.removeFromTop(105));
     }
 
 private:
+    void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override
+    {
+        juce::MidiMessage message = juce::MidiMessage::noteOn(channel, note, velocity);
+        player.handleIncomingMidiMessage(nullptr, message);
+    }
+    void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override
+    {
+        juce::MidiMessage message = juce::MidiMessage::noteOff(channel, note, velocity);
+        player.handleIncomingMidiMessage(nullptr, message);
+    }
+
     void loadSmokeSynth()
     {
         pluginWindow.reset();
@@ -146,6 +163,8 @@ private:
         status.setText("Restored plugin state", juce::dontSendNotification);
     }
 
+    juce::MidiKeyboardState keyboardState;
+    juce::MidiKeyboardComponent keyboard { keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };
     juce::AudioDeviceManager deviceManager;
     juce::AudioProcessorPlayer player;
     juce::AudioPluginFormatManager formatManager;
