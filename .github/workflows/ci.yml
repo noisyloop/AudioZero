@@ -1,6 +1,7 @@
 name: Windows and Linux build
 on:
   push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -10,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Configure
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DAUDIOZERO_BUILD_TESTS=ON
+        run: cmake -S . -B build -A x64 -DAUDIOZERO_BUILD_TESTS=ON
       - name: Build AudioZero, Operator VST3 and tests
         run: cmake --build build --config Release --parallel 4
       - name: Tests

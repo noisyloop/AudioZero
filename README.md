@@ -70,7 +70,7 @@ All platforms fetch JUCE 8.0.10 automatically, which needs internet access the f
 | Platform | Requirements | Command |
 | --- | --- | --- |
 | macOS | Xcode, CMake | `bash scripts/build-mac.sh` |
-| Windows | Visual Studio 2022 (C++ workload), CMake | `powershell scripts/build-windows.ps1` |
+| Windows | Visual Studio 2022 or newer (C++ workload), CMake | `powershell scripts/build-windows.ps1` |
 | Linux | CMake, Ninja, ALSA/X11/freetype dev packages (listed in the script) | `bash scripts/build-linux.sh` |
 
 Each build produces:
@@ -87,9 +87,10 @@ Each build produces:
 
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `mac-build.yml` | macOS | Build, all tests, unsigned DMG, Operator VST3 artifact |
-| `vst3-smoke.yml` | macOS | JUCE VST3 host smoke test |
-| `ci.yml` | Windows + Linux | Build, all tests, app + VST3 artifacts, Linux UI screenshot |
+| `mac-build.yml` | macOS, on `main` and manual runs only | Build, all tests (including the VST3 host smoke test), unsigned DMG, Operator VST3 artifact |
+| `ci.yml` | Windows + Linux, on `main` and pull requests | Build, all tests, app + VST3 artifacts, Linux UI screenshot |
+
+macOS minutes count 10x against the GitHub Actions allowance, so pull requests are checked on Windows and Linux only. To build a branch on macOS, use **Actions > macOS build and DMG > Run workflow**.
 
 ## Status and known limitations
 
