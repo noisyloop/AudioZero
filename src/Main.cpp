@@ -31,7 +31,7 @@ public:
                        juce::dontSendNotification);
         deviceManager.addAudioCallback(&player);
         deviceManager.addMidiInputDeviceCallback({}, &player);
-        deviceManager.addMidiInputDeviceCallback({}, &keyboardState);
+
         for (auto* button : { &smokeButton, &loadButton, &editorButton, &saveButton, &restoreButton })
             addAndMakeVisible(button);
         addAndMakeVisible(status);
@@ -57,7 +57,7 @@ public:
         pluginWindow.reset();
         player.setProcessor(nullptr);
         deviceManager.removeMidiInputDeviceCallback({}, &player);
-        deviceManager.removeMidiInputDeviceCallback({}, &keyboardState);
+
         keyboardState.removeListener(this);
         deviceManager.removeAudioCallback(&player);
         plugin.reset();
