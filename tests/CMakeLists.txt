@@ -17,5 +17,5 @@ target_compile_definitions(AudioZeroHostSmoke PRIVATE JUCE_PLUGINHOST_VST3=1 JUC
 target_link_libraries(AudioZeroHostSmoke PRIVATE juce::juce_audio_utils juce::juce_audio_processors juce::juce_recommended_config_flags)
 
 add_dependencies(AudioZeroHostSmoke AudioZeroSmokeSynth_VST3)
-add_test(NAME VST3HostSmoke COMMAND AudioZeroHostSmoke "$<TARGET_FILE:AudioZeroSmokeSynth_VST3>")
+add_test(NAME VST3HostSmoke COMMAND AudioZeroHostSmoke "$<TARGET_BUNDLE_DIR:AudioZeroSmokeSynth_VST3>")
 set_tests_properties(VST3HostSmoke PROPERTIES TIMEOUT 90)
