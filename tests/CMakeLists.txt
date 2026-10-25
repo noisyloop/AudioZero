@@ -10,6 +10,7 @@ juce_add_plugin(AudioZeroSmokeSynth
     NEEDS_MIDI_INPUT TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE)
 target_sources(AudioZeroSmokeSynth PRIVATE SmokeSynth.cpp)
+target_compile_definitions(AudioZeroSmokeSynth PRIVATE JUCE_VST3_CAN_REPLACE_VST2=0)
 target_link_libraries(AudioZeroSmokeSynth PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
 
 juce_add_console_app(AudioZeroHostSmoke PRODUCT_NAME "AudioZeroHostSmoke")
