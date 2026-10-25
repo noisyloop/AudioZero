@@ -1,0 +1,20 @@
+name: macOS build
+on:
+  push:
+    branches: [main, feature/mac-vst3-host-spike]
+  pull_request:
+    branches: [main]
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+      - name: Upload unsigned app
+        uses: actions/upload-artifact@v4
+        with:
+          name: AudioZero-macOS-unsigned
+          path: build/AudioZero_artefacts/Release/AudioZero.app
