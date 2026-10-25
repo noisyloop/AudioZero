@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+cmake -S . -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel 4
+echo "Build complete. Find AudioZero.app under build/AudioZero_artefacts/Release/"
