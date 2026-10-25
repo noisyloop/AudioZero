@@ -4,6 +4,7 @@ juce_add_plugin(AudioZeroSmokeSynth
     PLUGIN_MANUFACTURER_CODE Nzlp
     PLUGIN_CODE Azsm
     FORMATS VST3
+    JUCE_VST3_CAN_REPLACE_VST2 FALSE
     PRODUCT_NAME "AudioZeroSmokeSynth"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
