@@ -1,7 +1,7 @@
-name: macOS build
+name: macOS build and DMG
 on:
   push:
-    branches: [main, feature/mac-vst3-host-spike]
+    branches: [main, feature/integrate-smokesynth-dmg]
   pull_request:
     branches: [main]
 jobs:
@@ -10,11 +10,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Configure
-        run: cmake -S . -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
-      - name: Build
+        run: cmake -S . -B build -G Xcode -DCMAKE_BUILD_TYPE=Release -DAUDIOZERO_BUILD_TESTS=ON
+      - name: Build AudioZero and SmokeSynth tests
         run: cmake --build build --config Release --parallel 4
-      - name: Upload unsigned app
+      - name: VST3 host smoke test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package unsigned DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/AudioZero_artefacts/Release/AudioZero.app"
+          test -d "$APP"
+          mkdir -p dist/dmg-root
+          ditto "$APP" "dist/dmg-root/AudioZero.app"
+          ln -s /Applications "dist/dmg-root/Applications"
+          hdiutil create -volname "AudioZero" -srcfolder "dist/dmg-root" -ov -format UDZO "dist/AudioZero-macOS-unsigned.dmg"
+          hdiutil verify "dist/AudioZero-macOS-unsigned.dmg"
+      - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: AudioZero-macOS-unsigned
+          name: AudioZero-macOS-DMG-unsigned
+          path: dist/AudioZero-macOS-unsigned.dmg
+          if-no-files-found: error
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: AudioZero-macOS-app-unsigned
           path: build/AudioZero_artefacts/Release/AudioZero.app
+          if-no-files-found: error
