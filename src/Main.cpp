@@ -1,6 +1,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_extra/juce_gui_extra.h>
+#include "SmokeSynth.h"
 
 class PluginWindow final : public juce::DocumentWindow
 {
@@ -30,9 +31,11 @@ public:
                        juce::dontSendNotification);
         deviceManager.addAudioCallback(&player);
         deviceManager.addMidiInputDeviceCallback({}, &player);
-        for (auto* button : { &loadButton, &editorButton, &saveButton, &restoreButton })
+        for (auto* button : { &smokeButton, &loadButton, &editorButton, &saveButton, &restoreButton })
             addAndMakeVisible(button);
         addAndMakeVisible(status);
+        smokeButton.setButtonText("SmokeSynth");
+        smokeButton.onClick = [this] { loadSmokeSynth(); };
         loadButton.setButtonText("Load VST3");
         editorButton.setButtonText("Open editor");
         saveButton.setButtonText("Save state");
@@ -41,7 +44,8 @@ public:
         editorButton.onClick = [this] { if (plugin) { if (!pluginWindow) pluginWindow = std::make_unique<PluginWindow>(*plugin); else pluginWindow->setVisible(true); } };
         saveButton.onClick = [this] { saveState(); };
         restoreButton.onClick = [this] { restoreState(); };
-        setSize(680, 180);
+        setSize(850, 180);
+        loadSmokeSynth();
     }
 
     ~HostComponent() override
@@ -59,11 +63,20 @@ public:
         auto area = getLocalBounds().reduced(16);
         auto buttons = area.removeFromTop(42);
         for (auto* button : { &loadButton, &editorButton, &saveButton, &restoreButton })
-            button->setBounds(buttons.removeFromLeft(160).reduced(4));
+            button->setBounds(buttons.removeFromLeft(164).reduced(4));
         status.setBounds(area.removeFromTop(70));
     }
 
 private:
+    void loadSmokeSynth()
+    {
+        pluginWindow.reset();
+        player.setProcessor(nullptr);
+        plugin = std::make_unique<SmokeSynth>();
+        player.setProcessor(plugin.get());
+        status.setText("Built-in SmokeSynth ready — send MIDI notes or open editor", juce::dontSendNotification);
+    }
+
     void choosePlugin()
     {
         chooser = std::make_unique<juce::FileChooser>("Choose a VST3 bundle", juce::File{}, "*.vst3");
@@ -136,10 +149,10 @@ private:
     juce::AudioDeviceManager deviceManager;
     juce::AudioProcessorPlayer player;
     juce::AudioPluginFormatManager formatManager;
-    std::unique_ptr<juce::AudioPluginInstance> plugin;
+    std::unique_ptr<juce::AudioProcessor> plugin;
     std::unique_ptr<PluginWindow> pluginWindow;
     std::unique_ptr<juce::FileChooser> chooser;
-    juce::TextButton loadButton, editorButton, saveButton, restoreButton;
+    juce::TextButton smokeButton, loadButton, editorButton, saveButton, restoreButton;
     juce::Label status;
 };
 
