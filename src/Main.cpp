@@ -1,198 +1,150 @@
-#include <juce_audio_utils/juce_audio_utils.h>
-#include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_gui_extra/juce_gui_extra.h>
-#include "SmokeSynth.h"
+#include "ui/MainComponent.h"
+#include "BinaryData.h"
 
-class PluginWindow final : public juce::DocumentWindow
+namespace az
+{
+
+class MainWindow final : public juce::DocumentWindow
 {
 public:
-    explicit PluginWindow(juce::AudioProcessor& processor)
-        : DocumentWindow("AudioZero — Plugin Editor", juce::Colours::darkgrey, allButtons)
+    MainWindow(const juce::File& startupFile, bool forceDemo)
+        : DocumentWindow("AudioZero", theme::bg0, DocumentWindow::allButtons)
     {
-        if (auto* editor = processor.createEditorIfNeeded())
-            setContentOwned(editor, true);
-        else
-            setContentOwned(new juce::GenericAudioProcessorEditor(processor), true);
-        centreWithSize(getWidth(), getHeight());
+        setUsingNativeTitleBar(true);
+        content = new MainComponent(startupFile, forceDemo);
+        setContentOwned(content, true);
+#if JUCE_MAC
+        juce::MenuBarModel::setMacMainMenu(content);
+#else
+        setMenuBar(content, 24);
+        setIcon(juce::ImageCache::getFromMemory(BinaryData::icon_png, BinaryData::icon_pngSize));
+#endif
+        content->onTitleChanged = [this] { setName(content->windowTitle()); };
+        setName(content->windowTitle());
         setResizable(true, true);
+        setResizeLimits(1000, 640, 10000, 10000);
+        auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay() != nullptr
+                        ? juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea
+                        : juce::Rectangle<int>(0, 0, 1600, 1000);
+        centreWithSize(std::min(1600, area.getWidth() - 40), std::min(1000, area.getHeight() - 40));
         setVisible(true);
     }
-    void closeButtonPressed() override { setVisible(false); }
+
+    ~MainWindow() override
+    {
+#if ! JUCE_MAC
+        setMenuBar(nullptr);
+#endif
+    }
+
+    void closeButtonPressed() override { juce::JUCEApplication::getInstance()->systemRequestedQuit(); }
+    MainComponent* content = nullptr;
 };
 
-class HostComponent final : public juce::Component, private juce::MidiKeyboardStateListener
+// `AudioZero --screenshot out.png [--tab devices|pianoroll|mixer]` renders the real UI with
+// the demo song to a PNG (used for the README) and quits.
+class Screenshotter final : private juce::Timer
 {
 public:
-    HostComponent()
+    Screenshotter(MainWindow& w, juce::File out, juce::String tabName) : window(w), file(std::move(out)), tab(std::move(tabName))
     {
-        formatManager.addDefaultFormats();
-        auto result = deviceManager.initialise(0, 2, nullptr, true);
-        status.setText(result.isEmpty() ? "Audio ready — choose a VST3 plugin" : "Audio device error: " + result,
-                       juce::dontSendNotification);
-        deviceManager.addAudioCallback(&player);
-        deviceManager.addMidiInputDeviceCallback({}, &player);
-
-        for (auto* button : { &smokeButton, &loadButton, &editorButton, &saveButton, &restoreButton })
-            addAndMakeVisible(button);
-        addAndMakeVisible(status);
-        addAndMakeVisible(keyboard);
-        keyboardState.addListener(this);
-        smokeButton.setButtonText("SmokeSynth");
-        smokeButton.onClick = [this] { loadSmokeSynth(); };
-        loadButton.setButtonText("Load VST3");
-        editorButton.setButtonText("Open editor");
-        saveButton.setButtonText("Save state");
-        restoreButton.setButtonText("Restore state");
-        loadButton.onClick = [this] { choosePlugin(); };
-        editorButton.onClick = [this] { if (plugin) { if (!pluginWindow) pluginWindow = std::make_unique<PluginWindow>(*plugin); else pluginWindow->setVisible(true); } };
-        saveButton.onClick = [this] { saveState(); };
-        restoreButton.onClick = [this] { restoreState(); };
-        setSize(850, 290);
-        loadSmokeSynth();
-    }
-
-    ~HostComponent() override
-    {
-        chooser.reset();
-        pluginWindow.reset();
-        player.setProcessor(nullptr);
-        deviceManager.removeMidiInputDeviceCallback({}, &player);
-
-        keyboardState.removeListener(this);
-        deviceManager.removeAudioCallback(&player);
-        plugin.reset();
-    }
-
-    void resized() override
-    {
-        auto area = getLocalBounds().reduced(16);
-        auto buttons = area.removeFromTop(42);
-        for (auto* button : { &loadButton, &editorButton, &saveButton, &restoreButton })
-            button->setBounds(buttons.removeFromLeft(164).reduced(4));
-        status.setBounds(area.removeFromTop(50));
-        keyboard.setBounds(area.removeFromTop(105));
+        auto& c = *window.content;
+        auto& s = c.session;
+        c.setSize(1680, 1050);
+        s.engine.setPlayhead(38.0);
+        auto findTrack = [&s](const juce::String& name) -> std::shared_ptr<Track> {
+            for (auto& t : s.project.tracks)
+                if (t->data.name == name)
+                    return t;
+            return nullptr;
+        };
+        if (tab == "pianoroll")
+        {
+            if (auto t = findTrack("Bell Hook"))
+                s.editClip(t->data.clips.front().id);
+        }
+        else if (auto t = findTrack("Chords"))
+        {
+            s.selectClip(t->data.clips.back().id);
+            c.showTab(tab == "mixer" ? MainComponent::Tab::mixer : MainComponent::Tab::devices);
+        }
+        startTimer(1500);
     }
 
 private:
-    void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override
+    void timerCallback() override
     {
-        juce::MidiMessage message = juce::MidiMessage::noteOn(channel, note, velocity);
-        player.handleIncomingMidiMessage(nullptr, message);
-    }
-    void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override
-    {
-        juce::MidiMessage message = juce::MidiMessage::noteOff(channel, note, velocity);
-        player.handleIncomingMidiMessage(nullptr, message);
-    }
-
-    void loadSmokeSynth()
-    {
-        pluginWindow.reset();
-        player.setProcessor(nullptr);
-        plugin = std::make_unique<SmokeSynth>();
-        player.setProcessor(plugin.get());
-        status.setText("Built-in SmokeSynth ready — send MIDI notes or open editor", juce::dontSendNotification);
+        stopTimer();
+        auto image = window.content->createComponentSnapshot(window.content->getLocalBounds(), true, 1.0f);
+        file.deleteFile();
+        juce::FileOutputStream out(file);
+        juce::PNGImageFormat().writeImageToStream(image, out);
+        out.flush();
+        std::printf("Screenshot written to %s\n", file.getFullPathName().toRawUTF8());
+        juce::JUCEApplication::getInstance()->quit();
     }
 
-    void choosePlugin()
-    {
-        chooser = std::make_unique<juce::FileChooser>("Choose a VST3 bundle", juce::File{}, "*.vst3");
-        auto safe = juce::Component::SafePointer<HostComponent>(this);
-        chooser->launchAsync(juce::FileBrowserComponent::openMode
-                                 | juce::FileBrowserComponent::canSelectFiles
-                                 | juce::FileBrowserComponent::canSelectDirectories,
-                             [safe](const juce::FileChooser& picker)
-                             {
-                                 if (safe != nullptr && picker.getResult().exists())
-                                     safe->loadPlugin(picker.getResult());
-                             });
-    }
-
-    void loadPlugin(const juce::File& path)
-    {
-        juce::VST3PluginFormat vst3;
-        juce::OwnedArray<juce::PluginDescription> descriptions;
-        vst3.findAllTypesForFile(descriptions, path.getFullPathName());
-        if (descriptions.isEmpty())
-        {
-            status.setText("No VST3 plugin found in: " + path.getFullPathName(), juce::dontSendNotification);
-            return;
-        }
-        juce::String error;
-        auto sampleRate = deviceManager.getCurrentAudioDevice() != nullptr
-                            ? deviceManager.getCurrentAudioDevice()->getCurrentSampleRate() : 44100.0;
-        auto next = formatManager.createPluginInstance(*descriptions[0], sampleRate, 512, error);
-        if (!next)
-        {
-            status.setText("Plugin load failed: " + error, juce::dontSendNotification);
-            return;
-        }
-        pluginWindow.reset();
-        player.setProcessor(nullptr);
-        plugin = std::move(next);
-        plugin->enableAllBuses();
-        player.setProcessor(plugin.get());
-        status.setText("Loaded: " + plugin->getName() + " | " + path.getFileName(), juce::dontSendNotification);
-        pluginWindow = std::make_unique<PluginWindow>(*plugin);
-    }
-
-    void saveState()
-    {
-        if (!plugin) return;
-        juce::MemoryBlock state;
-        plugin->getStateInformation(state);
-        auto target = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-                          .getChildFile("AudioZero-plugin-state.bin");
-        status.setText(target.replaceWithData(state.getData(), state.getSize())
-                           ? "Saved state: " + target.getFullPathName() : "Failed to save state",
-                       juce::dontSendNotification);
-    }
-
-    void restoreState()
-    {
-        if (!plugin) return;
-        auto source = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-                          .getChildFile("AudioZero-plugin-state.bin");
-        juce::MemoryBlock state;
-        if (!source.loadFileAsData(state))
-        {
-            status.setText("No saved state found", juce::dontSendNotification);
-            return;
-        }
-        plugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
-        status.setText("Restored plugin state", juce::dontSendNotification);
-    }
-
-    juce::MidiKeyboardState keyboardState;
-    juce::MidiKeyboardComponent keyboard { keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };
-    juce::AudioDeviceManager deviceManager;
-    juce::AudioProcessorPlayer player;
-    juce::AudioPluginFormatManager formatManager;
-    std::unique_ptr<juce::AudioProcessor> plugin;
-    std::unique_ptr<PluginWindow> pluginWindow;
-    std::unique_ptr<juce::FileChooser> chooser;
-    juce::TextButton smokeButton, loadButton, editorButton, saveButton, restoreButton;
-    juce::Label status;
+    MainWindow& window;
+    juce::File file;
+    juce::String tab;
 };
 
-class AudioZeroApplication final : public juce::JUCEApplication
+class Application final : public juce::JUCEApplication
 {
 public:
     const juce::String getApplicationName() override { return "AudioZero"; }
-    const juce::String getApplicationVersion() override { return "0.0.1"; }
-    void initialise(const juce::String&) override
+    const juce::String getApplicationVersion() override { return "0.1.0"; }
+    bool moreThanOneInstanceAllowed() override { return true; }
+
+    void initialise(const juce::String& commandLine) override
     {
-        mainWindow = std::make_unique<juce::DocumentWindow>("AudioZero — VST3 Host Spike",
-                                                            juce::Colours::black,
-                                                            juce::DocumentWindow::allButtons);
-        mainWindow->setUsingNativeTitleBar(true);
-        mainWindow->setContentOwned(new HostComponent(), true);
-        mainWindow->centreWithSize(mainWindow->getWidth(), mainWindow->getHeight());
-        mainWindow->setVisible(true);
+        juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
+        auto args = juce::StringArray::fromTokens(commandLine, true);
+        args.trim();
+        args.removeEmptyStrings();
+        for (auto& a : args)
+            a = a.unquoted();
+
+        const int shot = args.indexOf("--screenshot");
+        juce::File startup;
+        for (auto& a : args)
+            if (a.endsWith(".azproj"))
+                startup = juce::File::getCurrentWorkingDirectory().getChildFile(a);
+
+        window = std::make_unique<MainWindow>(startup, shot >= 0);
+        if (shot >= 0 && shot + 1 < args.size())
+        {
+            const int tabIndex = args.indexOf("--tab");
+            screenshotter = std::make_unique<Screenshotter>(*window, juce::File::getCurrentWorkingDirectory().getChildFile(args[shot + 1]),
+                                                            tabIndex >= 0 && tabIndex + 1 < args.size() ? args[tabIndex + 1] : juce::String("devices"));
+        }
     }
-    void shutdown() override { mainWindow.reset(); }
-    void systemRequestedQuit() override { quit(); }
+
+    void shutdown() override
+    {
+        screenshotter.reset();
+        window.reset();
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+    }
+
+    void systemRequestedQuit() override
+    {
+        if (window == nullptr || screenshotter != nullptr)
+        {
+            quit();
+            return;
+        }
+        window->content->requestQuit([] { juce::JUCEApplication::getInstance()->quit(); });
+    }
+
+    void anotherInstanceStarted(const juce::String&) override {}
+
 private:
-    std::unique_ptr<juce::DocumentWindow> mainWindow;
+    Theme lookAndFeel;
+    std::unique_ptr<MainWindow> window;
+    std::unique_ptr<Screenshotter> screenshotter;
 };
-START_JUCE_APPLICATION(AudioZeroApplication)
+
+} // namespace az
+
+START_JUCE_APPLICATION(az::Application)

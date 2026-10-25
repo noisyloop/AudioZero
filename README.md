@@ -1,46 +1,115 @@
+<p align="center"><img src="resources/icon.png" width="128" alt="AudioZero icon"></p>
+
 # AudioZero
 
-**NOISYLOOP's native modular C++ digital audio workstation.**
+**NOISYLOOP's native C++ digital audio workstation.** It's built with JUCE: one codebase for macOS, Windows and Linux.
 
-> **Status:** macOS VST3 host proof of concept. The image below is a **concept mockup**, not a screenshot of the currently running application.
+![AudioZero arrangement view with the Operator synth](docs/screenshots/devices.png)
 
-![AudioZero DAW design concept](docs/audiozero-concept.svg)
+*Real screenshot of the current build with the built-in demo song. The bottom panel shows Operator on the "Chords" track.*
 
-AudioZero aims to combine Ableton-style arrangement and clips, Bitwig-inspired modulation, MPC-style sampling and standard third-party VST3 hosting. MusicLab remains the separate browser-based lite DAW.
+| Piano roll | Mixer |
+| --- | --- |
+| ![Piano roll](docs/screenshots/pianoroll.png) | ![Mixer](docs/screenshots/mixer.png) |
 
-## Current build
+## What's in this build
 
-[PR #1](https://github.com/noisyloop/AudioZero/pull/1) introduces a JUCE/C++20 Mac host with basic VST3 loading, plugin editor, MIDI/audio device integration and state save/restore. Its GitHub Actions macOS compilation and unsigned app artifact upload **passed**.
+- **Arrangement view** (Ableton / Bitwig / FL style)
+  - Tracks with mute, solo, arm, volume and meters.
+  - A bar ruler with a draggable loop brace.
+  - Snap grid, zoom (Cmd/Ctrl + wheel or pinch) and a follow-playhead option.
+  - Clips:
+    - Double-click an empty lane to create a MIDI clip.
+    - Drag to move, also across tracks. Drag the edges to trim. Alt-drag copies.
+    - Split, duplicate, copy/paste, rename, colour and mute.
+  - Every edit can be undone and redone.
+- **Bring your own content**
+  - Drag your **audio files** (wav, aif, flac, mp3, ogg) or **MIDI files** from Finder/Explorer onto a track. You can also drag them from the browser's sample folders, where clicking a sample previews it.
+  - Drag a **`.vst3` bundle** straight onto a track or the device chain. Instruments go into the instrument slot and effects are added to the chain.
+  - Scanned plugins appear in the browser, where you can drag them or double-click them.
+  - Dropping anything below the last track creates a new track.
+- **Operator**, a built-in 4-operator FM synth:
+  - 8 algorithms with a live diagram.
+  - Per operator: waveform, coarse/fine ratio, level, velocity and an ADSR envelope.
+  - Feedback.
+  - A low/high/band-pass filter with its own envelope.
+  - An LFO that can modulate pitch, filter, volume or FM amount.
+  - A pitch envelope for kicks and zaps.
+  - 16 voices, sustain pedal, and 10 presets.
+  - It also builds as a **standalone VST3 plugin** ("AudioZero Operator") you can use in other DAWs.
+- **Built-in effects:** Reverb and a stereo/ping-pong Delay.
+- **Piano roll**
+  - Click to draw notes. Drag to move or resize.
+  - Right-click or double-click deletes a note. Shift-drag selects.
+  - Alt-drag copies. Q quantizes. Up/Down transposes. There's a velocity lane.
+- **Mixer** with volume, pan, mute, solo and meters on every track and the master.
+- **Transport**
+  - Play/stop, loop, metronome, and tempo/time signature (drag or double-click to type).
+  - MIDI recording from hardware controllers or the **computer keyboard**: A-K play notes, Z/X change octave, C/V change velocity.
+- **Projects** save as `.azproj` (XML, with plugin state). Audio generated in memory is saved next to the project. **Export to WAV** renders offline.
+- Hosted plugins receive tempo, position, play state and loop points, so tempo-synced effects work. Every MIDI input is enabled automatically.
 
-**This does not yet prove any VST3 plugin works at runtime.** We still need to load each plugin on a Mac, exercise MIDI/audio, and verify state roundtrips. The concept interface shown above has not been implemented.
+See **Help > Keyboard Shortcuts** in the app for the full list.
 
-| Plugin | Host compilation | Plugin loading | Audio/MIDI | State recall |
-| --- | --- | --- | --- | --- |
-| Kick Me | Passed | Untested | Untested | Untested |
-| GrainBrain | Passed | Untested | Untested | Untested |
-| The Blucher | Passed | Untested | Untested | Untested |
-| Third-party VST3 | Passed | Untested | Untested | Untested |
+## Your own VST3 plugins
 
-## Mac build and validation
+AudioZero hosts VST3 through JUCE, so plugins built with JUCE work, for example Kick Me, GrainBrain and The Blucher. There are three ways to add one:
 
-Prerequisites: Xcode, CMake, and internet access to fetch JUCE.
+1. Drag the `.vst3` from Finder/Explorer onto a track or onto the bottom device panel.
+2. Click **Scan Plugins** in the browser. To add your own build folder, use **Add Folder... > Add VST3 plugin folder**.
+3. Click **+ Add Effect** / **Choose Instrument...** in the device panel and pick **Browse for a .vst3 file...**.
 
-```bash
-bash scripts/build-mac.sh
-bash scripts/check-mac-plugins.sh
-```
+Click **Open Editor** on a plugin's device card to show its own UI. Plugin state is saved inside the project.
 
-The second script inventories local VST3 bundles, executable architectures and code signatures. **It does not execute plugins or prove compatibility.** See [the manual test checklist](docs/TESTING.md).
+The test suite checks this path by building the Operator VST3, then loading it through AudioZero's host. The test plays a MIDI clip with it, saves the project and reloads it.
+
+## Building
+
+All platforms fetch JUCE 8.0.10 automatically, which needs internet access the first time.
+
+| Platform | Requirements | Command |
+| --- | --- | --- |
+| macOS | Xcode, CMake | `bash scripts/build-mac.sh` |
+| Windows | Visual Studio 2022 (C++ workload), CMake | `powershell scripts/build-windows.ps1` |
+| Linux | CMake, Ninja, ALSA/X11/freetype dev packages (listed in the script) | `bash scripts/build-linux.sh` |
+
+Each build produces:
+
+- the app, `AudioZero(.app/.exe)`;
+- the plugin, `AudioZero Operator.vst3`, plus a standalone Operator app;
+- the test runner, `AudioZeroCoreTests`.
+
+`scripts/screenshots.sh` regenerates the README screenshots from the real app. Under the hood it runs `AudioZero --screenshot out.png --tab devices|pianoroll|mixer`.
+
+`resources/icon.png` is a placeholder icon generated by `scripts/make-icon.py`. Replace the PNG with your own; CMake turns it into the `.icns` and `.ico` files.
+
+## Continuous integration
+
+| Workflow | Runs on | What it does |
+| --- | --- | --- |
+| `mac-build.yml` | macOS | Build, all tests, unsigned DMG, Operator VST3 artifact |
+| `vst3-smoke.yml` | macOS | JUCE VST3 host smoke test |
+| `ci.yml` | Windows + Linux | Build, all tests, app + VST3 artifacts, Linux UI screenshot |
+
+## Status and known limitations
+
+This is an early but working DAW. Not done yet:
+
+- No audio input recording; MIDI recording works.
+- No automation lanes, clip launcher (session view) or time-stretching. Audio clips play at their original speed.
+- Plugins run in the same process, so a crashing plugin crashes AudioZero. Sandboxing is planned.
+- No plugin delay compensation.
+- Only VST3 is hosted (no AU yet).
+- Undo covers arrangement edits. Device add/remove isn't undoable yet.
+- The macOS and Windows builds are unsigned.
+- MCP / AI control isn't started yet. The `Session` class holds every editing operation (add track, create clip, load a device, and so on) in one place, which is where an MCP server would plug in.
 
 ## Roadmap
 
-1. **Plugin host:** load VST3, open editor, MIDI/audio routing, save/restore state.
-2. **DAW core:** transport, tracks, clips, piano roll, mixer, persistence, WAV export.
-3. **Creative workflow:** clip launcher, 16-pad sampler, slicing, modulation and automation.
-4. **Release quality:** plugin isolation, latency compensation, crash recovery, signed installers.
+1. **Hardening:** plugin sandboxing, latency compensation, crash recovery and autosave, signed installers.
+2. **Workflow:** automation, clip launcher, audio recording, warping, sampler and drum rack, more built-in effects.
+3. **MCP server:** expose `Session` operations so an assistant can build and edit songs.
 
 ## Commercial licensing
 
-AudioZero is intended to be proprietary commercial software. No open-source license is granted for this repository. Review JUCE's commercial licensing requirements before distributing a product. Third-party plugins retain their own licenses.
-
-This repository is private. The UI concept is original prototype artwork, not a product screenshot.
+AudioZero is intended to be proprietary commercial software, and no open-source license is granted for this repository. Review JUCE's commercial licensing terms before you distribute a product. Third-party plugins keep their own licenses.
