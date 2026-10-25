@@ -134,8 +134,9 @@ private:
     float get(const juce::String& id) const
     {
         for (auto* p : getParameters())
-            if (p->getName(128).isNotEmpty() && p->getParameterID() == id)
-                return static_cast<juce::AudioParameterFloat*>(p)->get();
+            if (auto* value = dynamic_cast<juce::AudioParameterFloat*>(p))
+                if (value->getParameterID() == id)
+                    return value->get();
         return 0.0f;
     }
     void updateEnvelope()
