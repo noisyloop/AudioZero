@@ -1,9 +1,10 @@
 name: macOS build and DMG
+# macOS minutes count 10x against the Actions allowance, so this runs only on main
+# and on demand (Actions tab > "Run workflow"). Windows/Linux cover pull requests.
 on:
   push:
-    branches: [main, feature/integrate-smokesynth-dmg]
-  pull_request:
     branches: [main]
+  workflow_dispatch:
 jobs:
   macos:
     runs-on: macos-15
