@@ -9,3 +9,9 @@ juce_add_gui_app(AudioZero PRODUCT_NAME "AudioZero" COMPANY_NAME "NOISYLOOP" BUN
 target_sources(AudioZero PRIVATE src/Main.cpp)
 target_compile_definitions(AudioZero PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_AU=0)
 target_link_libraries(AudioZero PRIVATE juce::juce_audio_utils juce::juce_audio_processors juce::juce_gui_extra juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+
+option(AUDIOZERO_BUILD_TESTS "Build VST3 host integration tests" OFF)
+if(AUDIOZERO_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
