@@ -199,7 +199,7 @@ impl From<std::io::Error> for ProjectError {
 
 /// Returns `value` clamped to `[lo, hi]`, or `default` if it isn't finite.
 /// (`f64::clamp` would pass NaN straight through, which is how `bpm="nan"` got into the C++ engine.)
-fn finite(value: f64, lo: f64, hi: f64, default: f64) -> f64 {
+pub(crate) fn finite(value: f64, lo: f64, hi: f64, default: f64) -> f64 {
     if value.is_finite() {
         value.clamp(lo, hi)
     } else {
@@ -207,7 +207,7 @@ fn finite(value: f64, lo: f64, hi: f64, default: f64) -> f64 {
     }
 }
 
-fn finite32(value: f32, lo: f32, hi: f32, default: f32) -> f32 {
+pub(crate) fn finite32(value: f32, lo: f32, hi: f32, default: f32) -> f32 {
     if value.is_finite() {
         value.clamp(lo, hi)
     } else {
