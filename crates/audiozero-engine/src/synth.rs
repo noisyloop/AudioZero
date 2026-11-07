@@ -12,11 +12,74 @@ pub trait Instrument: Send {
     fn render(&mut self, left: &mut [f32], right: &mut [f32]);
 }
 
+/// Built-in instruments: project id and display name.
+pub const BUILTINS: [(&str, &str); 2] = [("sine", "Sine synth"), ("kick", "Kick Me (Nusick)")];
+
 /// Creates a built-in instrument by its project id.
 pub fn create_builtin(id: &str) -> Option<Box<dyn Instrument>> {
     match id {
         "sine" => Some(Box::new(SineSynth::new())),
+        "kick" => Some(Box::new(Kick::new())),
         _ => None,
+    }
+}
+
+/// Nusick's Kick Me voice as a built-in instrument. Any note triggers a hit, scaled by its
+/// velocity; the voice is monophonic, so a new hit restarts it, and note-offs are ignored
+/// because a kick always plays out.
+pub struct Kick {
+    voice: nusick_dsp::KickVoice,
+    params: nusick_dsp::KickParams,
+    gain: f32,
+}
+
+impl Kick {
+    pub fn new() -> Self {
+        let params = nusick_dsp::KickParams::default();
+        Self {
+            voice: nusick_dsp::KickVoice::new(48_000.0, &params),
+            params,
+            gain: 1.0,
+        }
+    }
+}
+
+impl Default for Kick {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Instrument for Kick {
+    fn prepare(&mut self, sample_rate: f64) {
+        let rate = if sample_rate.is_finite() && sample_rate > 0.0 {
+            sample_rate as f32
+        } else {
+            48_000.0
+        };
+        self.voice = nusick_dsp::KickVoice::new(rate, &self.params);
+    }
+
+    fn note_on(&mut self, _pitch: u8, velocity: f32) {
+        self.gain = velocity.clamp(0.0, 1.0);
+        self.voice.trigger();
+    }
+
+    fn note_off(&mut self, _pitch: u8) {}
+
+    fn all_notes_off(&mut self) {
+        self.voice.reset();
+    }
+
+    fn render(&mut self, left: &mut [f32], right: &mut [f32]) {
+        if !self.voice.is_active() {
+            return;
+        }
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            let sample = self.voice.next() * self.gain;
+            *l += sample;
+            *r += sample;
+        }
     }
 }
 
@@ -156,6 +219,22 @@ mod tests {
         let (mut l, mut r) = (vec![0.0; 48_000], vec![0.0; 48_000]);
         synth.render(&mut l, &mut r);
         assert!(peak(&l[47_000..]) == 0.0, "voice has finished releasing");
+    }
+
+    #[test]
+    fn nusick_kick_hits_and_decays() {
+        let mut kick = create_builtin("kick").expect("kick is built in");
+        kick.prepare(48_000.0);
+        let (mut l, mut r) = (vec![0.0; 48_000], vec![0.0; 48_000]);
+        kick.note_on(36, 1.0);
+        kick.render(&mut l, &mut r);
+        assert!(peak(&l[..2400]) > 0.3, "a loud first 50 ms");
+        assert!(peak(&l) < 1.0, "never past full scale");
+        assert!(peak(&l[40_000..]) < 0.01, "decayed after a second");
+        let (mut l, mut r) = (vec![0.0; 2400], vec![0.0; 2400]);
+        kick.note_on(36, 0.25);
+        kick.render(&mut l, &mut r);
+        assert!(peak(&l) < 0.3, "velocity scales the hit");
     }
 
     #[test]

@@ -10,6 +10,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+# Nusick's DSP (MIT, no dependencies of its own), pinned to a commit.
+nusick-dsp = { git = "https://github.com/noisyloop/Nusick", rev = "d1a18879c96c73fe573150e20eb3c5ca04781f73" }
 rtrb = "0.4.1"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"

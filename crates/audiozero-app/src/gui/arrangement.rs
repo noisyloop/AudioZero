@@ -6,7 +6,7 @@
 //! - Hold Alt while dragging to ignore the grid.
 
 use super::{App, ClipRef, meter, theme};
-use audiozero_engine::{Clip, Project};
+use audiozero_engine::{Clip, Device, Project, synth::BUILTINS};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, StrokeKind,
     Vec2,
@@ -43,6 +43,7 @@ enum ClipAction {
 enum TrackAction {
     Delete(usize),
     Add,
+    SetInstrument(usize, &'static str),
 }
 
 /// Converts between beats and screen x for the current scroll and zoom.
@@ -197,6 +198,13 @@ impl App {
                     Sense::click(),
                 )
                 .context_menu(|ui| {
+                    ui.label("Instrument");
+                    for (id, name) in BUILTINS {
+                        if ui.button(name).clicked() {
+                            track_action = Some(TrackAction::SetInstrument(index, id));
+                        }
+                    }
+                    ui.separator();
                     if ui.button("Add track").clicked() {
                         track_action = Some(TrackAction::Add);
                     }
@@ -228,6 +236,11 @@ impl App {
         match track_action {
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
+            Some(TrackAction::SetInstrument(index, id)) => self.edit(|p| {
+                if let Some(track) = p.tracks.get_mut(index) {
+                    track.instrument = Some(Device::Builtin { id: id.into() });
+                }
+            }),
             None => {}
         }
 

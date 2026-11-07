@@ -89,11 +89,12 @@ AudioZero is moving to Rust so it no longer depends on JUCE. The Rust workspace 
 
 ![The Rust AudioZero window playing the demo song](docs/screenshots/rust-app.png)
 
-*The Rust app playing the built-in demo song. It was captured on a machine with no sound card, so the status bar says it's playing silently.*
+*The Rust app playing the built-in demo song, with a track's instrument menu open. It was captured on a machine with no sound card, so the status bar says it's playing silently.*
 
 What works so far:
 
 - **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, snap, master volume and per-track mute, solo and volume with level meters.
+- **Instruments:** a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument. The demo song has a Kick track.
 - **Clip editing:** click to select, drag to move (also onto another track), drag the right edge to resize, double-click an empty lane to add a clip, and right-click for Edit notes, Duplicate, Mute and Delete. Add tracks with **+ Add track** and remove them by right-clicking a track's header.
 - **Piano roll:** double-click a clip to edit its notes:
   - click to add a note, or drag from an empty spot to draw one at the length you want;
@@ -126,7 +127,7 @@ cargo run --release -p audiozero-app -- --scan                # list installed C
 cargo test --workspace                                        # all tests
 ```
 
-On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `serde`/`serde_json` (project files), `rtrb` (the lock-free command queue), `cpal` (audio output) and `eframe`/`egui` (the window).
+On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `rtrb` (the lock-free command queue), `cpal` (audio output) and `eframe`/`egui` (the window).
 
 ## Continuous integration
 

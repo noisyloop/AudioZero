@@ -130,6 +130,7 @@ dependencies = [
 name = "audiozero-engine"
 version = "0.1.0"
 dependencies = [
+ "nusick-dsp",
  "rtrb",
  "serde",
  "serde_json",
@@ -1393,6 +1394,11 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "nusick-dsp"
+version = "0.1.0"
+source = "git+https://github.com/noisyloop/Nusick?rev=d1a18879c96c73fe573150e20eb3c5ca04781f73#d1a18879c96c73fe573150e20eb3c5ca04781f73"
 
 [[package]]
 name = "objc-sys"
