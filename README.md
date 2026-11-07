@@ -93,11 +93,22 @@ AudioZero is moving to Rust so it no longer depends on JUCE. The Rust workspace 
 
 What works so far:
 
-- **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, master volume and per-track mute, solo and volume with level meters.
+- **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, snap, master volume and per-track mute, solo and volume with level meters.
+- **Clip editing:** click to select, drag to move (also onto another track), drag the right edge to resize, double-click an empty lane to add a clip, and right-click for Edit notes, Duplicate, Mute and Delete. Add tracks with **+ Add track** and remove them by right-clicking a track's header.
+- **Piano roll:** double-click a clip to edit its notes:
+  - click to add a note, or drag from an empty spot to draw one at the length you want;
+  - drag notes to move them, and drag a note's right edge to change its length;
+  - Shift-click to select several notes, Ctrl/Cmd + A to select all;
+  - right-click or Delete to remove, Up/Down to transpose (Shift moves an octave).
+- **Grid:** snap to bars, 1/4, 1/8, 1/16 or 1/32, or turn it off. Holding Alt ignores the grid.
+- **Undo:** every clip, note and track edit can be undone and redone (Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z or Ctrl + Y). A whole drag is one step. Mixer and tempo changes aren't undo steps, and undoing an edit leaves them as they are.
+- **Editing while playing:** an edit swaps in just that track's clips, so playback carries on. Adding or removing a track rebuilds the engine and keeps the playhead where it was. Every edit gets the same validation as a project file.
 - **Navigation:** click or drag the ruler to move the playhead; Ctrl/Cmd + wheel or pinch zooms; the wheel scrolls (Shift for sideways).
-- **Shortcuts:** Space plays and stops, Home goes back to the start, Ctrl/Cmd + S saves, Ctrl/Cmd + O opens.
+- **Shortcuts:** Space plays and stops, Home goes back to the start, Ctrl/Cmd + S saves, Ctrl/Cmd + O opens, Ctrl/Cmd + D duplicates the selected clip.
 - **Projects:** open, save and save-as (`.json`), drag a project onto the window to open it, and AudioZero asks before throwing away unsaved changes.
 - **No sound card:** the app still runs, and the playhead moves without sound.
+
+![Editing the Chords clip in the piano roll](docs/screenshots/rust-piano-roll.png)
 
 | Crate | What it is |
 | --- | --- |

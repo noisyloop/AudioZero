@@ -148,6 +148,25 @@ impl Clip {
     pub fn end(&self) -> f64 {
         self.start + self.length
     }
+
+    /// Clamps the clip and its notes into range and drops notes outside the clip. Part of
+    /// [`Project::sanitize`], and also used on its own when one track's clips are edited.
+    /// Doesn't allocate.
+    pub fn sanitize(&mut self) {
+        use limits::MAX_BEATS;
+        truncate_name(&mut self.name);
+        self.start = finite(self.start, 0.0, MAX_BEATS, 0.0);
+        let room = (MAX_BEATS - self.start).max(1.0 / 16.0);
+        self.length = finite(self.length, 1.0 / 16.0, room, 4.0_f64.min(room));
+        let length = self.length;
+        self.notes
+            .retain(|n| n.start.is_finite() && n.start >= 0.0 && n.start < length);
+        for note in &mut self.notes {
+            note.pitch = note.pitch.min(127);
+            note.length = finite(note.length, 1.0 / 128.0, MAX_BEATS, 1.0);
+            note.velocity = finite32(note.velocity, 0.0, 1.0, 0.8);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -311,18 +330,7 @@ impl Project {
             track.volume = finite32(track.volume, 0.0, 2.0, 0.8);
             track.pan = finite32(track.pan, -1.0, 1.0, 0.0);
             for clip in &mut track.clips {
-                truncate_name(&mut clip.name);
-                clip.start = finite(clip.start, 0.0, MAX_BEATS, 0.0);
-                let room = (MAX_BEATS - clip.start).max(1.0 / 16.0);
-                clip.length = finite(clip.length, 1.0 / 16.0, room, 4.0_f64.min(room));
-                let clip_length = clip.length;
-                clip.notes
-                    .retain(|n| n.start.is_finite() && n.start >= 0.0 && n.start < clip_length);
-                for note in &mut clip.notes {
-                    note.pitch = note.pitch.min(127);
-                    note.length = finite(note.length, 1.0 / 128.0, MAX_BEATS, 1.0);
-                    note.velocity = finite32(note.velocity, 0.0, 1.0, 0.8);
-                }
+                clip.sanitize();
             }
         }
         Ok(())

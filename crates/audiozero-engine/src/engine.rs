@@ -1,7 +1,7 @@
 //! Renders a project to audio.
 
 use crate::project::limits::MAX_BEATS;
-use crate::project::{Device, Project, ProjectError, finite, finite32};
+use crate::project::{Clip, Device, Project, ProjectError, finite, finite32};
 
 /// A track's mixer settings, for [`Engine::set_track_mix`].
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -204,6 +204,27 @@ impl Engine {
             track.mute = mix.mute;
             track.solo = mix.solo;
         }
+    }
+
+    /// Swaps in new clips for one track and returns the old ones, so they can be freed off the
+    /// audio thread. Notes the old clips had playing are released. The clips must already be
+    /// sanitized (see [`Clip::sanitize`]); [`crate::Controller::set_clips`] does that.
+    /// Returns `clips` unchanged if the track doesn't exist.
+    pub fn replace_clips(&mut self, index: usize, mut clips: Vec<Clip>) -> Vec<Clip> {
+        if let (Some(track), Some(state)) = (
+            self.project.tracks.get_mut(index),
+            self.tracks.get_mut(index),
+        ) {
+            std::mem::swap(&mut track.clips, &mut clips);
+            for pitch in 0..128u8 {
+                if std::mem::take(&mut state.notes_on[usize::from(pitch)])
+                    && let Some(i) = state.instrument.as_mut()
+                {
+                    i.note_off(pitch);
+                }
+            }
+        }
+        clips
     }
 
     pub fn play(&mut self) {
@@ -591,6 +612,24 @@ mod tests {
         assert!(
             engine.master_peak().0 < 1e-3,
             "meters fall back after stopping"
+        );
+    }
+
+    #[test]
+    fn replacing_clips_swaps_them_and_releases_notes() {
+        let mut engine = Engine::new(one_note_project(), 48_000.0, 512).unwrap();
+        engine.play();
+        engine.render(4800);
+        let old = engine.replace_clips(0, Vec::new());
+        assert_eq!(old.len(), 1, "the old clips come back");
+        assert!(engine.project().tracks[0].clips.is_empty());
+        let (l, _) = engine.render(48_000);
+        assert!(rms(&l[40_000..]) < 1e-4, "the held note was released");
+        let back = engine.replace_clips(7, vec![Clip::default()]);
+        assert_eq!(
+            back.len(),
+            1,
+            "a missing track hands the clips straight back"
         );
     }
 
