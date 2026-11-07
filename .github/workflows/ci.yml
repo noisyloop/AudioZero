@@ -6,12 +6,20 @@ on:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust.yml'
   pull_request:
     branches: [main]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust.yml'
   workflow_dispatch:
 jobs:
   windows:

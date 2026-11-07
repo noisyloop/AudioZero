@@ -1,0 +1,20 @@
+[package]
+name = "audiozero-app"
+description = "AudioZero desktop app (Rust rewrite, early)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+audiozero-engine = { path = "../audiozero-engine" }
+audiozero-host = { path = "../audiozero-host" }
+cpal = "0.18.2"
+
+[[bin]]
+name = "audiozero"
+path = "src/main.rs"
