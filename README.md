@@ -105,15 +105,15 @@ Linux needs the ALSA headers (`libasound2-dev`). The direct dependencies are `se
 
 ## Continuous integration
 
+Every build is manual for now: pushes, pull requests and merges don't start any workflow. To build, open **Actions**, pick a workflow, click **Run workflow** and choose the branch.
+
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `mac-build.yml` | macOS, on `main` and manual runs only | Build, all tests (including the VST3 host smoke test), unsigned DMG, Operator VST3 artifact |
-| `ci.yml` | Windows + Linux, on `main` and pull requests | Build, all tests, app + VST3 artifacts, Linux UI screenshot |
-| `rust.yml` | Linux, on `main` and pull requests that change the Rust workspace | Format check, Clippy, tests, demo render |
+| `rust.yml` | Linux | Rust workspace: format check, Clippy, tests, demo render (about a minute) |
+| `ci.yml` | Windows + Linux | C++ app: build, all tests, app + VST3 artifacts, Linux UI screenshot |
+| `mac-build.yml` | macOS | C++ app: build, all tests (including the VST3 host smoke test), unsigned DMG, Operator VST3 artifact |
 
-macOS minutes count 10x against the GitHub Actions allowance, so pull requests are checked on Windows and Linux only. To build a branch on macOS, use **Actions > macOS build and DMG > Run workflow**.
-
-Changes that only touch Markdown files, `docs/` or `LICENSE` don't start any build. Changes to the Rust workspace run only `rust.yml` (Linux), not the C++ builds.
+macOS minutes count 10x against the GitHub Actions allowance, so run `mac-build.yml` only when you need a Mac build.
 
 ## Status and known limitations
 

@@ -1,25 +1,6 @@
 name: Windows and Linux build
+# Manual only: Actions tab > select this workflow > "Run workflow" (pick a branch there).
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/rust.yml'
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/rust.yml'
   workflow_dispatch:
 jobs:
   windows:
