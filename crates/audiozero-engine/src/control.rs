@@ -11,7 +11,10 @@
 //! freed on the UI thread, so the audio thread never allocates or frees memory.
 
 use crate::engine::{Engine, TrackMix};
-use crate::project::{Project, ProjectError, limits::MAX_TRACKS};
+use crate::project::{
+    Clip, Project, ProjectError,
+    limits::{MAX_CLIPS_PER_TRACK, MAX_TRACKS},
+};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::Relaxed};
@@ -32,8 +35,20 @@ pub enum Command {
         track: usize,
         mix: TrackMix,
     },
+    /// Swap in one track's clips, built and sanitized on the UI thread
+    /// (see [`Controller::set_clips`]).
+    SetClips {
+        track: usize,
+        clips: Vec<Clip>,
+    },
     /// Swap in an engine built on the UI thread.
     Replace(Box<Engine>),
+}
+
+/// Things the audio thread has finished with, sent back to be freed on the UI thread.
+enum Garbage {
+    Engine(#[allow(dead_code)] Box<Engine>),
+    Clips(#[allow(dead_code)] Vec<Clip>),
 }
 
 const COMMAND_CAPACITY: usize = 1024;
@@ -97,7 +112,7 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
 pub struct Player {
     engine: Box<Engine>,
     commands: Consumer<Command>,
-    garbage: Producer<Box<Engine>>,
+    garbage: Producer<Garbage>,
     status: Arc<Status>,
 }
 
@@ -129,14 +144,22 @@ impl Player {
                 end,
             } => engine.set_loop(enabled, start, end),
             Command::SetTrackMix { track, mix } => engine.set_track_mix(track, mix),
+            Command::SetClips { track, clips } => {
+                let old = engine.replace_clips(track, clips);
+                self.throw_away(Garbage::Clips(old));
+            }
             Command::Replace(new) => {
                 let old = std::mem::replace(&mut self.engine, new);
-                if let Err(rtrb::PushError::Full(old)) = self.garbage.push(old) {
-                    // The UI hasn't collected garbage for a long time. Leaking this one
-                    // engine is better than freeing memory on the audio thread.
-                    std::mem::forget(old);
-                }
+                self.throw_away(Garbage::Engine(old));
             }
+        }
+    }
+
+    fn throw_away(&mut self, garbage: Garbage) {
+        if let Err(rtrb::PushError::Full(garbage)) = self.garbage.push(garbage) {
+            // The UI hasn't collected garbage for a long time. Leaking this is better than
+            // freeing memory on the audio thread.
+            std::mem::forget(garbage);
         }
     }
 
@@ -164,7 +187,7 @@ impl Player {
 /// The UI thread's half.
 pub struct Controller {
     commands: Producer<Command>,
-    garbage: Consumer<Box<Engine>>,
+    garbage: Consumer<Garbage>,
     status: Arc<Status>,
     sample_rate: f64,
     max_block: usize,
@@ -194,7 +217,32 @@ impl Controller {
         Ok(warnings)
     }
 
-    /// Frees engines the audio thread has finished with. Call it regularly, for example once
+    /// Replaces one track's clips while playback continues. The clips are sanitized here, on
+    /// the UI thread, the same way a project file's are. Returns `false` if there are too many
+    /// clips or the audio thread isn't responding.
+    pub fn set_clips(&mut self, track: usize, mut clips: Vec<Clip>) -> bool {
+        if clips.len() > MAX_CLIPS_PER_TRACK {
+            return false;
+        }
+        for clip in &mut clips {
+            clip.sanitize();
+        }
+        self.send(Command::SetClips { track, clips })
+    }
+
+    /// Like [`Controller::load`], but keeps the playhead where it is, and keeps playing if it
+    /// was. For edits that change the tracks themselves (adding or removing one).
+    pub fn reload(&mut self, project: Project) -> Result<Vec<String>, ProjectError> {
+        let (position, playing) = (self.position(), self.is_playing());
+        let warnings = self.load(project)?;
+        self.send(Command::Seek(position));
+        if playing {
+            self.send(Command::Play);
+        }
+        Ok(warnings)
+    }
+
+    /// Frees engines and clips the audio thread has finished with. Call it regularly, for example once
     /// per UI frame.
     pub fn collect_garbage(&mut self) {
         while let Ok(old) = self.garbage.pop() {
@@ -297,6 +345,39 @@ mod tests {
             0.6,
             "NaN keeps the old volume"
         );
+    }
+
+    #[test]
+    fn clip_edits_are_sanitized_and_swapped_while_playing() {
+        let (mut controller, mut player) = channel(48_000.0, 512);
+        controller.load(crate::demo::project()).unwrap();
+        controller.send(Command::Play);
+        run(&mut player, 4800);
+        let bad = Clip {
+            start: f64::NAN,
+            length: -3.0,
+            ..Default::default()
+        };
+        assert!(controller.set_clips(1, vec![bad]));
+        run(&mut player, 64);
+        let clips = &player.engine.project().tracks[1].clips;
+        assert_eq!((clips[0].start, clips[0].length), (0.0, 1.0 / 16.0));
+        assert!(controller.is_playing(), "playback carries on");
+        controller.collect_garbage();
+        assert!(!controller.set_clips(0, vec![Clip::default(); MAX_CLIPS_PER_TRACK + 1]));
+    }
+
+    #[test]
+    fn reload_keeps_the_transport() {
+        let (mut controller, mut player) = channel(48_000.0, 512);
+        controller.load(crate::demo::project()).unwrap();
+        controller.send(Command::Seek(6.0));
+        controller.send(Command::Play);
+        run(&mut player, 64);
+        controller.reload(crate::demo::project()).unwrap();
+        run(&mut player, 64);
+        assert!(controller.is_playing());
+        assert!((controller.position() - 6.0).abs() < 0.01);
     }
 
     #[test]

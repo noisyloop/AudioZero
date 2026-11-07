@@ -3,7 +3,8 @@
 //! - [`project`]: the project model, its JSON format, and the limits every project is held to.
 //! - [`control`]: drives an engine on the audio thread from the UI thread, without locks.
 //! - [`engine`]: renders a project to audio, sample-accurately, without allocating on the audio thread.
-//! - [`synth`]: the [`Instrument`](synth::Instrument) trait and built-in instruments.
+//! - [`synth`]: the [`Instrument`](synth::Instrument) trait and built-in instruments, including
+//!   Nusick's Kick Me.
 //! - [`demo`]: a short built-in song.
 //! - [`wav`]: a minimal WAV writer for export.
 

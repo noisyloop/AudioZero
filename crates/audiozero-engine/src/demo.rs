@@ -8,6 +8,15 @@ pub fn project() -> Project {
     let roots: [u8; 4] = [33, 29, 36, 31];
     let sine = || Some(Device::Builtin { id: "sine".into() });
 
+    let kick_notes = (0..32)
+        .map(|beat| Note {
+            pitch: 36,
+            start: f64::from(beat),
+            length: 0.25,
+            velocity: 0.9,
+        })
+        .collect();
+
     let mut chord_notes = Vec::new();
     let mut bass_notes = Vec::new();
     for bar in 0..8u32 {
@@ -70,6 +79,20 @@ pub fn project() -> Project {
                     length: 32.0,
                     muted: false,
                     notes: bass_notes,
+                }],
+                ..Default::default()
+            },
+            // Nusick's Kick Me, built in.
+            Track {
+                name: "Kick".into(),
+                volume: 0.8,
+                instrument: Some(Device::Builtin { id: "kick".into() }),
+                clips: vec![Clip {
+                    name: "Kick".into(),
+                    start: 0.0,
+                    length: 32.0,
+                    muted: false,
+                    notes: kick_notes,
                 }],
                 ..Default::default()
             },
