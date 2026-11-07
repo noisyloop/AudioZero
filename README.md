@@ -92,6 +92,8 @@ Each build produces:
 
 macOS minutes count 10x against the GitHub Actions allowance, so pull requests are checked on Windows and Linux only. To build a branch on macOS, use **Actions > macOS build and DMG > Run workflow**.
 
+Changes that only touch Markdown files, `docs/` or `LICENSE` don't start any build.
+
 ## Status and known limitations
 
 This is an early but working DAW. Not done yet:
