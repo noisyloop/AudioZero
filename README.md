@@ -87,21 +87,35 @@ Each build produces:
 
 AudioZero is moving to Rust so it no longer depends on JUCE. The Rust workspace sits next to the C++ app, which stays the working build until the Rust one can replace it.
 
+![The Rust AudioZero window playing the demo song](docs/screenshots/rust-app.png)
+
+*The Rust app playing the built-in demo song. It was captured on a machine with no sound card, so the status bar says it's playing silently.*
+
+What works so far:
+
+- **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, master volume and per-track mute, solo and volume with level meters.
+- **Navigation:** click or drag the ruler to move the playhead; Ctrl/Cmd + wheel or pinch zooms; the wheel scrolls (Shift for sideways).
+- **Shortcuts:** Space plays and stops, Home goes back to the start, Ctrl/Cmd + S saves, Ctrl/Cmd + O opens.
+- **Projects:** open, save and save-as (`.json`), drag a project onto the window to open it, and AudioZero asks before throwing away unsaved changes.
+- **No sound card:** the app still runs, and the playhead moves without sound.
+
 | Crate | What it is |
 | --- | --- |
-| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Rendering is sample-accurate and doesn't allocate on the audio thread. Includes a small built-in sine synth and a demo song. |
+| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes a small built-in sine synth and a demo song. |
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
-| `crates/audiozero-app` | The `audiozero` command: plays a project or the demo song through the default audio output, renders to WAV, or lists installed plugins. The desktop UI comes later. |
+| `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project or list installed plugins. |
 
 ```sh
-cargo test --workspace                          # all tests
-cargo run --release -p audiozero-app            # play the demo song
-cargo run --release -p audiozero-app -- --render demo.wav
-cargo run --release -p audiozero-app -- --save demo.json   # a project file to edit
-cargo run --release -p audiozero-app -- --scan  # list installed CLAP/VST3 plugins
+cargo run --release -p audiozero-app                          # open the window with the demo song
+cargo run --release -p audiozero-app -- song.json             # open a project
+cargo run --release -p audiozero-app -- --play                # play from the command line, no window
+cargo run --release -p audiozero-app -- --render demo.wav     # render to WAV
+cargo run --release -p audiozero-app -- --save demo.json      # write the demo as a project file
+cargo run --release -p audiozero-app -- --scan                # list installed CLAP/VST3 plugins
+cargo test --workspace                                        # all tests
 ```
 
-Linux needs the ALSA headers (`libasound2-dev`). The direct dependencies are `serde`/`serde_json` (project files) and `cpal` (audio output).
+On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `serde`/`serde_json` (project files), `rtrb` (the lock-free command queue), `cpal` (audio output) and `eframe`/`egui` (the window).
 
 ## Continuous integration
 

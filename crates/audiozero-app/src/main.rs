@@ -1,18 +1,20 @@
-//! `audiozero`: the command-line front end of the Rust rewrite. It plays or renders projects
-//! through the engine; the desktop UI comes later.
+//! `audiozero`: the AudioZero desktop app (Rust rewrite). With no options it opens the window;
+//! the options play, render or inspect projects from the command line.
 
-use audiozero_engine::{Engine, PluginFormat, Project, wav};
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, SizedSample};
+mod audio;
+mod gui;
+
+use audiozero_engine::{Command, Engine, PluginFormat, Project, wav};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 const USAGE: &str = "\
 Usage: audiozero [PROJECT] [OPTIONS]
 
-Plays PROJECT (an AudioZero .json project), or the built-in demo song if none is given.
+Opens the AudioZero window with PROJECT (an AudioZero .json project), or the demo song.
 
 Options:
+  --play             Play from the command line instead of opening the window
   --render OUT.wav   Render to a WAV file instead of playing
   --save OUT.json    Save the project (handy for getting a demo project to edit)
   --scan             List CLAP and VST3 plugins in the standard folders (without loading them)
@@ -24,6 +26,7 @@ struct Args {
     render: Option<PathBuf>,
     save: Option<PathBuf>,
     scan: bool,
+    play: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -40,6 +43,7 @@ fn parse_args() -> Result<Args, String> {
             Some("--render") => args.render = Some(value("--render")?),
             Some("--save") => args.save = Some(value("--save")?),
             Some("--scan") => args.scan = true,
+            Some("--play") => args.play = true,
             Some(other) if other.starts_with('-') => return Err(format!("unknown option {other}")),
             _ if args.project.is_none() => args.project = Some(PathBuf::from(arg)),
             _ => return Err("only one project can be given".into()),
@@ -76,6 +80,10 @@ fn run(args: Args) -> Result<(), String> {
     if args.scan {
         scan();
         return Ok(());
+    }
+
+    if !args.play && args.render.is_none() && args.save.is_none() {
+        return gui::run(args.project);
     }
 
     let project = match &args.project {
@@ -139,73 +147,17 @@ fn scan() {
 }
 
 fn play(project: Project) -> Result<(), String> {
-    let host = cpal::default_host();
-    let device = host
-        .default_output_device()
-        .ok_or("no audio output device found (use --render to write a WAV file instead)")?;
-    let config = device
-        .default_output_config()
-        .map_err(|e| format!("audio device: {e}"))?;
-    let format = config.sample_format();
-    let config: cpal::StreamConfig = config.into();
-
-    let mut engine =
-        Engine::new(project, f64::from(config.sample_rate), 1024).map_err(|e| e.to_string())?;
-    print_warnings(&engine);
-    let seconds = engine.seconds_to_end() + 1.5;
-    engine.play();
-
-    use cpal::SampleFormat as F;
-    let stream = match format {
-        F::F32 => open::<f32>(&device, config, engine),
-        F::I16 => open::<i16>(&device, config, engine),
-        F::I32 => open::<i32>(&device, config, engine),
-        F::U16 => open::<u16>(&device, config, engine),
-        other => return Err(format!("unsupported audio sample format {other}")),
-    }?;
-    stream.play().map_err(|e| format!("audio device: {e}"))?;
+    let mut output = audio::Output::open();
+    println!("{}", output.description);
+    if !output.has_device() {
+        return Err("no audio output device (use --render to write a WAV file instead)".into());
+    }
+    let seconds = project.end_beats() * 60.0 / project.bpm + 1.5;
+    for warning in output.controller.load(project).map_err(|e| e.to_string())? {
+        eprintln!("warning: {warning}");
+    }
+    output.controller.send(Command::Play);
     println!("Playing {seconds:.1} s. Press Ctrl+C to stop.");
     std::thread::sleep(std::time::Duration::from_secs_f64(seconds));
     Ok(())
-}
-
-fn open<T>(
-    device: &cpal::Device,
-    config: cpal::StreamConfig,
-    mut engine: Engine,
-) -> Result<cpal::Stream, String>
-where
-    T: SizedSample + FromSample<f32>,
-{
-    let channels = usize::from(config.channels).max(1);
-    // Allocated once here, never in the callback.
-    const CHUNK: usize = 4096;
-    let (mut left, mut right) = (vec![0.0f32; CHUNK], vec![0.0f32; CHUNK]);
-    device
-        .build_output_stream(
-            config,
-            move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-                for frames in data.chunks_mut(CHUNK * channels) {
-                    let n = frames.len() / channels;
-                    engine.process(&mut left[..n], &mut right[..n]);
-                    for (i, frame) in frames.chunks_mut(channels).enumerate() {
-                        for (ch, sample) in frame.iter_mut().enumerate() {
-                            let value = match ch {
-                                0 => left[i],
-                                1 => right[i],
-                                _ => 0.0,
-                            };
-                            *sample = T::from_sample(if channels == 1 {
-                                0.5 * (left[i] + right[i])
-                            } else {
-                                value
-                            });
-                        }
-                    }
-                }
-            },
-            |err| eprintln!("audio stream error: {err}"),
-            None,
-        )
-        .map_err(|e| format!("audio device: {e}"))
 }

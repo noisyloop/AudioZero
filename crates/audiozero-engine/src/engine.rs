@@ -1,6 +1,25 @@
 //! Renders a project to audio.
 
-use crate::project::{Device, Project, ProjectError};
+use crate::project::limits::MAX_BEATS;
+use crate::project::{Device, Project, ProjectError, finite, finite32};
+
+/// A track's mixer settings, for [`Engine::set_track_mix`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TrackMix {
+    pub volume: f32,
+    pub pan: f32,
+    pub mute: bool,
+    pub solo: bool,
+}
+
+/// How fast meters fall: to about 1% in 0.6 s.
+fn meter_decay(frames: usize, sample_rate: f64) -> f32 {
+    (-(frames as f64) / (0.13 * sample_rate)).exp() as f32
+}
+
+fn block_peak(buf: &[f32]) -> f32 {
+    buf.iter().fold(0.0f32, |m, x| m.max(x.abs()))
+}
 use crate::synth::{Instrument, create_builtin};
 
 /// Note events one track can schedule in one block. More are dropped rather than allocating
@@ -19,6 +38,7 @@ struct TrackState {
     instrument: Option<Box<dyn Instrument>>,
     notes_on: [bool; 128],
     events: Vec<Event>,
+    peak: (f32, f32),
 }
 
 impl TrackState {
@@ -55,6 +75,7 @@ pub struct Engine {
     warnings: Vec<String>,
     track_l: Vec<f32>,
     track_r: Vec<f32>,
+    master_peak: (f32, f32),
 }
 
 impl Engine {
@@ -102,7 +123,12 @@ impl Engine {
                 if let Some(i) = instrument.as_mut() {
                     i.prepare(sample_rate);
                 }
-                TrackState { instrument, notes_on: [false; 128], events: Vec::with_capacity(MAX_EVENTS_PER_BLOCK) }
+                TrackState {
+                    instrument,
+                    notes_on: [false; 128],
+                    events: Vec::with_capacity(MAX_EVENTS_PER_BLOCK),
+                    peak: (0.0, 0.0),
+                }
             })
             .collect();
         Ok(Self {
@@ -115,6 +141,7 @@ impl Engine {
             warnings,
             track_l: vec![0.0; max_block],
             track_r: vec![0.0; max_block],
+            master_peak: (0.0, 0.0),
         })
     }
 
@@ -136,6 +163,49 @@ impl Engine {
         self.playing
     }
 
+    /// A track's output level after its volume and pan, as decaying peaks (left, right).
+    pub fn track_peak(&self, index: usize) -> (f32, f32) {
+        self.tracks.get(index).map_or((0.0, 0.0), |t| t.peak)
+    }
+
+    /// The master output level, as decaying peaks (left, right).
+    pub fn master_peak(&self) -> (f32, f32) {
+        self.master_peak
+    }
+
+    // Live changes. Each goes through the same clamping as `Project::sanitize`, so a value from
+    // the UI (or later an MCP client) can't put the engine somewhere a project file couldn't.
+
+    pub fn set_bpm(&mut self, bpm: f64) {
+        self.project.bpm = finite(bpm, 20.0, 999.0, self.project.bpm);
+    }
+
+    pub fn set_master_volume(&mut self, volume: f32) {
+        self.project.master_volume = finite32(volume, 0.0, 1.5, self.project.master_volume);
+    }
+
+    pub fn set_loop(&mut self, enabled: bool, start: f64, end: f64) {
+        let start = finite(start, 0.0, MAX_BEATS, self.project.loop_start);
+        let end = finite(end, 0.0, MAX_BEATS, self.project.loop_end);
+        if end >= start + 1.0 / 16.0 {
+            self.project.loop_start = start;
+            self.project.loop_end = end;
+            self.project.loop_enabled = enabled;
+        } else {
+            self.project.loop_enabled = false;
+        }
+    }
+
+    /// Changes one track's mixer settings. Out-of-range track indexes are ignored.
+    pub fn set_track_mix(&mut self, index: usize, mix: TrackMix) {
+        if let Some(track) = self.project.tracks.get_mut(index) {
+            track.volume = finite32(mix.volume, 0.0, 2.0, track.volume);
+            track.pan = finite32(mix.pan, -1.0, 1.0, track.pan);
+            track.mute = mix.mute;
+            track.solo = mix.solo;
+        }
+    }
+
     pub fn play(&mut self) {
         self.playing = true;
     }
@@ -147,7 +217,7 @@ impl Engine {
 
     pub fn set_position(&mut self, beats: f64) {
         self.position = if beats.is_finite() {
-            beats.clamp(0.0, crate::project::limits::MAX_BEATS)
+            beats.clamp(0.0, MAX_BEATS)
         } else {
             0.0
         };
@@ -157,10 +227,10 @@ impl Engine {
     fn release_everything(&mut self) {
         for track in &mut self.tracks {
             for pitch in 0..128u8 {
-                if std::mem::take(&mut track.notes_on[usize::from(pitch)]) {
-                    if let Some(i) = track.instrument.as_mut() {
-                        i.note_off(pitch);
-                    }
+                if std::mem::take(&mut track.notes_on[usize::from(pitch)])
+                    && let Some(i) = track.instrument.as_mut()
+                {
+                    i.note_off(pitch);
                 }
             }
         }
@@ -202,6 +272,7 @@ impl Engine {
         }
 
         let any_solo = self.project.tracks.iter().any(|t| t.solo);
+        let decay = meter_decay(n, self.sample_rate);
         for (state, track) in self.tracks.iter_mut().zip(&self.project.tracks) {
             let (l, r) = (&mut self.track_l[..n], &mut self.track_r[..n]);
             l.fill(0.0);
@@ -226,12 +297,16 @@ impl Engine {
                 }
             }
 
+            let gain_l = track.volume * (1.0 - track.pan).min(1.0);
+            let gain_r = track.volume * (1.0 + track.pan).min(1.0);
+            state.peak = (
+                (block_peak(l) * gain_l).max(state.peak.0 * decay),
+                (block_peak(r) * gain_r).max(state.peak.1 * decay),
+            );
             let audible = !track.mute && (!any_solo || track.solo);
             if !audible {
                 continue;
             }
-            let gain_l = track.volume * (1.0 - track.pan).min(1.0);
-            let gain_r = track.volume * (1.0 + track.pan).min(1.0);
             for i in 0..n {
                 out_l[i] += l[i] * gain_l;
                 out_r[i] += r[i] * gain_r;
@@ -242,6 +317,10 @@ impl Engine {
         for x in out_l.iter_mut().chain(out_r.iter_mut()) {
             *x = safety_clip(*x * master);
         }
+        self.master_peak = (
+            block_peak(out_l).max(self.master_peak.0 * decay),
+            block_peak(out_r).max(self.master_peak.1 * decay),
+        );
     }
 
     /// Turns the clips under the playhead into note events for this block, wrapping at the loop.
@@ -459,6 +538,60 @@ mod tests {
         engine.stop();
         let (l, _) = engine.render(48_000);
         assert!(rms(&l[40_000..]) < 1e-4, "release tail has finished");
+    }
+
+    #[test]
+    fn live_changes_are_clamped_like_project_files() {
+        let mut engine = Engine::new(one_note_project(), 48_000.0, 512).unwrap();
+        engine.set_bpm(f64::NAN);
+        assert_eq!(engine.project().bpm, 120.0, "NaN keeps the old value");
+        engine.set_bpm(5000.0);
+        assert_eq!(engine.project().bpm, 999.0);
+        engine.set_master_volume(f32::INFINITY);
+        assert_eq!(engine.project().master_volume, 0.85);
+        engine.set_track_mix(
+            0,
+            TrackMix {
+                volume: 9.0,
+                pan: -3.0,
+                mute: true,
+                solo: false,
+            },
+        );
+        let t = &engine.project().tracks[0];
+        assert_eq!((t.volume, t.pan, t.mute), (2.0, -1.0, true));
+        engine.set_track_mix(
+            99,
+            TrackMix {
+                volume: 1.0,
+                pan: 0.0,
+                mute: false,
+                solo: false,
+            },
+        );
+        engine.set_loop(true, 8.0, 4.0);
+        assert!(
+            !engine.project().loop_enabled,
+            "an inverted loop is turned off"
+        );
+        engine.set_loop(true, 4.0, 8.0);
+        assert!(engine.project().loop_enabled);
+    }
+
+    #[test]
+    fn meters_follow_the_output() {
+        let mut engine = Engine::new(one_note_project(), 48_000.0, 512).unwrap();
+        engine.play();
+        engine.render(4800);
+        assert!(engine.track_peak(0).0 > 0.05);
+        assert!(engine.master_peak().0 > 0.05);
+        assert_eq!(engine.track_peak(5), (0.0, 0.0));
+        engine.stop();
+        engine.render(96_000);
+        assert!(
+            engine.master_peak().0 < 1e-3,
+            "meters fall back after stopping"
+        );
     }
 
     #[test]
