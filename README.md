@@ -107,7 +107,7 @@ This is an early but working DAW. Not done yet:
 
 ## Roadmap
 
-1. **Hardening:** plugin sandboxing, latency compensation, crash recovery and autosave, signed installers.
+1. **Hardening:** trust plugins by identity instead of the path in the project file, validate project and audio input, plugin sandboxing, latency compensation, crash recovery and autosave, signed installers. See [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) for the findings and the prioritised plan.
 2. **Workflow:** automation, clip launcher, audio recording, warping, sampler and drum rack, more built-in effects.
 3. **MCP server:** expose `Session` operations so an assistant can build and edit songs.
 
