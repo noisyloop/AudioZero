@@ -111,6 +111,12 @@ This is an early but working DAW. Not done yet:
 2. **Workflow:** automation, clip launcher, audio recording, warping, sampler and drum rack, more built-in effects.
 3. **MCP server:** expose `Session` operations so an assistant can build and edit songs.
 
-## Commercial licensing
+## Related projects
 
-AudioZero is intended to be proprietary commercial software, and no open-source license is granted for this repository. Review JUCE's commercial licensing terms before you distribute a product. Third-party plugins keep their own licenses.
+- [Nusick](https://github.com/noisyloop/Nusick): NOISYLOOP's MIT-licensed Rust framework for audio plugins, home of the Kick Me kick synth.
+
+## License
+
+AudioZero's own source code is released under the [MIT License](LICENSE).
+
+AudioZero is built on [JUCE](https://juce.com), which has its own license: JUCE 8 is available under the AGPLv3 or a commercial JUCE license. The MIT License covers the code in this repository. Builds you distribute, which link JUCE, also have to meet JUCE's terms. Third-party plugins keep their own licenses.
