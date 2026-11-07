@@ -1,13 +1,6 @@
 name: macOS build and DMG
-# macOS minutes count 10x against the Actions allowance, so this runs only on main
-# and on demand (Actions tab > "Run workflow"). Windows/Linux cover pull requests.
+# Manual only: Actions tab > select this workflow > "Run workflow" (pick a branch there).
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
   workflow_dispatch:
 jobs:
   macos:

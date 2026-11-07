@@ -1,0 +1,21 @@
+name: Rust workspace
+# Manual only: Actions tab > select this workflow > "Run workflow" (pick a branch there).
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ALSA headers (for audio output)
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Render the demo song
+        run: cargo run --release --locked -p audiozero-app -- --render demo.wav
