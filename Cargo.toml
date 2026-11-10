@@ -1,6 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/audiozero-engine", "crates/audiozero-host", "crates/audiozero-app"]
+members = [
+    "crates/audiozero-engine",
+    "crates/audiozero-host",
+    "crates/audiozero-mcp",
+    "crates/audiozero-app",
+]
 
 [workspace.package]
 version = "0.1.0"

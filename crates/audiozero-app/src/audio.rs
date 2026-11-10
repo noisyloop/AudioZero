@@ -4,6 +4,7 @@
 //! silently, so the playhead and the rest of the app still work.
 
 use audiozero_engine::control::{Controller, Player, channel};
+use audiozero_engine::{Changes, Command, Project};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SizedSample};
 use std::sync::Arc;
@@ -49,6 +50,30 @@ impl Output {
 
     pub fn has_device(&self) -> bool {
         matches!(self._keep_alive, KeepAlive::Stream(_))
+    }
+}
+
+/// Lets the MCP server play through this output.
+impl audiozero_mcp::Audio for Output {
+    fn load(&mut self, project: &Project) -> Result<Vec<String>, String> {
+        self.controller
+            .load(project.clone())
+            .map_err(|e| e.to_string())
+    }
+    fn apply(&mut self, project: &Project, changes: &Changes) -> Result<Vec<String>, String> {
+        self.controller.apply(project, changes)
+    }
+    fn send(&mut self, command: Command) -> bool {
+        self.controller.send(command)
+    }
+    fn position(&self) -> f64 {
+        self.controller.position()
+    }
+    fn is_playing(&self) -> bool {
+        self.controller.is_playing()
+    }
+    fn collect_garbage(&mut self) {
+        self.controller.collect_garbage();
     }
 }
 
