@@ -20,6 +20,7 @@ fn meter_decay(frames: usize, sample_rate: f64) -> f32 {
 fn block_peak(buf: &[f32]) -> f32 {
     buf.iter().fold(0.0f32, |m, x| m.max(x.abs()))
 }
+use crate::effects::{Effect, create_effect};
 use crate::sample::{Sample, SamplePool};
 use crate::synth::{Instrument, create_builtin};
 use std::sync::Arc;
@@ -40,6 +41,7 @@ struct Event {
 
 struct TrackState {
     instrument: Option<Box<dyn Instrument>>,
+    effects: Vec<Box<dyn Effect>>,
     notes_on: [bool; 128],
     events: Vec<Event>,
     peak: (f32, f32),
@@ -170,9 +172,28 @@ impl Engine {
                         None
                     }
                 };
-                if !track.effects.is_empty() {
-                    warnings.push(format!("Track \"{}\": effects aren't implemented yet", track.name));
-                }
+                let effects = track
+                    .effects
+                    .iter()
+                    .filter_map(|device| {
+                        let made = match device {
+                            Device::Builtin { id } => create_effect(id),
+                            Device::Plugin(_) => None,
+                        };
+                        if made.is_none() {
+                            let what = match device {
+                                Device::Builtin { id } => format!("unknown effect \"{id}\""),
+                                Device::Plugin(p) => format!("plugin \"{}\" isn't loaded (plugin hosting isn't implemented yet)", p.name),
+                            };
+                            warnings.push(format!("Track \"{}\": {what}", track.name));
+                        }
+                        made
+                    })
+                    .map(|mut effect| {
+                        effect.prepare(sample_rate);
+                        effect
+                    })
+                    .collect();
                 let mut instrument = instrument;
                 if let Some(i) = instrument.as_mut() {
                     i.prepare(sample_rate);
@@ -181,6 +202,7 @@ impl Engine {
                     resolve_samples(pool, &track.clips, sample_rate, &track.name, &mut warnings);
                 TrackState {
                     instrument,
+                    effects,
                     notes_on: [false; 128],
                     events: Vec::with_capacity(MAX_EVENTS_PER_BLOCK),
                     peak: (0.0, 0.0),
@@ -429,6 +451,9 @@ impl Engine {
             for i in 0..n {
                 l[i] += state.audio_l[i];
                 r[i] += state.audio_r[i];
+            }
+            for effect in &mut state.effects {
+                effect.process(l, r);
             }
 
             let gain_l = track.volume * (1.0 - track.pan).min(1.0);
