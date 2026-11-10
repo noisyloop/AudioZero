@@ -126,6 +126,25 @@ What works so far:
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
 | `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project, list installed plugins or run the MCP server. |
 
+### Download a build
+
+Every run of the **Rust workspace** workflow builds the app for Linux, Windows and macOS. To download one:
+
+1. Open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml) and click the latest green run. The [first run with downloads](https://github.com/noisyloop/AudioZero/actions/runs/42753120183) is an example.
+2. Under **Artifacts** at the bottom of the run's page, download the file for your system. You need to be signed in to GitHub, and downloads expire after 90 days.
+
+| Artifact | System | Run it |
+| --- | --- | --- |
+| `audiozero-linux-x64` | Linux, x86-64 | `chmod +x audiozero && ./audiozero` |
+| `audiozero-windows-x64` | Windows 10/11, x86-64 | Double-click `audiozero.exe`. SmartScreen warns because it's unsigned: choose **More info > Run anyway**. |
+| `audiozero-macos-arm64` | macOS on Apple silicon | `chmod +x audiozero && xattr -d com.apple.quarantine audiozero && ./audiozero` in Terminal. It's unsigned, and the first recording asks for microphone access. |
+
+Each download is a zip containing the program. The command-line options below work with it too, for example `./audiozero --mcp song.json`.
+
+To make a new build, open the workflow, click **Run workflow** and pick a branch. Tick **Also build on macOS** only when you need it: macOS minutes count 10x against the Actions allowance.
+
+### Build it yourself
+
 ```sh
 cargo run --release -p audiozero-app                          # open the window with the demo song
 cargo run --release -p audiozero-app -- song.json             # open a project
@@ -176,7 +195,7 @@ Every build is manual for now: pushes, pull requests and merges don't start any 
 
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `rust.yml` | Linux | Rust workspace: format check, Clippy, tests, demo render (about a minute) |
+| `rust.yml` | Linux, Windows (+ macOS on request) | Rust workspace: format check, Clippy, tests, demo render, and release builds of the app uploaded as downloads (see [Download a build](#download-a-build)) |
 | `ci.yml` | Windows + Linux | C++ app: build, all tests, app + VST3 artifacts, Linux UI screenshot |
 | `mac-build.yml` | macOS | C++ app: build, all tests (including the VST3 host smoke test), unsigned DMG, Operator VST3 artifact |
 
