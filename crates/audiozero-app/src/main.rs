@@ -24,6 +24,16 @@ Options:
   --mcp              Run the MCP server on stdin/stdout, so an AI assistant can build and edit
                      PROJECT (created when saved if it doesn't exist; empty song if not given).
                      It plays through the speakers. The activity log goes to stderr.
+
+Audio-reactive video:
+  --video OUT        Render visuals for the song to OUT: a .mp4, .mov, .mkv or .webm video
+                     with the song's audio (needs FFmpeg), or a folder of PNG frames + audio.wav
+  --still OUT.png    Render a single frame (with --at SECONDS) instead
+  --look ID          spectrum (default), rings or particles
+  --format F         widescreen (default), shorts, square, portrait, 4k, or WIDTHxHEIGHT
+  --fps N            Frames per second (default 30)
+  --loop             Render the loop range instead of the whole song
+  --at SECONDS       Where --still is taken (default 10)
   -h, --help         Show this help";
 
 #[derive(Default)]
@@ -34,6 +44,13 @@ struct Args {
     scan: bool,
     play: bool,
     mcp: bool,
+    video: Option<PathBuf>,
+    still: Option<PathBuf>,
+    look: Option<String>,
+    format: Option<String>,
+    fps: Option<u32>,
+    loop_only: bool,
+    at: Option<f64>,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -52,6 +69,29 @@ fn parse_args() -> Result<Args, String> {
             Some("--scan") => args.scan = true,
             Some("--play") => args.play = true,
             Some("--mcp") => args.mcp = true,
+            Some("--video") => args.video = Some(value("--video")?),
+            Some("--still") => args.still = Some(value("--still")?),
+            Some("--look") => args.look = Some(value("--look")?.to_string_lossy().into_owned()),
+            Some("--format") => {
+                args.format = Some(value("--format")?.to_string_lossy().into_owned())
+            }
+            Some("--fps") => {
+                let v = value("--fps")?;
+                args.fps = Some(
+                    v.to_string_lossy()
+                        .parse()
+                        .map_err(|_| "--fps needs a number")?,
+                );
+            }
+            Some("--at") => {
+                let v = value("--at")?;
+                args.at = Some(
+                    v.to_string_lossy()
+                        .parse()
+                        .map_err(|_| "--at needs a number of seconds")?,
+                );
+            }
+            Some("--loop") => args.loop_only = true,
             Some(other) if other.starts_with('-') => return Err(format!("unknown option {other}")),
             _ if args.project.is_none() => args.project = Some(PathBuf::from(arg)),
             _ => return Err("only one project can be given".into()),
@@ -102,6 +142,9 @@ fn run(args: Args) -> Result<(), String> {
     if args.scan {
         scan();
         return Ok(());
+    }
+    if args.video.is_some() || args.still.is_some() {
+        return video(&args);
     }
 
     if !args.play && args.render.is_none() && args.save.is_none() {
@@ -222,4 +265,57 @@ fn mcp(file: Option<PathBuf>) -> Result<(), String> {
         server.handle(m)
     })
     .map_err(|e| e.to_string())
+}
+
+/// Renders audio-reactive visuals for the project (`--video` or `--still`).
+fn video(args: &Args) -> Result<(), String> {
+    use audiozero_visuals::{Range, VideoSettings};
+    let project = match &args.project {
+        Some(path) => Project::load(path).map_err(|e| format!("{}: {e}", path.display()))?,
+        None => audiozero_engine::demo::project(),
+    };
+    let mut settings = VideoSettings::default();
+    if let Some(look) = &args.look {
+        settings.look = look.clone();
+    }
+    if let Some(fps) = args.fps {
+        settings.fps = fps;
+    }
+    if let Some(format) = &args.format {
+        settings.set_format(format)?;
+    }
+    if args.loop_only {
+        settings.range = Range::Loop;
+    }
+    let mut pool = SamplePool::new(audiozero_visuals::analysis::RATE);
+    pool.set_base(project_folder(args.project.as_deref()));
+    if let Some(out) = &args.still {
+        let at = args.at.unwrap_or(10.0);
+        audiozero_visuals::still(&project, &mut pool, &settings, at, out)?;
+        println!("Rendered the frame at {at} s to {}", out.display());
+        return Ok(());
+    }
+    let out = args.video.as_ref().expect("checked by the caller");
+    let started = std::time::Instant::now();
+    let mut last_percent = usize::MAX;
+    let result =
+        audiozero_visuals::export(&project, &mut pool, &settings, out, |frame, frames| {
+            let percent = frame * 100 / frames.max(1);
+            if percent != last_percent && percent % 10 == 0 {
+                eprintln!("  {percent}%  ({frame}/{frames} frames)");
+                last_percent = percent;
+            }
+        })?;
+    println!(
+        "Rendered {} frames ({:.1} s of song, {}x{} at {} fps, look \"{}\") to {} in {:.1} s",
+        result.frames,
+        result.seconds,
+        settings.width,
+        settings.height,
+        settings.fps,
+        settings.look,
+        result.path.display(),
+        started.elapsed().as_secs_f64()
+    );
+    Ok(())
 }

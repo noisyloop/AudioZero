@@ -123,6 +123,7 @@ What works so far:
 | Crate | What it is |
 | --- | --- |
 | `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Audio files are opened only after a path check (no network paths, no `..` out of the project folder, audio extensions only) and decoded with size, length and memory caps. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes a small built-in sine synth and a demo song. |
+| `crates/audiozero-visuals` | Audio-reactive visuals: per-frame analysis of the rendered song and its notes, the built-in looks, and video/PNG export (FFmpeg for video). No UI or GPU, so it runs headless. |
 | `crates/audiozero-mcp` | The MCP server: every tool is a `Session` operation, so an assistant's edits get the same checks and undo as yours. Speaks MCP over stdio, with no dependencies beyond `serde_json`. See [AI control (MCP)](#ai-control-mcp). |
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
 | `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project, list installed plugins or run the MCP server. |
@@ -170,6 +171,24 @@ cargo test --workspace                                        # all tests
 ```
 
 On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio input and output), `midir` (MIDI input) and `eframe`/`egui` (the window).
+
+### Audio-reactive visuals (early)
+
+AudioZero can make a music video from the arrangement. The visuals react to the audio (loudness, bass/mid/treble, a 32-band spectrum, kicks) and to the song itself: every note on every track, and where the beat and bar are. A VJ app that only listens to the audio can't know any of that.
+
+```sh
+audiozero song.json --video song.mp4                                  # whole song, 1920x1080, 30 fps
+audiozero song.json --video short.mp4 --format shorts --look rings    # 9:16 for Shorts, Reels, TikTok
+audiozero song.json --video frames/ --format square --fps 60          # PNG frames + audio.wav
+audiozero song.json --video loop.webm --loop --look particles         # just the loop range
+audiozero song.json --still preview.png --at 12                       # one frame, to try a look
+```
+
+- **Looks:** `spectrum` (mirrored bars over a bass glow), `rings` (one ring per track, pulsing with its notes, hue from the pitch) and `particles` (a burst for every note: across by pitch, up and down by track).
+- **Formats:** `widescreen` (1920×1080), `shorts` (1080×1920), `square` (1080×1080), `portrait` (1080×1350), `4k` (3840×2160), or any even `WIDTHxHEIGHT`.
+- **Files:** `.mp4`, `.mov` and `.mkv` (H.264 + AAC), and `.webm` (VP9 + Opus), with the song's audio. These need [FFmpeg](https://ffmpeg.org) on your `PATH`. Any other path is treated as a folder of PNG frames plus `audio.wav`, which works without FFmpeg.
+
+The video is rendered offline and frame by frame, so it's always in sync, and the same project gives the same video. It's drawn on the CPU for now: a 20-second song took about 30 seconds at 1080p on a small cloud machine, and drawing in parallel will speed that up. the live visuals window, an export button in the app and custom shaders come next (see the roadmap).
 
 ### AI control (MCP)
 
