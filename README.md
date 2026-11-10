@@ -200,13 +200,8 @@ This is an early but working DAW. Not done yet:
 1. **Hardening:** trust plugins by identity instead of the path in the project file, validate project and audio input, plugin sandboxing, latency compensation, crash recovery and autosave, signed installers. See [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) for the findings and the prioritised plan.
 2. **Workflow:** automation, clip launcher, audio recording, warping, sampler and drum rack, more built-in effects.
 3. **MCP server:** the first version is in the Rust app. Next: drive the open window's session live (with the activity log visible in the UI), give plugins by identity once hosting lands, and render previews the assistant can check.
-
-## Related projects
-
-- [Nusick](https://github.com/noisyloop/Nusick): NOISYLOOP's MIT-licensed Rust framework for audio plugins, home of the Kick Me kick synth.
-
-## License
-
-AudioZero's own source code is released under the [MIT License](LICENSE).
-
-AudioZero is built on [JUCE](https://juce.com), which has its own license: JUCE 8 is available under the AGPLv3 or a commercial JUCE license. The MIT License covers the code in this repository. Builds you distribute, which link JUCE, also have to meet JUCE's terms. Third-party plugins keep their own licenses.
+4. **Plugins by others:** host CLAP and VST3 out of process, and offer [Nusick](https://github.com/noisyloop/Nusick) as the SDK for writing them, with a template and docs.
+5. **Audio-reactive visuals (built-in VJ):** visuals driven by the arrangement's notes, beats and audio, shown live while playing and exported for the song's length (or the loop or a selection) as 16:9, 9:16 shorts, 1:1 or 4:5, in MP4/H.264, H.265, WebM, ProRes or PNG frames with the audio.
+   1. A visualizer device with built-in looks, a live window, and export (rendered offline, frame-accurate).
+   2. Your own shaders (WGSL, reloaded as you edit), mapping any sound feature to any parameter, and automatable visual parameters.
+   3. A TouchDesigner-style node graph on `wgpu`, sandboxed visual plugins (shaders and WebAssembly), and a visual SDK in Nusick.
