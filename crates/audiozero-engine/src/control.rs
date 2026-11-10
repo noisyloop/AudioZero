@@ -15,6 +15,7 @@ use crate::project::{
     Clip, Project, ProjectError,
     limits::{MAX_CLIPS_PER_TRACK, MAX_TRACKS},
 };
+use crate::sample::{Sample, SamplePool};
 use crate::session::{Changes, mix_of};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::sync::Arc;
@@ -41,15 +42,56 @@ pub enum Command {
     SetClips {
         track: usize,
         clips: Vec<Clip>,
+        /// Each clip's decoded audio, for audio clips.
+        samples: Vec<Option<Arc<Sample>>>,
     },
     /// Swap in an engine built on the UI thread.
     Replace(Box<Engine>),
+    /// Play or release a note now (computer keyboard). MIDI input uses [`LiveInput`] instead.
+    LiveNote(LiveNote),
+    /// Release every note held live.
+    ReleaseLive,
+}
+
+/// A note played live on a track.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LiveNote {
+    pub track: usize,
+    pub pitch: u8,
+    pub velocity: f32,
+    pub on: bool,
+}
+
+const LIVE_CAPACITY: usize = 1024;
+
+/// Sends live notes straight to the audio thread from another thread (a MIDI input callback),
+/// without going through the UI. Get it once from [`Controller::take_live_input`].
+pub struct LiveInput {
+    notes: Producer<LiveNote>,
+    status: Arc<Status>,
+}
+
+impl LiveInput {
+    /// Queues a note. Returns `false` if the queue is full (the audio thread has stopped).
+    pub fn send(&mut self, note: LiveNote) -> bool {
+        self.notes.push(note).is_ok()
+    }
+    /// The playhead in beats, for timestamping recorded notes.
+    pub fn position(&self) -> f64 {
+        f64::from_bits(self.status.position.load(Relaxed))
+    }
+    pub fn is_playing(&self) -> bool {
+        self.status.playing.load(Relaxed)
+    }
 }
 
 /// Things the audio thread has finished with, sent back to be freed on the UI thread.
 enum Garbage {
     Engine(#[allow(dead_code)] Box<Engine>),
-    Clips(#[allow(dead_code)] Vec<Clip>),
+    Clips(
+        #[allow(dead_code)] Vec<Clip>,
+        #[allow(dead_code)] Vec<Option<Arc<Sample>>>,
+    ),
 }
 
 const COMMAND_CAPACITY: usize = 1024;
@@ -84,6 +126,7 @@ fn peak_pair(cells: &[AtomicU32; 2]) -> (f32, f32) {
 pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
     let (commands, command_rx) = RingBuffer::new(COMMAND_CAPACITY);
     let (garbage_tx, garbage) = RingBuffer::new(GARBAGE_CAPACITY);
+    let (live_tx, live_rx) = RingBuffer::new(LIVE_CAPACITY);
     let status = Arc::new(Status {
         position: AtomicU64::new(0f64.to_bits()),
         playing: AtomicBool::new(false),
@@ -99,9 +142,15 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
         status: Arc::clone(&status),
         sample_rate: engine.sample_rate(),
         max_block,
+        pool: SamplePool::new(engine.sample_rate()),
+        live_input: Some(LiveInput {
+            notes: live_tx,
+            status: Arc::clone(&status),
+        }),
     };
     let player = Player {
         engine: Box::new(engine),
+        live: live_rx,
         commands: command_rx,
         garbage: garbage_tx,
         status,
@@ -112,6 +161,7 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
 /// The audio thread's half. Call [`Player::process`] from the audio callback.
 pub struct Player {
     engine: Box<Engine>,
+    live: Consumer<LiveNote>,
     commands: Consumer<Command>,
     garbage: Producer<Garbage>,
     status: Arc<Status>,
@@ -126,6 +176,10 @@ impl Player {
                 break;
             };
             self.apply(command);
+        }
+        while let Ok(note) = self.live.pop() {
+            self.engine
+                .live_note(note.track, note.pitch, note.velocity, note.on);
         }
         self.engine.process(left, right);
         self.publish();
@@ -145,10 +199,16 @@ impl Player {
                 end,
             } => engine.set_loop(enabled, start, end),
             Command::SetTrackMix { track, mix } => engine.set_track_mix(track, mix),
-            Command::SetClips { track, clips } => {
-                let old = engine.replace_clips(track, clips);
-                self.throw_away(Garbage::Clips(old));
+            Command::SetClips {
+                track,
+                clips,
+                samples,
+            } => {
+                let (clips, samples) = engine.replace_clips(track, clips, samples);
+                self.throw_away(Garbage::Clips(clips, samples));
             }
+            Command::LiveNote(n) => engine.live_note(n.track, n.pitch, n.velocity, n.on),
+            Command::ReleaseLive => engine.release_live(),
             Command::Replace(new) => {
                 let old = std::mem::replace(&mut self.engine, new);
                 self.throw_away(Garbage::Engine(old));
@@ -192,9 +252,23 @@ pub struct Controller {
     status: Arc<Status>,
     sample_rate: f64,
     max_block: usize,
+    /// Decoded audio for audio clips, at the device's rate.
+    pool: SamplePool,
+    live_input: Option<LiveInput>,
 }
 
 impl Controller {
+    /// The sender for live notes from another thread. There's one; later calls return `None`.
+    pub fn take_live_input(&mut self) -> Option<LiveInput> {
+        self.live_input.take()
+    }
+
+    /// The decoded audio files. Set its folder ([`SamplePool::set_base`]) to the project's
+    /// folder before loading a project with relative audio paths.
+    pub fn samples(&mut self) -> &mut SamplePool {
+        &mut self.pool
+    }
+
     /// Queues a command. Returns `false` if the queue is full, which means the audio thread
     /// has stopped running.
     pub fn send(&mut self, command: Command) -> bool {
@@ -204,7 +278,15 @@ impl Controller {
     /// Builds an engine for `project` here on the UI thread and swaps it in. Returns the
     /// engine's warnings (missing plugins and so on). Playback stops and starts again at 0.
     pub fn load(&mut self, project: Project) -> Result<Vec<String>, ProjectError> {
-        let engine = Engine::new(project, self.sample_rate, self.max_block)?;
+        let used: Vec<&str> = project
+            .tracks
+            .iter()
+            .flat_map(|t| &t.clips)
+            .filter_map(|c| c.audio.as_ref().map(|a| a.file.as_str()))
+            .collect();
+        self.pool.retain(&used);
+        let engine =
+            Engine::with_samples(project, self.sample_rate, self.max_block, &mut self.pool)?;
         let warnings = engine.warnings().to_vec();
         for cells in &self.status.track_peaks {
             store(&cells[0], 0.0);
@@ -220,15 +302,34 @@ impl Controller {
 
     /// Replaces one track's clips while playback continues. The clips are sanitized here, on
     /// the UI thread, the same way a project file's are. Returns `false` if there are too many
-    /// clips or the audio thread isn't responding.
-    pub fn set_clips(&mut self, track: usize, mut clips: Vec<Clip>) -> bool {
+    /// clips or the audio thread isn't responding. Audio clips' files are decoded here if they
+    /// haven't been; ones that can't be played come back as warnings.
+    pub fn set_clips(&mut self, track: usize, mut clips: Vec<Clip>) -> Result<Vec<String>, String> {
         if clips.len() > MAX_CLIPS_PER_TRACK {
-            return false;
+            return Err(format!(
+                "more than {MAX_CLIPS_PER_TRACK} clips on one track"
+            ));
         }
         for clip in &mut clips {
             clip.sanitize();
         }
-        self.send(Command::SetClips { track, clips })
+        let mut warnings = Vec::new();
+        let samples = crate::engine::resolve_samples(
+            &mut self.pool,
+            &clips,
+            self.sample_rate,
+            &format!("{}", track + 1),
+            &mut warnings,
+        );
+        if self.send(Command::SetClips {
+            track,
+            clips,
+            samples,
+        }) {
+            Ok(warnings)
+        } else {
+            Err("The audio engine isn't responding.".into())
+        }
     }
 
     /// Like [`Controller::load`], but keeps the playhead where it is, and keeps playing if it
@@ -253,9 +354,13 @@ impl Controller {
                 .map_err(|e| format!("Audio engine: {e}"));
         }
         let mut ok = true;
+        let mut warnings = Vec::new();
         for &track in &changes.clips {
             if let Some(t) = project.tracks.get(track) {
-                ok &= self.set_clips(track, t.clips.clone());
+                match self.set_clips(track, t.clips.clone()) {
+                    Ok(w) => warnings.extend(w),
+                    Err(_) => ok = false,
+                }
             }
         }
         for &track in &changes.mix {
@@ -280,7 +385,7 @@ impl Controller {
             });
         }
         if ok {
-            Ok(Vec::new())
+            Ok(warnings)
         } else {
             Err("The audio engine isn't responding.".into())
         }
@@ -402,13 +507,17 @@ mod tests {
             length: -3.0,
             ..Default::default()
         };
-        assert!(controller.set_clips(1, vec![bad]));
+        assert!(controller.set_clips(1, vec![bad]).is_ok());
         run(&mut player, 64);
         let clips = &player.engine.project().tracks[1].clips;
         assert_eq!((clips[0].start, clips[0].length), (0.0, 1.0 / 16.0));
         assert!(controller.is_playing(), "playback carries on");
         controller.collect_garbage();
-        assert!(!controller.set_clips(0, vec![Clip::default(); MAX_CLIPS_PER_TRACK + 1]));
+        assert!(
+            controller
+                .set_clips(0, vec![Clip::default(); MAX_CLIPS_PER_TRACK + 1])
+                .is_err()
+        );
     }
 
     #[test]

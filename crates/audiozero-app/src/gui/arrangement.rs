@@ -6,7 +6,8 @@
 //! - Hold Alt while dragging to ignore the grid.
 
 use super::{App, ClipRef, meter, theme};
-use audiozero_engine::{Clip, Project, synth::BUILTINS};
+use audiozero_engine::sample::{PEAK_FRAMES, Sample};
+use audiozero_engine::{AudioRegion, Clip, Project, synth::BUILTINS};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, StrokeKind,
     Vec2,
@@ -125,6 +126,39 @@ impl App {
 
         self.draw_grid(&painter, area, ruler, tracks_top, time, lane_width);
 
+        // Where a dropped audio file would go, highlighted while files are dragged over.
+        let tracks = self.session.project().tracks.len();
+        self.drop_target = ctx
+            .input(|i| i.pointer.hover_pos())
+            .filter(|p| lanes_rect.contains(*p))
+            .map(|p| {
+                let track = track_at(p.y).max(0.0) as usize;
+                (track.min(tracks), time.beat(p.x).max(0.0))
+            });
+        if ctx.input(|i| !i.raw.hovered_files.is_empty())
+            && let Some((track, _)) = self.drop_target
+        {
+            let top = row_top(track);
+            let lane = Rect::from_min_max(
+                Pos2::new(lanes_left, top),
+                Pos2::new(area.right(), top + TRACK_HEIGHT),
+            )
+            .intersect(lanes_rect);
+            painter.rect_filled(lane, 0.0, theme::ACCENT.gamma_multiply(0.15));
+            let label = if track == tracks {
+                "Drop to add on a new track"
+            } else {
+                "Drop to add here"
+            };
+            painter.text(
+                lane.left_center() + Vec2::new(12.0, 0.0),
+                Align2::LEFT_CENTER,
+                label,
+                FontId::proportional(13.0),
+                Color32::WHITE,
+            );
+        }
+
         // Track lanes, clips and headers.
         let lane_painter = painter.with_clip_rect(lanes_rect);
         let rows_painter = painter.with_clip_rect(Rect::from_min_max(
@@ -175,7 +209,23 @@ impl App {
                     Pos2::new(x1 - 1.0, lane.bottom() - 3.0),
                 );
                 let selected = self.selected_clip == Some(at);
+                let wave = clip
+                    .audio
+                    .as_ref()
+                    .map(|a| (a, self.audio.controller.samples().get(&a.file).ok()));
+                let bpm = self.session.project().bpm;
                 draw_clip(&lane_painter, lanes_rect, body, clip, colour, selected);
+                if let Some((region, sample)) = wave {
+                    draw_wave(
+                        &lane_painter,
+                        lanes_rect,
+                        body,
+                        clip,
+                        region,
+                        sample.as_deref(),
+                        bpm,
+                    );
+                }
                 let visible = body.intersect(lanes_rect);
                 if visible.width() > 0.0 && visible.height() > 0.0 {
                     clip_rects.push((at, visible, body));
@@ -388,6 +438,7 @@ impl App {
     fn track_header(&mut self, ui: &mut egui::Ui, index: usize, inner: Rect) {
         let mut track = self.session.project().tracks[index].clone();
         let mut changed = false;
+        let mut arm_clicked = false;
         ui.scope_builder(
             egui::UiBuilder::new()
                 .max_rect(inner)
@@ -404,6 +455,13 @@ impl App {
                             .toggle_value(&mut track.mute, "M")
                             .on_hover_text("Mute")
                             .changed();
+                        let armed = self.armed == Some(index);
+                        let hint = if track.instrument.is_some() {
+                            "Arm to record MIDI (and play it from a MIDI keyboard or A–K)"
+                        } else {
+                            "Arm to record audio from the input"
+                        };
+                        arm_clicked |= super::record_dot(ui, armed).on_hover_text(hint).clicked();
                     });
                 });
                 ui.horizontal(|ui| {
@@ -418,6 +476,9 @@ impl App {
         );
         if changed {
             self.set_without_undo(|p| p.tracks[index] = track);
+        }
+        if arm_clicked {
+            self.toggle_arm(index);
         }
     }
 
@@ -495,7 +556,8 @@ impl App {
             }
             response.context_menu(|ui| {
                 self.selected_clip = Some(at);
-                if ui.button("Edit notes").clicked() {
+                let is_audio = self.clip(at).is_some_and(Clip::is_audio);
+                if !is_audio && ui.button("Edit notes").clicked() {
                     action = Some(ClipAction::Edit(at));
                 }
                 if ui.button("Duplicate").clicked() {
@@ -582,6 +644,69 @@ impl App {
                 self.live(|p| p.tracks[at.track].clips[at.clip].length = end - clip.start);
             }
         }
+    }
+}
+
+/// An audio clip's waveform, or a note that its file can't be played.
+fn draw_wave(
+    painter: &egui::Painter,
+    lanes: Rect,
+    body: Rect,
+    clip: &Clip,
+    region: &AudioRegion,
+    sample: Option<&Sample>,
+    bpm: f64,
+) {
+    let area = Rect::from_min_max(
+        Pos2::new(body.left(), body.top() + 17.0),
+        Pos2::new(body.right(), body.bottom() - 2.0),
+    );
+    let Some(sample) = sample else {
+        painter.with_clip_rect(area.intersect(lanes)).text(
+            area.left_center() + Vec2::new(5.0, 0.0),
+            Align2::LEFT_CENTER,
+            "audio file missing",
+            FontId::proportional(11.0),
+            Color32::from_rgb(0xef, 0x53, 0x50),
+        );
+        return;
+    };
+    let peaks = sample.peaks();
+    if peaks.is_empty() || body.width() <= 0.0 {
+        return;
+    }
+    let visible = area.intersect(lanes);
+    let mid = area.center().y;
+    let half = area.height() / 2.0;
+    let beat_width = f64::from(body.width()) / clip.length;
+    // Peak index at a given x: beats into the clip, to seconds, to frames, to peaks.
+    let peak_at = |x: f32| {
+        let beats = f64::from(x - body.left()) / beat_width;
+        let frames = (beats * 60.0 / bpm + region.offset) * sample.rate();
+        (frames / PEAK_FRAMES as f64).max(0.0)
+    };
+    let gain = region.gain.max(0.0);
+    let mut x = visible.left().floor();
+    while x < visible.right() {
+        let (i0, i1) = (
+            peak_at(x) as usize,
+            (peak_at(x + 1.0).ceil() as usize).max(1),
+        );
+        if i0 >= peaks.len() {
+            break;
+        }
+        let (lo, hi) = peaks[i0..i1.min(peaks.len()).max(i0 + 1)]
+            .iter()
+            .fold((0.0f32, 0.0f32), |(a, b), &(lo, hi)| (a.min(lo), b.max(hi)));
+        let (lo, hi) = ((lo * gain).max(-1.0), (hi * gain).min(1.0));
+        painter.line_segment(
+            [
+                Pos2::new(x + 0.5, mid - hi * half),
+                Pos2::new(x + 0.5, mid - lo * half + 1.0),
+            ],
+            Stroke::new(1.0, Color32::from_white_alpha(190)),
+        );
+        x += 1.0;
     }
 }
 

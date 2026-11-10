@@ -20,11 +20,16 @@ fn meter_decay(frames: usize, sample_rate: f64) -> f32 {
 fn block_peak(buf: &[f32]) -> f32 {
     buf.iter().fold(0.0f32, |m, x| m.max(x.abs()))
 }
+use crate::effects::{Effect, create_effect};
+use crate::sample::{Sample, SamplePool};
 use crate::synth::{Instrument, create_builtin};
+use std::sync::Arc;
 
 /// Note events one track can schedule in one block. More are dropped rather than allocating
 /// on the audio thread.
 const MAX_EVENTS_PER_BLOCK: usize = 4096;
+/// Live notes (MIDI input, computer keyboard) one track can queue between blocks.
+const MAX_LIVE_EVENTS: usize = 256;
 
 #[derive(Clone, Copy)]
 struct Event {
@@ -36,9 +41,47 @@ struct Event {
 
 struct TrackState {
     instrument: Option<Box<dyn Instrument>>,
+    effects: Vec<Box<dyn Effect>>,
     notes_on: [bool; 128],
     events: Vec<Event>,
     peak: (f32, f32),
+    /// The decoded audio for each of the track's clips, in the same order (`None` for MIDI
+    /// clips and audio that couldn't be loaded).
+    samples: Vec<Option<Arc<Sample>>>,
+    /// Audio clips' output for the current block.
+    audio_l: Vec<f32>,
+    audio_r: Vec<f32>,
+    /// Notes played live since the last block, played at its start.
+    live: Vec<Event>,
+    /// Pitches held down live, so they can be released when playback stops.
+    live_on: [bool; 128],
+}
+
+/// Looks up the decoded audio for each clip, on the UI thread. Problems become warnings.
+pub(crate) fn resolve_samples(
+    pool: &mut SamplePool,
+    clips: &[Clip],
+    sample_rate: f64,
+    track_name: &str,
+    warnings: &mut Vec<String>,
+) -> Vec<Option<Arc<Sample>>> {
+    clips
+        .iter()
+        .map(|clip| {
+            let audio = clip.audio.as_ref()?;
+            match pool.get(&audio.file) {
+                Ok(sample) if (sample.rate() - sample_rate).abs() < 1e-6 => Some(sample),
+                Ok(sample) => Some(Arc::new(sample.resampled(sample_rate))),
+                Err(e) => {
+                    warnings.push(format!(
+                        "Track \"{track_name}\": can't play \"{}\": {e}",
+                        audio.file
+                    ));
+                    None
+                }
+            }
+        })
+        .collect()
 }
 
 impl TrackState {
@@ -80,11 +123,24 @@ pub struct Engine {
 
 impl Engine {
     /// Prepares `project` for playback at `sample_rate`, in blocks of up to `max_block` frames.
-    /// The project is sanitized first, so the engine never sees out-of-range values.
-    pub fn new(
+    /// The project is sanitized first, so the engine never sees out-of-range values. Audio clips
+    /// only play if their files are absolute paths; use [`Engine::with_samples`] for a project
+    /// with a folder.
+    pub fn new(project: Project, sample_rate: f64, max_block: usize) -> Result<Self, ProjectError> {
+        Self::with_samples(
+            project,
+            sample_rate,
+            max_block,
+            &mut SamplePool::new(sample_rate),
+        )
+    }
+
+    /// Like [`Engine::new`], taking audio clips' audio from `pool`.
+    pub fn with_samples(
         mut project: Project,
         sample_rate: f64,
         max_block: usize,
+        pool: &mut SamplePool,
     ) -> Result<Self, ProjectError> {
         project.sanitize()?;
         let sample_rate = if sample_rate.is_finite() && (8_000.0..=768_000.0).contains(&sample_rate)
@@ -116,18 +172,45 @@ impl Engine {
                         None
                     }
                 };
-                if !track.effects.is_empty() {
-                    warnings.push(format!("Track \"{}\": effects aren't implemented yet", track.name));
-                }
+                let effects = track
+                    .effects
+                    .iter()
+                    .filter_map(|device| {
+                        let made = match device {
+                            Device::Builtin { id } => create_effect(id),
+                            Device::Plugin(_) => None,
+                        };
+                        if made.is_none() {
+                            let what = match device {
+                                Device::Builtin { id } => format!("unknown effect \"{id}\""),
+                                Device::Plugin(p) => format!("plugin \"{}\" isn't loaded (plugin hosting isn't implemented yet)", p.name),
+                            };
+                            warnings.push(format!("Track \"{}\": {what}", track.name));
+                        }
+                        made
+                    })
+                    .map(|mut effect| {
+                        effect.prepare(sample_rate);
+                        effect
+                    })
+                    .collect();
                 let mut instrument = instrument;
                 if let Some(i) = instrument.as_mut() {
                     i.prepare(sample_rate);
                 }
+                let samples =
+                    resolve_samples(pool, &track.clips, sample_rate, &track.name, &mut warnings);
                 TrackState {
                     instrument,
+                    effects,
                     notes_on: [false; 128],
                     events: Vec::with_capacity(MAX_EVENTS_PER_BLOCK),
                     peak: (0.0, 0.0),
+                    samples,
+                    audio_l: vec![0.0; max_block],
+                    audio_r: vec![0.0; max_block],
+                    live: Vec::with_capacity(MAX_LIVE_EVENTS),
+                    live_on: [false; 128],
                 }
             })
             .collect();
@@ -209,13 +292,21 @@ impl Engine {
     /// Swaps in new clips for one track and returns the old ones, so they can be freed off the
     /// audio thread. Notes the old clips had playing are released. The clips must already be
     /// sanitized (see [`Clip::sanitize`]); [`crate::Controller::set_clips`] does that.
-    /// Returns `clips` unchanged if the track doesn't exist.
-    pub fn replace_clips(&mut self, index: usize, mut clips: Vec<Clip>) -> Vec<Clip> {
+    /// `samples` holds each clip's decoded audio, as [`crate::Controller::set_clips`] finds it.
+    /// Returns `clips` and `samples` unchanged if the track doesn't exist.
+    #[allow(clippy::type_complexity)]
+    pub fn replace_clips(
+        &mut self,
+        index: usize,
+        mut clips: Vec<Clip>,
+        mut samples: Vec<Option<Arc<Sample>>>,
+    ) -> (Vec<Clip>, Vec<Option<Arc<Sample>>>) {
         if let (Some(track), Some(state)) = (
             self.project.tracks.get_mut(index),
             self.tracks.get_mut(index),
         ) {
             std::mem::swap(&mut track.clips, &mut clips);
+            std::mem::swap(&mut state.samples, &mut samples);
             for pitch in 0..128u8 {
                 if std::mem::take(&mut state.notes_on[usize::from(pitch)])
                     && let Some(i) = state.instrument.as_mut()
@@ -224,7 +315,43 @@ impl Engine {
                 }
             }
         }
-        clips
+        (clips, samples)
+    }
+
+    /// Plays or releases a note on a track now, as from a MIDI keyboard. Notes for tracks that
+    /// don't exist, or beyond what one block can hold, are dropped. Doesn't allocate.
+    pub fn live_note(&mut self, track: usize, pitch: u8, velocity: f32, on: bool) {
+        let Some(state) = self.tracks.get_mut(track) else {
+            return;
+        };
+        let pitch = pitch.min(127);
+        if state.live.len() < MAX_LIVE_EVENTS {
+            state.live_on[usize::from(pitch)] = on;
+            state.live.push(Event {
+                offset: 0,
+                on,
+                pitch,
+                velocity: finite32(velocity, 0.0, 1.0, 0.8),
+            });
+        }
+    }
+
+    /// Releases every note held live, on every track.
+    pub fn release_live(&mut self) {
+        for state in &mut self.tracks {
+            for pitch in 0..128u8 {
+                if std::mem::take(&mut state.live_on[usize::from(pitch)])
+                    && state.live.len() < MAX_LIVE_EVENTS
+                {
+                    state.live.push(Event {
+                        offset: 0,
+                        on: false,
+                        pitch,
+                        velocity: 0.0,
+                    });
+                }
+            }
+        }
     }
 
     pub fn play(&mut self) {
@@ -286,6 +413,10 @@ impl Engine {
         out_r.fill(0.0);
         for track in &mut self.tracks {
             track.events.clear();
+            // `append` keeps `live`'s capacity, so nothing is freed here.
+            track.events.append(&mut track.live);
+            track.audio_l[..n].fill(0.0);
+            track.audio_r[..n].fill(0.0);
         }
 
         if self.playing {
@@ -316,6 +447,13 @@ impl Engine {
                 if cursor < n {
                     instrument.render(&mut l[cursor..], &mut r[cursor..]);
                 }
+            }
+            for i in 0..n {
+                l[i] += state.audio_l[i];
+                r[i] += state.audio_r[i];
+            }
+            for effect in &mut state.effects {
+                effect.process(l, r);
             }
 
             let gain_l = track.volume * (1.0 - track.pan).min(1.0);
@@ -391,6 +529,7 @@ fn schedule_track(
     len: usize,
     samples_per_beat: f64,
 ) {
+    render_audio_clips(state, track, b0, b1, offset, len, samples_per_beat);
     // Positions are compared as f64 and clamped before converting, so no out-of-range cast
     // can happen (security review, finding 4).
     let to_offset =
@@ -424,6 +563,53 @@ fn schedule_track(
                     });
                 }
             }
+        }
+    }
+}
+
+/// Adds the audio clips under `b0..b1` into the track's audio buffers at `offset..offset + len`.
+/// Audio plays at its own speed: one source frame per output frame (the pool has already
+/// resampled it to the engine's rate).
+fn render_audio_clips(
+    state: &mut TrackState,
+    track: &crate::project::Track,
+    b0: f64,
+    b1: f64,
+    offset: usize,
+    len: usize,
+    samples_per_beat: f64,
+) {
+    for (clip, sample) in track.clips.iter().zip(&state.samples) {
+        let (Some(region), Some(sample)) = (&clip.audio, sample) else {
+            continue;
+        };
+        if clip.muted || clip.end() <= b0 || clip.start >= b1 {
+            continue;
+        }
+        // Which frames of this segment the clip covers, worked out in f64 and clamped before
+        // converting (security review, finding 4).
+        let first = ((clip.start - b0) * samples_per_beat)
+            .ceil()
+            .clamp(0.0, len as f64) as usize;
+        let last = ((clip.end() - b0) * samples_per_beat)
+            .ceil()
+            .clamp(0.0, len as f64) as usize;
+        // The source frame for segment frame 0.
+        let base = (b0 - clip.start) * samples_per_beat + region.offset * sample.rate();
+        let frames = sample.frames() as f64;
+        let (src_l, src_r) = (sample.left(), sample.right());
+        let gain = region.gain;
+        for j in first..last {
+            let at = base + j as f64;
+            if at < 0.0 {
+                continue;
+            }
+            if at >= frames {
+                break;
+            }
+            let i = at as usize;
+            state.audio_l[offset + j] += src_l[i] * gain;
+            state.audio_r[offset + j] += src_r[i] * gain;
         }
     }
 }
@@ -620,12 +806,12 @@ mod tests {
         let mut engine = Engine::new(one_note_project(), 48_000.0, 512).unwrap();
         engine.play();
         engine.render(4800);
-        let old = engine.replace_clips(0, Vec::new());
+        let (old, _) = engine.replace_clips(0, Vec::new(), Vec::new());
         assert_eq!(old.len(), 1, "the old clips come back");
         assert!(engine.project().tracks[0].clips.is_empty());
         let (l, _) = engine.render(48_000);
         assert!(rms(&l[40_000..]) < 1e-4, "the held note was released");
-        let back = engine.replace_clips(7, vec![Clip::default()]);
+        let (back, _) = engine.replace_clips(7, vec![Clip::default()], vec![None]);
         assert_eq!(
             back.len(),
             1,
@@ -645,5 +831,121 @@ mod tests {
         let engine = Engine::new(project, 48_000.0, 512).unwrap();
         assert_eq!(engine.warnings().len(), 1);
         assert!(engine.warnings()[0].contains("Some Synth"));
+    }
+
+    #[test]
+    fn audio_clips_play_on_time_at_their_own_speed() {
+        let dir =
+            std::env::temp_dir().join(format!("audiozero-engine-audio-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // One second of a tone at 24 kHz; the engine runs at 48 kHz, so the pool resamples it.
+        crate::sample::tests::write_test_wav(&dir.join("tone.wav"), 24_000, 24_000);
+        let audio_clip = |start: f64, offset: f64, gain: f32| Clip {
+            start,
+            length: 4.0,
+            audio: Some(crate::project::AudioRegion {
+                file: "tone.wav".into(),
+                offset,
+                gain,
+            }),
+            ..Default::default()
+        };
+        let project = Project {
+            bpm: 120.0, // 2 beats a second, 24 000 frames a beat at 48 kHz
+            tracks: vec![Track {
+                instrument: None,
+                clips: vec![audio_clip(1.0, 0.0, 1.0), audio_clip(8.0, 0.5, 0.0)],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut pool = SamplePool::new(48_000.0);
+        pool.set_base(Some(dir.clone()));
+        let mut engine = Engine::with_samples(project.clone(), 48_000.0, 512, &mut pool).unwrap();
+        assert!(engine.warnings().is_empty(), "{:?}", engine.warnings());
+        engine.play();
+        let (l, _) = engine.render(48_000 * 5);
+        let loud = |range: std::ops::Range<usize>| l[range].iter().any(|x| x.abs() > 0.05);
+        assert!(!loud(0..23_990), "silent before the clip");
+        assert!(loud(24_000..30_000), "plays from beat 1");
+        assert!(loud(60_000..71_000), "still playing near the file's end");
+        assert!(
+            !loud(72_100..96_000),
+            "stops when the file ends (1 s later), not stretched"
+        );
+        assert!(!loud(192_000..240_000), "a gain of 0 is silent");
+
+        // A relative path with no project folder becomes a warning, not an error.
+        let engine = Engine::new(project, 48_000.0, 512).unwrap();
+        assert_eq!(engine.warnings().len(), 2);
+        assert!(engine.warnings()[0].contains("tone.wav"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn audio_clips_wrap_with_the_loop_and_respect_mute() {
+        let dir =
+            std::env::temp_dir().join(format!("audiozero-engine-loop-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        crate::sample::tests::write_test_wav(&dir.join("t.wav"), 48_000, 48_000);
+        let clip = Clip {
+            start: 0.0,
+            length: 1.0,
+            audio: Some(crate::project::AudioRegion {
+                file: "t.wav".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let project = Project {
+            loop_enabled: true,
+            loop_start: 0.0,
+            loop_end: 2.0,
+            tracks: vec![Track {
+                instrument: None,
+                clips: vec![clip.clone()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut pool = SamplePool::new(48_000.0);
+        pool.set_base(Some(dir.clone()));
+        let mut engine = Engine::with_samples(project.clone(), 48_000.0, 512, &mut pool).unwrap();
+        engine.play();
+        let (l, _) = engine.render(48_000 * 2);
+        let loud = |range: std::ops::Range<usize>| l[range].iter().any(|x| x.abs() > 0.05);
+        // 1 beat = 24 000 frames: clip, silence, clip again after the wrap, silence.
+        assert!(loud(100..23_900) && !loud(24_100..47_900));
+        assert!(loud(48_100..71_900) && !loud(72_100..96_000));
+
+        let mut muted = project;
+        muted.tracks[0].clips[0].muted = true;
+        let mut engine = Engine::with_samples(muted, 48_000.0, 512, &mut pool).unwrap();
+        engine.play();
+        let (l, _) = engine.render(24_000);
+        assert!(l.iter().all(|x| x.abs() < 1e-6));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn live_notes_play_while_stopped() {
+        let mut engine = Engine::new(one_note_project(), 48_000.0, 512).unwrap();
+        let (l, _) = engine.render(512);
+        assert!(
+            l.iter().all(|x| *x == 0.0),
+            "stopped and nothing held: silent"
+        );
+        engine.live_note(0, 60, 1.0, true);
+        engine.live_note(99, 60, 1.0, true); // no such track: ignored
+        let (l, _) = engine.render(4800);
+        assert!(l.iter().any(|x| x.abs() > 0.01), "the live note sounds");
+        engine.release_live();
+        engine.render(48_000);
+        let (l, _) = engine.render(512);
+        assert!(l.iter().all(|x| x.abs() < 1e-3), "released");
+        for _ in 0..1000 {
+            engine.live_note(0, 60, 1.0, true); // more than a block holds: dropped, no allocation
+        }
+        assert!(engine.tracks[0].live.len() <= MAX_LIVE_EVENTS);
     }
 }

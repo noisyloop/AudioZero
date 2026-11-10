@@ -7,13 +7,17 @@
 //! [`Controller::apply`]: audiozero_engine::Controller::apply
 
 mod arrangement;
+mod live;
 mod piano_roll;
 mod theme;
 
 use crate::audio::Output;
-use crate::default_folder;
+use crate::input::{AudioIn, MidiIn};
+use crate::record::Take;
+use crate::{default_folder, project_folder};
+use audiozero_engine::sample::AUDIO_EXTENSIONS;
 use audiozero_engine::{
-    Changes, Clip, ClipRef, Command, Device, EditError, Project, Session, Track, demo,
+    AudioRegion, Changes, Clip, ClipRef, Command, Device, EditError, Project, Session, Track, demo,
 };
 use eframe::egui::{self, Color32, Key, Pos2, Rect, Sense, Vec2};
 use std::path::{Path, PathBuf};
@@ -32,7 +36,7 @@ pub fn run(start: Option<PathBuf>) -> Result<(), String> {
         options,
         Box::new(move |cc| {
             theme::apply(&cc.egui_ctx);
-            Ok(Box::new(App::new(start)))
+            Ok(Box::new(App::new(start, cc.egui_ctx.clone())))
         }),
     )
     .map_err(|e| e.to_string())
@@ -117,17 +121,43 @@ struct App {
     view: View,
     snap: Snap,
     selected_clip: Option<ClipRef>,
+    /// The lane under the pointer (track, beat), where a dropped audio file goes. A track index
+    /// past the last track means "a new track".
+    drop_target: Option<(usize, f64)>,
     arrangement_drag: Option<arrangement::Drag>,
     roll: Option<piano_roll::Roll>,
     prompt: Option<PathPrompt>,
     pending: Option<Pending>,
     allow_close: bool,
     title: String,
+    /// Every MIDI input, playing the live target track.
+    midi: Option<MidiIn>,
+    /// The audio input, open while an audio track is armed.
+    audio_in: Option<AudioIn>,
+    /// The track that records, if any.
+    armed: Option<usize>,
+    recording: Option<Take>,
+    /// The transport has been seen playing since the take started.
+    record_rolling: bool,
+    keys: live::Keys,
 }
 
 impl App {
-    fn new(start: Option<PathBuf>) -> Self {
-        let audio = Output::open();
+    fn new(start: Option<PathBuf>, ctx: egui::Context) -> Self {
+        let mut audio = Output::open();
+        let (midi, midi_status) = match audio.controller.take_live_input() {
+            Some(live) => match MidiIn::open(live, move || ctx.request_repaint()) {
+                Ok(midi) if midi.ports.is_empty() => {
+                    (Some(midi), " · No MIDI inputs; A–K play notes".to_string())
+                }
+                Ok(midi) => {
+                    let names = midi.ports.join(", ");
+                    (Some(midi), format!(" · MIDI: {names}"))
+                }
+                Err(e) => (None, format!(" · MIDI unavailable ({e})")),
+            },
+            None => (None, String::new()),
+        };
         let mut app = Self {
             status: audio.description.clone(),
             audio,
@@ -141,17 +171,25 @@ impl App {
             },
             snap: Snap::Sixteenth,
             selected_clip: None,
+            drop_target: None,
             arrangement_drag: None,
             roll: None,
             prompt: None,
             pending: None,
             allow_close: false,
             title: String::new(),
+            midi,
+            audio_in: None,
+            armed: None,
+            recording: None,
+            record_rolling: false,
+            keys: live::Keys::default(),
         };
         match start {
             Some(path) => app.open_path(&path),
             None => app.install(demo::project(), None),
         }
+        app.status.push_str(&midi_status);
         app
     }
 
@@ -166,6 +204,16 @@ impl App {
                 return;
             }
         };
+        let previous_folder = self
+            .audio
+            .controller
+            .samples()
+            .base()
+            .map(Path::to_path_buf);
+        self.audio
+            .controller
+            .samples()
+            .set_base(project_folder(file.as_deref()));
         match self.audio.controller.load(session.project().clone()) {
             Ok(warnings) => {
                 self.status = if warnings.is_empty() {
@@ -178,13 +226,19 @@ impl App {
                 };
                 self.session = session;
                 self.file = file;
+                self.recording = None;
+                self.armed = None;
+                self.audio_in = None;
                 self.selected_clip = None;
                 self.arrangement_drag = None;
                 self.roll = None;
                 self.view.scroll_beats = 0.0;
                 self.view.scroll_y = 0.0;
             }
-            Err(e) => self.status = format!("Can't open project: {e}"),
+            Err(e) => {
+                self.audio.controller.samples().set_base(previous_folder);
+                self.status = format!("Can't open project: {e}");
+            }
         }
     }
 
@@ -211,6 +265,10 @@ impl App {
         match self.session.project().save(&path) {
             Ok(()) => {
                 self.status = format!("Saved {}", path.display());
+                self.audio
+                    .controller
+                    .samples()
+                    .set_base(project_folder(Some(&path)));
                 self.file = Some(path);
                 self.session.mark_saved();
             }
@@ -402,7 +460,81 @@ impl App {
         self.finish(result);
     }
 
+    /// How a project names an audio file: relative to the project's folder when it's inside it
+    /// (so the folder can be moved), otherwise absolute.
+    fn audio_file_name(&self, path: &Path) -> String {
+        let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+        if let Some(folder) = self.file.as_deref().and_then(|f| project_folder(Some(f)))
+            && let Ok(folder) = std::path::absolute(folder)
+            && let Ok(inside) = absolute.strip_prefix(&folder)
+        {
+            return inside.to_string_lossy().into_owned();
+        }
+        absolute.to_string_lossy().into_owned()
+    }
+
+    /// Adds an audio file as a clip at `target` (track, beat), or on a new track at the start
+    /// when there's no target. Returns where the next file should go: straight after this one.
+    fn import_audio(&mut self, path: &Path, target: Option<(usize, f64)>) -> Option<(usize, f64)> {
+        let file = self.audio_file_name(path);
+        let sample = match self.audio.controller.samples().get(&file) {
+            Ok(sample) => sample,
+            Err(e) => {
+                self.status = format!("Can't import {}: {e}", path.display());
+                return target;
+            }
+        };
+        let name = path
+            .file_stem()
+            .map_or("Audio".into(), |s| s.to_string_lossy().into_owned());
+        let bpm = self.session.project().bpm;
+        let length = (sample.seconds() * bpm / 60.0).max(1.0 / 16.0);
+        let tracks = self.session.project().tracks.len();
+        let (track, beat) = target.unwrap_or((tracks, 0.0));
+        let step = self.snap_beats();
+        let start = if step > 0.0 {
+            (beat.max(0.0) / step).floor() * step
+        } else {
+            beat.max(0.0)
+        };
+        let clip = Clip {
+            name: name.clone(),
+            start,
+            length,
+            audio: Some(AudioRegion {
+                file,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let result = self.session.try_edit(|p| {
+            let track = if track >= p.tracks.len() {
+                p.tracks.push(Track {
+                    name: name.clone(),
+                    instrument: None,
+                    ..Default::default()
+                });
+                p.tracks.len() - 1
+            } else {
+                track
+            };
+            p.tracks[track].clips.push(clip);
+            Ok(ClipRef {
+                track,
+                clip: p.tracks[track].clips.len() - 1,
+            })
+        });
+        let at = self.done(result)?;
+        self.selected_clip = Some(at);
+        self.status = format!("Imported {name} ({:.1} s)", sample.seconds());
+        Some((at.track, start + length))
+    }
+
     fn open_roll(&mut self, at: ClipRef) {
+        if self.clip(at).is_some_and(Clip::is_audio) {
+            self.status = "That's an audio clip; it has no notes to edit.".into();
+            return;
+        }
         if self.clip(at).is_some() {
             self.selected_clip = Some(at);
             self.roll = Some(piano_roll::Roll::new(at, self.clip(at)));
@@ -429,6 +561,9 @@ impl App {
     }
 
     fn toggle_play(&mut self) {
+        if self.audio.controller.is_playing() {
+            self.stop_recording();
+        }
         let command = if self.audio.controller.is_playing() {
             Command::Stop
         } else {
@@ -519,6 +654,14 @@ impl App {
             {
                 self.toggle_play();
             }
+            let recording = self.is_recording();
+            ui.label("Rec");
+            if record_dot(ui, recording)
+                .on_hover_text("Record on the armed track (R)")
+                .clicked()
+            {
+                self.toggle_record();
+            }
 
             let position = self.audio.controller.position();
             let per_bar = f64::from(self.session.project().beats_per_bar);
@@ -550,6 +693,8 @@ impl App {
                 self.set_without_undo(|p| p.loop_enabled = looping);
             }
             ui.checkbox(&mut self.view.follow, "Follow");
+            ui.label(egui::RichText::new(self.keys_label()).color(theme::TEXT_DIM))
+                .on_hover_text("Computer keyboard: A–K play notes on the armed or selected track; Z/X change octave, C/V velocity");
             ui.separator();
 
             ui.label("Snap");
@@ -577,15 +722,21 @@ impl App {
     }
 
     fn status_bar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(&self.status).color(theme::TEXT_DIM));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let colour = if self.audio.has_device() {
-                    theme::TEXT_DIM
-                } else {
-                    theme::ACCENT
-                };
-                ui.label(egui::RichText::new(&self.audio.description).color(colour));
+        // The device on the right, then the status in what's left, cut short if it's long.
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let colour = if self.audio.has_device() {
+                theme::TEXT_DIM
+            } else {
+                theme::ACCENT
+            };
+            ui.label(egui::RichText::new(&self.audio.description).color(colour));
+            ui.separator();
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.add(
+                    egui::Label::new(egui::RichText::new(&self.status).color(theme::TEXT_DIM))
+                        .truncate(),
+                )
+                .on_hover_text(&self.status);
             });
         });
     }
@@ -670,6 +821,7 @@ impl App {
 
     fn shortcuts(&mut self, ctx: &egui::Context) {
         if self.prompt.is_some() || self.pending.is_some() || ctx.egui_wants_keyboard_input() {
+            self.release_keys();
             return;
         }
         let pressed = |key| ctx.input(|i| i.key_pressed(key));
@@ -702,6 +854,10 @@ impl App {
                 );
             }
             return;
+        }
+        self.computer_keys(ctx);
+        if pressed(Key::R) {
+            self.toggle_record();
         }
         if pressed(Key::Space) {
             self.toggle_play();
@@ -739,11 +895,22 @@ impl App {
                 .map(|f| f.path().to_path_buf())
                 .collect()
         });
-        if let Some(path) = dropped
-            .into_iter()
+        let is_audio = |p: &PathBuf| {
+            p.extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| AUDIO_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+        };
+        let audio_files: Vec<&PathBuf> = dropped.iter().filter(|p| is_audio(p)).collect();
+        if !audio_files.is_empty() {
+            let mut target = self.drop_target;
+            for path in audio_files {
+                target = self.import_audio(path, target);
+            }
+        } else if let Some(path) = dropped
+            .iter()
             .find(|p| p.extension().is_some_and(|e| e == "json"))
         {
-            self.open_path(&path);
+            self.open_path(path);
         }
         if ctx.input(|i| i.viewport().close_requested())
             && self.session.is_dirty()
@@ -769,6 +936,26 @@ impl App {
             self.title = title;
         }
     }
+}
+
+/// A round record button: a red dot when on, a grey ring when off. (Drawn, because the
+/// built-in fonts have no "●".)
+fn record_dot(ui: &mut egui::Ui, on: bool) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(18.0), Sense::click());
+    let painter = ui.painter_at(rect);
+    let red = Color32::from_rgb(0xef, 0x53, 0x50);
+    let radius = if response.hovered() { 6.0 } else { 5.5 };
+    if on {
+        painter.circle_filled(rect.center(), radius, red);
+    } else {
+        let colour = if response.hovered() {
+            red
+        } else {
+            theme::TEXT_DIM
+        };
+        painter.circle_stroke(rect.center(), radius, egui::Stroke::new(1.5, colour));
+    }
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 /// A stereo level meter: two thin bars, green to orange to red.
@@ -807,6 +994,7 @@ impl eframe::App for App {
         self.audio.controller.collect_garbage();
         self.validate_selection();
         self.handle_drops_and_close(&ctx);
+        self.live_input(&ctx);
         self.shortcuts(&ctx);
 
         egui::Panel::top("transport").show(ui, |ui| {

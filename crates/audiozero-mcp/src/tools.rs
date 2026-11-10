@@ -1,6 +1,6 @@
 //! The tools: their definitions (names, descriptions, JSON schemas) and what each one does.
 
-use crate::{Audio, MAX_NOTES_PER_CALL, Server};
+use crate::{Ctx, MAX_NOTES_PER_CALL};
 use audiozero_engine::project::limits::MAX_BEATS;
 use audiozero_engine::session::mix_of;
 use audiozero_engine::synth::BUILTINS;
@@ -16,7 +16,9 @@ the computer's speakers. Positions and lengths are in beats (quarter notes); a b
 `beats_per_bar` beats. Notes use MIDI pitch (60 = middle C) and start relative to their clip. \
 Tracks, clips and notes are addressed by index; indices shift when something is removed, so call \
 get_project (or get_clip) again after removing things. Every edit can be undone with undo. \
-Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Nothing is written \
+Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Audio clips (with \
+an `audio` field) play a recording at its own speed; they have no notes, and you can move, \
+trim, duplicate or remove them but not create them. Nothing is written \
 to disk until you call save.";
 
 const NOTE_SCHEMA: &str = r#"{
@@ -456,12 +458,7 @@ fn check_beat(what: &str, value: f64) -> Result<(), String> {
 
 /// Runs a tool. `Ok` is the result to show the client; `Err` is a message for it, reported as a
 /// tool error so the model can correct itself.
-pub fn call<A: Audio>(
-    server: &mut Server<A>,
-    name: &str,
-    arguments: Value,
-) -> Result<Value, String> {
-    let s = server;
+pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, String> {
     match name {
         "get_project" => {
             parse::<NoArgs>(arguments)?;
@@ -484,6 +481,7 @@ pub fn call<A: Audio>(
             Ok(json!({
                 "track": a.track, "clip": a.clip, "name": clip.name, "start": clip.start,
                 "length": clip.length, "muted": clip.muted, "notes": notes,
+                "audio": audio_of(clip),
             }))
         }
         "list_instruments" => {
@@ -607,6 +605,7 @@ pub fn call<A: Audio>(
                 length: a.length,
                 muted: false,
                 notes: notes(a.notes)?,
+                audio: None,
             };
             let count = clip.notes.len();
             let (at, changes) = s
@@ -881,7 +880,7 @@ fn range<T: Into<f64> + Copy>(what: &str, value: T, lo: f64, hi: f64) -> Result<
 }
 
 /// Sends an edit to the audio thread and adds any warnings to its result.
-fn done<A: Audio>(s: &mut Server<A>, changes: &Changes, mut result: Value) -> Value {
+fn done(s: &mut Ctx<'_>, changes: &Changes, mut result: Value) -> Value {
     let warnings = s.hear(changes);
     if !warnings.is_empty() {
         result["warnings"] = json!(warnings);
@@ -889,17 +888,28 @@ fn done<A: Audio>(s: &mut Server<A>, changes: &Changes, mut result: Value) -> Va
     result
 }
 
-fn clip_summary<A: Audio>(s: &Server<A>, at: ClipRef) -> Value {
+/// An audio clip's file (by name only, not its full path), offset and gain; null for MIDI clips.
+fn audio_of(clip: &Clip) -> Value {
+    clip.audio.as_ref().map_or(Value::Null, |a| {
+        let name = Path::new(&a.file)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned());
+        json!({ "file": name, "offset_seconds": a.offset, "gain": f32_out(a.gain) })
+    })
+}
+
+fn clip_summary(s: &Ctx<'_>, at: ClipRef) -> Value {
     match s.session.clip(at) {
         Some(c) => json!({
             "track": at.track, "clip": at.clip, "name": c.name, "start": c.start,
             "length": c.length, "muted": c.muted, "notes": c.notes.len(),
+            "audio": audio_of(c),
         }),
         None => json!({ "track": at.track, "clip": at.clip }),
     }
 }
 
-fn project_summary<A: Audio>(s: &Server<A>) -> Value {
+fn project_summary(s: &Ctx<'_>) -> Value {
     let p = s.session.project();
     let tracks: Vec<Value> = p
         .tracks
@@ -911,7 +921,7 @@ fn project_summary<A: Audio>(s: &Server<A>) -> Value {
                 .iter()
                 .enumerate()
                 .map(|(j, c)| {
-                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "notes": c.notes.len() })
+                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "notes": c.notes.len(), "audio": audio_of(c) })
                 })
                 .collect();
             json!({
@@ -958,7 +968,7 @@ fn file_name(name: &str) -> Result<String, String> {
     }
 }
 
-fn save<A: Audio>(s: &mut Server<A>, name: Option<&str>) -> Result<Value, String> {
+fn save(s: &mut Ctx<'_>, name: Option<&str>) -> Result<Value, String> {
     let path = match (&s.save.file, name) {
         (Some(file), None) => file.clone(),
         (Some(_), Some(_)) => {

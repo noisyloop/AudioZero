@@ -11,7 +11,8 @@ use std::path::Path;
 /// Written in every project file, so other JSON is rejected early.
 pub const FORMAT_NAME: &str = "audiozero-project";
 /// Bump when the format changes in a way older builds can't read.
-pub const FORMAT_VERSION: u32 = 1;
+/// Version 2 added audio clips.
+pub const FORMAT_VERSION: u32 = 2;
 
 /// Hard limits. A project over any of these fails to load with a clear message instead of
 /// exhausting memory or stalling the audio thread.
@@ -24,6 +25,10 @@ pub mod limits {
     /// Furthest position anything can sit at, in beats (about 14 hours at 120 BPM).
     pub const MAX_BEATS: f64 = 100_000.0;
     pub const MAX_NAME_CHARS: usize = 256;
+    /// Longest audio file name a project can hold.
+    pub const MAX_PATH_CHARS: usize = 4096;
+    /// Furthest into an audio file a clip can start, in seconds.
+    pub const MAX_AUDIO_OFFSET: f64 = 36_000.0;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -120,7 +125,7 @@ pub enum PluginFormat {
     Vst3,
 }
 
-/// A MIDI clip. Audio clips come later, with a bounded decoder.
+/// A clip on the timeline: MIDI notes, or a region of an audio file when `audio` is set.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Clip {
@@ -129,7 +134,34 @@ pub struct Clip {
     pub start: f64,
     pub length: f64,
     pub muted: bool,
+    /// MIDI notes. Always empty for audio clips.
     pub notes: Vec<Note>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio: Option<AudioRegion>,
+}
+
+/// The audio an audio clip plays. It plays at the file's own speed (no time-stretching yet), so
+/// how many beats it covers depends on the tempo.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AudioRegion {
+    /// The audio file: relative to the project's folder, or absolute. Checked by
+    /// [`SamplePool::resolve`](crate::sample::SamplePool::resolve) before it's opened.
+    pub file: String,
+    /// Where in the file the clip starts, in seconds.
+    pub offset: f64,
+    /// Linear gain, 1 = as recorded.
+    pub gain: f32,
+}
+
+impl Default for AudioRegion {
+    fn default() -> Self {
+        Self {
+            file: String::new(),
+            offset: 0.0,
+            gain: 1.0,
+        }
+    }
 }
 
 impl Default for Clip {
@@ -140,11 +172,16 @@ impl Default for Clip {
             length: 4.0,
             muted: false,
             notes: Vec::new(),
+            audio: None,
         }
     }
 }
 
 impl Clip {
+    pub fn is_audio(&self) -> bool {
+        self.audio.is_some()
+    }
+
     pub fn end(&self) -> f64 {
         self.start + self.length
     }
@@ -158,6 +195,14 @@ impl Clip {
         self.start = finite(self.start, 0.0, MAX_BEATS, 0.0);
         let room = (MAX_BEATS - self.start).max(1.0 / 16.0);
         self.length = finite(self.length, 1.0 / 16.0, room, 4.0_f64.min(room));
+        if let Some(audio) = &mut self.audio {
+            if let Some((cut, _)) = audio.file.char_indices().nth(limits::MAX_PATH_CHARS) {
+                audio.file.truncate(cut);
+            }
+            audio.offset = finite(audio.offset, 0.0, limits::MAX_AUDIO_OFFSET, 0.0);
+            audio.gain = finite32(audio.gain, 0.0, 4.0, 1.0);
+            self.notes.clear();
+        }
         let length = self.length;
         self.notes
             .retain(|n| n.start.is_finite() && n.start >= 0.0 && n.start < length);
@@ -435,6 +480,24 @@ mod tests {
                 length: 1.0,
                 velocity: 1.0
             }
+        );
+    }
+
+    #[test]
+    fn audio_clips_round_trip_and_are_sanitized() {
+        let json = minimal(
+            r#","tracks":[{"clips":[{"start":2,"length":8,"audio":{"file":"loops/drums.wav","offset":-3,"gain":99},"notes":[{"pitch":60,"start":0,"length":1,"velocity":1}]}]}]"#,
+        );
+        let p = Project::from_json(&json).unwrap();
+        let clip = &p.tracks[0].clips[0];
+        let audio = clip.audio.as_ref().unwrap();
+        assert_eq!(audio.file, "loops/drums.wav");
+        assert_eq!((audio.offset, audio.gain), (0.0, 4.0));
+        assert!(clip.notes.is_empty(), "audio clips have no notes");
+        assert_eq!(Project::from_json(&p.to_json()).unwrap(), p);
+        assert!(
+            !crate::demo::project().to_json().contains("\"audio\""),
+            "MIDI clips don't write an audio field"
         );
     }
 
