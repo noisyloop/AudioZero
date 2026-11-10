@@ -102,7 +102,7 @@ What works so far:
   - Shift-click to select several notes, Ctrl/Cmd + A to select all;
   - right-click or Delete to remove, Up/Down to transpose (Shift moves an octave).
 - **Grid:** snap to bars, 1/4, 1/8, 1/16 or 1/32, or turn it off. Holding Alt ignores the grid.
-- **Undo:** every clip, note and track edit can be undone and redone (Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z or Ctrl + Y). A whole drag is one step. Mixer and tempo changes aren't undo steps, and undoing an edit leaves them as they are.
+- **Undo:** every clip, note, track and instrument edit can be undone and redone (Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z or Ctrl + Y). A whole drag is one step. Mixer and tempo changes aren't undo steps, and undoing an edit leaves them as they are. All edits go through one `Session` (in the engine crate), which the MCP server uses too.
 - **Editing while playing:** an edit swaps in just that track's clips, so playback carries on. Adding or removing a track rebuilds the engine and keeps the playhead where it was. Every edit gets the same validation as a project file.
 - **Navigation:** click or drag the ruler to move the playhead; Ctrl/Cmd + wheel or pinch zooms; the wheel scrolls (Shift for sideways).
 - **Shortcuts:** Space plays and stops, Home goes back to the start, Ctrl/Cmd + S saves, Ctrl/Cmd + O opens, Ctrl/Cmd + D duplicates the selected clip.
@@ -114,8 +114,9 @@ What works so far:
 | Crate | What it is |
 | --- | --- |
 | `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes a small built-in sine synth and a demo song. |
+| `crates/audiozero-mcp` | The MCP server: every tool is a `Session` operation, so an assistant's edits get the same checks and undo as yours. Speaks MCP over stdio, with no dependencies beyond `serde_json`. See [AI control (MCP)](#ai-control-mcp). |
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
-| `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project or list installed plugins. |
+| `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project, list installed plugins or run the MCP server. |
 
 ```sh
 cargo run --release -p audiozero-app                          # open the window with the demo song
@@ -124,10 +125,42 @@ cargo run --release -p audiozero-app -- --play                # play from the co
 cargo run --release -p audiozero-app -- --render demo.wav     # render to WAV
 cargo run --release -p audiozero-app -- --save demo.json      # write the demo as a project file
 cargo run --release -p audiozero-app -- --scan                # list installed CLAP/VST3 plugins
+cargo run --release -p audiozero-app -- --mcp song.json       # MCP server for an AI assistant (see below)
 cargo test --workspace                                        # all tests
 ```
 
 On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `rtrb` (the lock-free command queue), `cpal` (audio output) and `eframe`/`egui` (the window).
+
+### AI control (MCP)
+
+`audiozero --mcp [PROJECT]` runs an [MCP](https://modelcontextprotocol.io) server on stdin/stdout, so an assistant such as Claude can build and edit a song while you listen. It edits `PROJECT` (an existing `.json` project, or a new one that's created on the first save), or an empty song if none is given, and plays through your speakers.
+
+To use it from Claude Code (build with `cargo build --release` first):
+
+```sh
+claude mcp add audiozero -- /path/to/AudioZero/target/release/audiozero --mcp ~/Music/AudioZero/my-song.json
+```
+
+Other MCP clients take the same command and arguments in their server configuration.
+
+The tools:
+
+- **Read:** `get_project`, `get_clip` and `list_instruments`.
+- **Tracks:** `add_track`, `remove_track`, `rename_track`, `set_instrument` and `set_track_mix`.
+- **Clips:** `add_clip` (optionally with notes), `update_clip`, `move_clip`, `duplicate_clip` and `remove_clip`.
+- **Notes:** `add_notes`, `set_notes`, `remove_notes` and `transpose_notes`.
+- **Song:** `set_transport` (tempo, loop, master volume), `undo`, `redo`, `play`, `stop` and `save`.
+
+It follows the rules in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md#before-the-mcp-server-ships):
+
+- It uses stdio only and never opens a network port.
+- No tool takes a file path. `save` writes to the project the server was started with. If there isn't one, it creates a new file under a plain name in `~/Music/AudioZero` and never replaces an existing file.
+- Instruments are the built-in ones, chosen by id. Nothing loads plugin code.
+- Every argument goes through the same checks as a project file. Bad values are refused with a message, not clamped silently. Messages and note lists have size caps.
+- Every edit is an undo step, except mixer and transport settings, as in the window. Every call goes into an activity log on stderr, which MCP clients show in their server logs.
+- `remove_track`, `remove_clip`, `set_notes`, `remove_notes` and `save` are marked destructive, so clients that ask for confirmation ask for those.
+
+For now the server and the window are separate. Open the saved project in the window to keep working on it there.
 
 ## Continuous integration
 
@@ -152,13 +185,13 @@ This is an early but working DAW. Not done yet:
 - Only VST3 is hosted (no AU yet).
 - Undo covers arrangement edits. Device add/remove isn't undoable yet.
 - The macOS and Windows builds are unsigned.
-- MCP / AI control isn't started yet. The `Session` class holds every editing operation (add track, create clip, load a device, and so on) in one place, which is where an MCP server would plug in.
+- MCP / AI control exists only in the Rust app: `audiozero --mcp` (see [AI control (MCP)](#ai-control-mcp)). The server and the window don't share a live session yet.
 
 ## Roadmap
 
 1. **Hardening:** trust plugins by identity instead of the path in the project file, validate project and audio input, plugin sandboxing, latency compensation, crash recovery and autosave, signed installers. See [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) for the findings and the prioritised plan.
 2. **Workflow:** automation, clip launcher, audio recording, warping, sampler and drum rack, more built-in effects.
-3. **MCP server:** expose `Session` operations so an assistant can build and edit songs.
+3. **MCP server:** the first version is in the Rust app. Next: drive the open window's session live (with the activity log visible in the UI), give plugins by identity once hosting lands, and render previews the assistant can check.
 
 ## Related projects
 

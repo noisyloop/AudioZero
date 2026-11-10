@@ -370,9 +370,12 @@ impl Session {
 
     // ---- clips ------------------------------------------------------------------------------
 
-    /// Adds a clip to a track and returns where it went.
+    /// Adds a clip, with any notes it has, to a track and returns where it went.
     pub fn add_clip(&mut self, track: usize, clip: Clip) -> Result<(ClipRef, Changes), EditError> {
         check_clip_shape(&clip)?;
+        for note in &clip.notes {
+            check_note(note, clip.length)?;
+        }
         self.try_edit(|p| {
             check_track(p, track)?;
             let clips = &mut p.tracks[track].clips;

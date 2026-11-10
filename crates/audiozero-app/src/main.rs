@@ -1,5 +1,5 @@
 //! `audiozero`: the AudioZero desktop app (Rust rewrite). With no options it opens the window;
-//! the options play, render or inspect projects from the command line.
+//! the options play, render or inspect projects from the command line, or run the MCP server.
 
 mod audio;
 mod gui;
@@ -18,6 +18,9 @@ Options:
   --render OUT.wav   Render to a WAV file instead of playing
   --save OUT.json    Save the project (handy for getting a demo project to edit)
   --scan             List CLAP and VST3 plugins in the standard folders (without loading them)
+  --mcp              Run the MCP server on stdin/stdout, so an AI assistant can build and edit
+                     PROJECT (created when saved if it doesn't exist; empty song if not given).
+                     It plays through the speakers. The activity log goes to stderr.
   -h, --help         Show this help";
 
 #[derive(Default)]
@@ -27,6 +30,7 @@ struct Args {
     save: Option<PathBuf>,
     scan: bool,
     play: bool,
+    mcp: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -44,6 +48,7 @@ fn parse_args() -> Result<Args, String> {
             Some("--save") => args.save = Some(value("--save")?),
             Some("--scan") => args.scan = true,
             Some("--play") => args.play = true,
+            Some("--mcp") => args.mcp = true,
             Some(other) if other.starts_with('-') => return Err(format!("unknown option {other}")),
             _ if args.project.is_none() => args.project = Some(PathBuf::from(arg)),
             _ => return Err("only one project can be given".into()),
@@ -76,7 +81,21 @@ fn main() -> ExitCode {
     }
 }
 
+/// Where new projects go by default: `~/Music/AudioZero`.
+pub fn default_folder() -> PathBuf {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from);
+    home.map_or_else(|| PathBuf::from("."), |h| h.join("Music").join("AudioZero"))
+}
+
 fn run(args: Args) -> Result<(), String> {
+    if args.mcp {
+        if args.play || args.scan || args.render.is_some() || args.save.is_some() {
+            return Err("--mcp can't be combined with other options".into());
+        }
+        return mcp(args.project);
+    }
     if args.scan {
         scan();
         return Ok(());
@@ -160,4 +179,28 @@ fn play(project: Project) -> Result<(), String> {
     println!("Playing {seconds:.1} s. Press Ctrl+C to stop.");
     std::thread::sleep(std::time::Duration::from_secs_f64(seconds));
     Ok(())
+}
+
+/// Runs the MCP server. stdout carries only protocol messages; everything else goes to stderr.
+fn mcp(file: Option<PathBuf>) -> Result<(), String> {
+    let project = match &file {
+        Some(path) if path.exists() => {
+            Project::load(path).map_err(|e| format!("{}: {e}", path.display()))?
+        }
+        _ => Project::default(),
+    };
+    let output = audio::Output::open();
+    eprintln!("[audiozero-mcp] {}", output.description);
+    let rules = audiozero_mcp::SaveRules {
+        file,
+        folder: default_folder(),
+    };
+    let mut server =
+        audiozero_mcp::Server::new(project, rules, output, Box::new(std::io::stderr()))?;
+    audiozero_mcp::serve(
+        &mut server,
+        std::io::stdin().lock(),
+        std::io::stdout().lock(),
+    )
+    .map_err(|e| e.to_string())
 }

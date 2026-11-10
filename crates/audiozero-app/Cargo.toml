@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 audiozero-engine = { path = "../audiozero-engine" }
 audiozero-host = { path = "../audiozero-host" }
+audiozero-mcp = { path = "../audiozero-mcp" }
 cpal = "0.18.2"
 eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 

@@ -11,6 +11,7 @@ mod piano_roll;
 mod theme;
 
 use crate::audio::Output;
+use crate::default_folder;
 use audiozero_engine::{
     Changes, Clip, ClipRef, Command, Device, EditError, Project, Session, Track, demo,
 };
@@ -122,13 +123,6 @@ struct App {
     pending: Option<Pending>,
     allow_close: bool,
     title: String,
-}
-
-fn default_folder() -> PathBuf {
-    let home = std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from);
-    home.map_or_else(|| PathBuf::from("."), |h| h.join("Music").join("AudioZero"))
 }
 
 impl App {

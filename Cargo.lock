@@ -122,6 +122,7 @@ version = "0.1.0"
 dependencies = [
  "audiozero-engine",
  "audiozero-host",
+ "audiozero-mcp",
  "cpal",
  "eframe",
 ]
@@ -141,6 +142,15 @@ name = "audiozero-host"
 version = "0.1.0"
 dependencies = [
  "audiozero-engine",
+]
+
+[[package]]
+name = "audiozero-mcp"
+version = "0.1.0"
+dependencies = [
+ "audiozero-engine",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
