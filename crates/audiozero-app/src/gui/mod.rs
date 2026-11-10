@@ -11,6 +11,7 @@ mod devices;
 mod live;
 mod piano_roll;
 mod theme;
+mod visuals;
 
 use crate::audio::Output;
 use crate::input::{AudioIn, MidiIn};
@@ -143,6 +144,12 @@ struct App {
     /// The transport has been seen playing since the take started.
     record_rolling: bool,
     keys: live::Keys,
+    /// The audio thread's output, for the live visuals.
+    tap: Option<rtrb::Consumer<f32>>,
+    tap_buffer: Vec<f32>,
+    visuals: Option<visuals::LiveVisuals>,
+    export_dialog: Option<visuals::ExportDialog>,
+    export_job: Option<visuals::ExportJob>,
 }
 
 impl App {
@@ -188,11 +195,17 @@ impl App {
             recording: None,
             record_rolling: false,
             keys: live::Keys::default(),
+            tap: None,
+            tap_buffer: Vec::new(),
+            visuals: None,
+            export_dialog: None,
+            export_job: None,
         };
         match start {
             Some(path) => app.open_path(&path),
             None => app.install(demo::project(), None),
         }
+        app.tap = app.audio.controller.take_output_tap();
         app.status.push_str(&midi_status);
         app
     }
@@ -640,6 +653,18 @@ impl App {
                     self.add_track();
                 }
             });
+            ui.menu_button("Visuals", |ui| {
+                let open = self.visuals.is_some();
+                if ui
+                    .button(if open { "Hide live visuals" } else { "Show live visuals" })
+                    .clicked()
+                {
+                    self.toggle_visuals();
+                }
+                if ui.button("Export video…").clicked() {
+                    self.open_export_dialog();
+                }
+            });
             ui.separator();
 
             if ui
@@ -999,6 +1024,7 @@ impl eframe::App for App {
         self.validate_selection();
         self.handle_drops_and_close(&ctx);
         self.live_input(&ctx);
+        self.visuals_frame(&ctx);
         self.shortcuts(&ctx);
 
         egui::Panel::top("transport").show(ui, |ui| {
@@ -1027,6 +1053,7 @@ impl eframe::App for App {
             .frame(egui::Frame::NONE)
             .show(ui, |ui| self.arrangement(ui));
         self.dialogs(&ctx);
+        self.export_ui(&ctx);
         self.update_title(&ctx);
 
         // Keep the playhead and meters moving.

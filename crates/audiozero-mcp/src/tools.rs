@@ -350,6 +350,22 @@ const TOOLS: &[Tool] = &[
         destructive: false,
     },
     Tool {
+        name: "export_video",
+        title: "Export video",
+        description: "Renders audio-reactive visuals for the song (or the loop) with its audio, as a new file `name`.mp4 (or .webm, or a folder of PNG frames) in the AudioZero folder. Never replaces a file. Takes a while: about as long as the song.",
+        properties: props!(
+            r#""name": { "type": "string", "description": "File name without extension (letters, digits, spaces, - and _)" }"#,
+            r#""look": { "type": "string", "enum": ["spectrum", "rings", "particles"], "description": "Defaults to spectrum" }"#,
+            r#""format": { "type": "string", "enum": ["widescreen", "shorts", "square", "portrait", "4k"], "description": "Defaults to widescreen (1920x1080); shorts is 9:16" }"#,
+            r#""fps": { "type": "integer", "enum": [30, 60] }"#,
+            r#""loop": { "type": "boolean", "description": "Only the loop range" }"#,
+            r#""container": { "type": "string", "enum": ["mp4", "webm", "frames"], "description": "Defaults to mp4 (needs FFmpeg)" }"#
+        ),
+        required: &["name"],
+        read_only: false,
+        destructive: true,
+    },
+    Tool {
         name: "save",
         title: "Save",
         description: "Saves the song: to the project file this server was started with, or, if there isn't one, to a new file `name`.json in the AudioZero folder (never replacing an existing file).",
@@ -956,6 +972,78 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
             }
             Ok(json!({ "playing": false, "position": s.audio.position() }))
         }
+        "export_video" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                name: String,
+                look: Option<String>,
+                format: Option<String>,
+                fps: Option<u32>,
+                #[serde(rename = "loop", default)]
+                loop_only: bool,
+                container: Option<String>,
+            }
+            let a: Args = parse(arguments)?;
+            let mut settings = audiozero_visuals::VideoSettings {
+                look: a.look.unwrap_or_else(|| "spectrum".into()),
+                fps: a.fps.unwrap_or(30),
+                range: if a.loop_only {
+                    audiozero_visuals::Range::Loop
+                } else {
+                    audiozero_visuals::Range::Song
+                },
+                ..Default::default()
+            };
+            if !matches!(settings.fps, 30 | 60) {
+                return Err("fps has to be 30 or 60".into());
+            }
+            settings.set_format(a.format.as_deref().unwrap_or("widescreen"))?;
+            if settings.width > 3840 || settings.height > 3840 {
+                return Err("that format is too large".into());
+            }
+            let name = plain_name(&a.name)?;
+            let target = match a.container.as_deref().unwrap_or("mp4") {
+                "mp4" => format!("{name}.mp4"),
+                "webm" => format!("{name}.webm"),
+                "frames" => name,
+                other => {
+                    return Err(format!(
+                        "unknown container \"{other}\"; use mp4, webm or frames"
+                    ));
+                }
+            };
+            let path = s.save.folder.join(&target);
+            if path.exists() {
+                return Err(format!("{target} already exists; choose another name"));
+            }
+            std::fs::create_dir_all(&s.save.folder)
+                .map_err(|e| format!("can't create the AudioZero folder: {e}"))?;
+            let mut pool =
+                audiozero_engine::sample::SamplePool::new(audiozero_visuals::analysis::RATE);
+            pool.set_base(
+                s.save
+                    .file
+                    .as_deref()
+                    .and_then(Path::parent)
+                    .map(Path::to_path_buf),
+            );
+            let done = audiozero_visuals::export(
+                s.session.project(),
+                &mut pool,
+                &settings,
+                &path,
+                |_, _| true,
+            )?;
+            Ok(json!({
+                "exported": target,
+                "frames": done.frames,
+                "seconds": done.seconds,
+                "width": settings.width,
+                "height": settings.height,
+                "look": settings.look,
+            }))
+        }
         "save" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -1087,6 +1175,10 @@ fn project_summary(s: &Ctx<'_>) -> Value {
 /// A file name the assistant may create: plain characters only, so it can't name another folder
 /// or a hidden file.
 fn file_name(name: &str) -> Result<String, String> {
+    plain_name(name).map(|n| format!("{n}.json"))
+}
+
+fn plain_name(name: &str) -> Result<String, String> {
     let name = name.trim();
     let ok = !name.is_empty()
         && name.chars().count() <= 64
@@ -1094,7 +1186,7 @@ fn file_name(name: &str) -> Result<String, String> {
             .chars()
             .all(|c| c.is_alphanumeric() || matches!(c, ' ' | '-' | '_'));
     if ok {
-        Ok(format!("{name}.json"))
+        Ok(name.to_owned())
     } else {
         Err("name has to be 1 to 64 letters, digits, spaces, - or _".into())
     }

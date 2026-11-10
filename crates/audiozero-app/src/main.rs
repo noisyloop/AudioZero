@@ -305,6 +305,7 @@ fn video(args: &Args) -> Result<(), String> {
                 eprintln!("  {percent}%  ({frame}/{frames} frames)");
                 last_percent = percent;
             }
+            true
         })?;
     println!(
         "Rendered {} frames ({:.1} s of song, {}x{} at {} fps, look \"{}\") to {} in {:.1} s",

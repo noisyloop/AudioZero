@@ -172,9 +172,13 @@ cargo test --workspace                                        # all tests
 
 On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio input and output), `midir` (MIDI input) and `eframe`/`egui` (the window).
 
-### Audio-reactive visuals (early)
+### Audio-reactive visuals
 
-AudioZero can make a music video from the arrangement. The visuals react to the audio (loudness, bass/mid/treble, a 32-band spectrum, kicks) and to the song itself: every note on every track, and where the beat and bar are. A VJ app that only listens to the audio can't know any of that.
+AudioZero has a built-in VJ. **Visuals > Show live visuals** opens a window that reacts while the song plays; put it on a second screen and press F11 (or double-click) for full screen. **Visuals > Export video…** renders a music video of the song or the loop, with its audio, in the background while you keep working (with progress and Cancel). An assistant can export too, with the MCP tool `export_video`.
+
+The visuals react to the audio (loudness, bass/mid/treble, a 32-band spectrum, kicks) and to the song itself: every note on every track, and where the beat and bar are. A VJ app that only listens to the audio can't know any of that.
+
+From the command line:
 
 ```sh
 audiozero song.json --video song.mp4                                  # whole song, 1920x1080, 30 fps
@@ -188,7 +192,7 @@ audiozero song.json --still preview.png --at 12                       # one fram
 - **Formats:** `widescreen` (1920×1080), `shorts` (1080×1920), `square` (1080×1080), `portrait` (1080×1350), `4k` (3840×2160), or any even `WIDTHxHEIGHT`.
 - **Files:** `.mp4`, `.mov` and `.mkv` (H.264 + AAC), and `.webm` (VP9 + Opus), with the song's audio. These need [FFmpeg](https://ffmpeg.org) on your `PATH`. Any other path is treated as a folder of PNG frames plus `audio.wav`, which works without FFmpeg.
 
-The video is rendered offline and frame by frame, so it's always in sync, and the same project gives the same video. It's drawn on the CPU for now: a 20-second song took about 30 seconds at 1080p on a small cloud machine, and drawing in parallel will speed that up. the live visuals window, an export button in the app and custom shaders come next (see the roadmap).
+Export renders offline, frame by frame, so the video is always in sync and the same project gives the same video. It's drawn on the CPU, spread over all cores: a 20-second song took about 16 seconds at 1080p on a 4-core cloud machine. Custom shaders (on the GPU) and a node graph come next; see the roadmap.
 
 ### AI control (MCP)
 
@@ -210,6 +214,7 @@ The tools:
 - **Clips:** `add_clip` (optionally with notes), `update_clip`, `move_clip`, `duplicate_clip` and `remove_clip`.
 - **Notes:** `add_notes`, `set_notes`, `remove_notes` and `transpose_notes`.
 - **Song:** `set_transport` (tempo, loop, master volume), `undo`, `redo`, `play`, `stop` and `save`.
+- **Video:** `export_video` (look, format, fps, song or loop, MP4/WebM/PNG frames) into a new file in `~/Music/AudioZero`.
 
 It follows the rules in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md#before-the-mcp-server-ships):
 
@@ -254,6 +259,6 @@ This is an early but working DAW. Not done yet:
 3. **MCP server:** the first version is in the Rust app. Next: drive the open window's session live (with the activity log visible in the UI), give plugins by identity once hosting lands, and render previews the assistant can check.
 4. **Plugins by others:** host CLAP and VST3 out of process, and offer [Nusick](https://github.com/noisyloop/Nusick) as the SDK for writing them, with a template and docs.
 5. **Audio-reactive visuals (built-in VJ):** visuals driven by the arrangement's notes, beats and audio, shown live while playing and exported for the song's length (or the loop or a selection) as 16:9, 9:16 shorts, 1:1 or 4:5, in MP4/H.264, H.265, WebM, ProRes or PNG frames with the audio.
-   1. A visualizer device with built-in looks, a live window, and export (rendered offline, frame-accurate).
+   1. ✅ Built-in looks, a live window, and export (rendered offline, frame-accurate). In v0.2.0.
    2. Your own shaders (WGSL, reloaded as you edit), mapping any sound feature to any parameter, and automatable visual parameters.
    3. A TouchDesigner-style node graph on `wgpu`, sandboxed visual plugins (shaders and WebAssembly), and a visual SDK in Nusick.

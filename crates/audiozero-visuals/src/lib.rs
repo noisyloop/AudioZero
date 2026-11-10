@@ -14,6 +14,6 @@ pub mod canvas;
 pub mod export;
 pub mod looks;
 
-pub use analysis::{Analyzer, Features, Range, render_song};
+pub use analysis::{Analyzer, Features, LiveAnalyzer, Range, render_song};
 pub use export::{FORMATS, VideoSettings, export, has_ffmpeg, still};
 pub use looks::{LOOKS, Look, create_look};
