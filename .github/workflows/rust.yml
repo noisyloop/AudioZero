@@ -2,6 +2,11 @@ name: Rust workspace
 # Manual only: Actions tab > select this workflow > "Run workflow" (pick a branch there).
 on:
   workflow_dispatch:
+    inputs:
+      macos:
+        description: "Also build on macOS (its minutes count 10x)"
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -9,7 +14,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install ALSA headers (for audio output)
+      - name: Install ALSA headers (for audio and MIDI)
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Format
         run: cargo fmt --all --check
@@ -19,3 +24,42 @@ jobs:
         run: cargo test --workspace --locked
       - name: Render the demo song
         run: cargo run --release --locked -p audiozero-app -- --render demo.wav
+
+  # Release builds of the app, uploaded as downloadable artifacts.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-24.04
+            binary: audiozero
+          - name: windows-x64
+            os: windows-latest
+            binary: audiozero.exe
+          - name: macos-arm64
+            os: macos-latest
+            binary: audiozero
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Skip macOS unless asked
+        if: matrix.os == 'macos-latest' && !inputs.macos
+        run: echo "macOS not requested; skipping." && exit 0
+      - uses: actions/checkout@v4
+        if: matrix.os != 'macos-latest' || inputs.macos
+      - name: Install ALSA headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - name: Build
+        if: matrix.os != 'macos-latest' || inputs.macos
+        run: cargo build --release --locked -p audiozero-app
+      - name: Test
+        if: matrix.os != 'macos-latest' || inputs.macos
+        run: cargo test --workspace --locked
+      - name: Upload the app
+        if: matrix.os != 'macos-latest' || inputs.macos
+        uses: actions/upload-artifact@v4
+        with:
+          name: audiozero-${{ matrix.name }}
+          path: target/release/${{ matrix.binary }}
+          if-no-files-found: error
