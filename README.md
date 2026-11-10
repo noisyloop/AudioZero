@@ -128,9 +128,21 @@ What works so far:
 
 ### Download a build
 
-Every run of the **Rust workspace** workflow builds the app for Linux, Windows and macOS. To download one:
+The latest release, no GitHub account needed:
 
-1. Open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml) and click the latest green run. The [first run with downloads](https://github.com/noisyloop/AudioZero/actions/runs/42753120183) is an example.
+| System | Download |
+| --- | --- |
+| Linux, x86-64 | [audiozero-linux-x64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-linux-x64.zip) |
+| Windows 10/11, x86-64 | [audiozero-windows-x64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-windows-x64.zip) |
+| macOS, Apple silicon | [audiozero-macos-arm64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-macos-arm64.zip) |
+
+Checksums are in [SHA256SUMS.txt](https://github.com/noisyloop/AudioZero/releases/latest/download/SHA256SUMS.txt), and older versions are on the [Releases](https://github.com/noisyloop/AudioZero/releases) page. These links work once the first release has been published.
+
+To publish a release, open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml), click **Run workflow**, pick the branch and fill in **Publish a release with this tag** (for example `v0.1.0`). It builds all three systems, macOS included, and publishes them as a GitHub Release.
+
+Builds from any run (without a release) are under that run's **Artifacts**:
+
+1. Open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml) and click a green run. The [first run with downloads](https://github.com/noisyloop/AudioZero/actions/runs/42753120183) is an example.
 2. Under **Artifacts** at the bottom of the run's page, download the file for your system. You need to be signed in to GitHub, and downloads expire after 90 days.
 
 | Artifact | System | Run it |

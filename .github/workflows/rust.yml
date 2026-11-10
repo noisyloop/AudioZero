@@ -7,6 +7,10 @@ on:
         description: "Also build on macOS (its minutes count 10x)"
         type: boolean
         default: false
+      release:
+        description: "Publish a release with this tag, e.g. v0.1.0 (builds macOS too). Leave empty for no release."
+        type: string
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -43,23 +47,55 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Skip macOS unless asked
-        if: matrix.os == 'macos-latest' && !inputs.macos
+        if: matrix.os == 'macos-latest' && !inputs.macos && inputs.release == ''
         run: echo "macOS not requested; skipping." && exit 0
       - uses: actions/checkout@v4
-        if: matrix.os != 'macos-latest' || inputs.macos
+        if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
       - name: Install ALSA headers
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Build
-        if: matrix.os != 'macos-latest' || inputs.macos
+        if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
         run: cargo build --release --locked -p audiozero-app
       - name: Test
-        if: matrix.os != 'macos-latest' || inputs.macos
+        if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
         run: cargo test --workspace --locked
       - name: Upload the app
-        if: matrix.os != 'macos-latest' || inputs.macos
+        if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
         uses: actions/upload-artifact@v4
         with:
           name: audiozero-${{ matrix.name }}
           path: target/release/${{ matrix.binary }}
           if-no-files-found: error
+
+  # Publishes the three builds as a GitHub Release, when a tag was given.
+  release:
+    if: inputs.release != ''
+    needs: [linux, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Zip each build
+        run: |
+          mkdir dist
+          for dir in artifacts/audiozero-*; do
+            name=$(basename "$dir")
+            chmod +x "$dir"/* || true
+            (cd "$dir" && zip -9 "../../dist/$name.zip" *)
+          done
+          (cd dist && sha256sum *.zip > SHA256SUMS.txt)
+          ls -l dist
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "AudioZero $TAG" \
+            --notes "Early build of the Rust AudioZero app for Linux, Windows and macOS (Apple silicon). Unsigned: see the README's Download section for how to run it. SHA256SUMS.txt lists each zip's checksum."
