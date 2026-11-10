@@ -6,7 +6,7 @@
 //! - Hold Alt while dragging to ignore the grid.
 
 use super::{App, ClipRef, meter, theme};
-use audiozero_engine::{Clip, Device, Project, synth::BUILTINS};
+use audiozero_engine::{Clip, Project, synth::BUILTINS};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, StrokeKind,
     Vec2,
@@ -78,7 +78,7 @@ impl App {
         );
         let tracks_top = ruler.bottom();
         let lane_width = (area.right() - lanes_left).max(1.0);
-        let content_height = (self.project.tracks.len() as f32 + 1.0) * TRACK_HEIGHT;
+        let content_height = (self.session.project().tracks.len() as f32 + 1.0) * TRACK_HEIGHT;
         let visible_height = (area.bottom() - tracks_top).max(1.0);
         let lanes_rect = Rect::from_min_max(Pos2::new(lanes_left, tracks_top), area.right_bottom());
 
@@ -115,7 +115,7 @@ impl App {
             let track = track_at(pointer.y);
             if background.double_clicked()
                 && track >= 0.0
-                && (track as usize) < self.project.tracks.len()
+                && (track as usize) < self.session.project().tracks.len()
             {
                 self.add_clip_at(&ctx, track as usize, time.beat(pointer.x));
             } else if background.clicked() {
@@ -133,7 +133,7 @@ impl App {
         ));
         let mut clip_rects = Vec::new();
         let mut track_action = None;
-        for index in 0..self.project.tracks.len() {
+        for index in 0..self.session.project().tracks.len() {
             let top = row_top(index);
             if top > area.bottom() || top + TRACK_HEIGHT < tracks_top {
                 continue;
@@ -156,7 +156,11 @@ impl App {
                 lane_fill.gamma_multiply(0.9),
             );
 
-            for (clip_index, clip) in self.project.tracks[index].clips.iter().enumerate() {
+            for (clip_index, clip) in self.session.project().tracks[index]
+                .clips
+                .iter()
+                .enumerate()
+            {
                 let at = ClipRef {
                     track: index,
                     clip: clip_index,
@@ -223,7 +227,7 @@ impl App {
         }
 
         // "+ Track" under the last track.
-        let add_top = row_top(self.project.tracks.len());
+        let add_top = row_top(self.session.project().tracks.len());
         if add_top + 30.0 <= area.bottom() && add_top >= tracks_top {
             let add = Rect::from_min_size(
                 Pos2::new(area.left() + 10.0, add_top + 8.0),
@@ -236,15 +240,11 @@ impl App {
         match track_action {
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
-            Some(TrackAction::SetInstrument(index, id)) => self.edit(|p| {
-                if let Some(track) = p.tracks.get_mut(index) {
-                    track.instrument = Some(Device::Builtin { id: id.into() });
-                }
-            }),
+            Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
             None => {}
         }
 
-        if self.project.tracks.is_empty() {
+        if self.session.project().tracks.is_empty() {
             painter.text(
                 lanes_rect.center(),
                 Align2::CENTER_CENTER,
@@ -328,7 +328,7 @@ impl App {
         lane_width: f32,
     ) {
         let ppb = time.pixels_per_beat;
-        let per_bar = self.project.beats_per_bar.max(1) as f32;
+        let per_bar = self.session.project().beats_per_bar.max(1) as f32;
         let first_beat = time.scroll.floor() as i64;
         let last_beat = (time.scroll + lane_width / ppb).ceil() as i64;
         let label_every = ((48.0 / (ppb * per_bar)).ceil() as i64).max(1);
@@ -337,9 +337,9 @@ impl App {
             area.right_bottom(),
         ));
 
-        if self.project.loop_enabled {
-            let x0 = time.x(self.project.loop_start);
-            let x1 = time.x(self.project.loop_end);
+        if self.session.project().loop_enabled {
+            let x0 = time.x(self.session.project().loop_start);
+            let x1 = time.x(self.session.project().loop_end);
             lane_painter.rect_filled(
                 Rect::from_min_max(Pos2::new(x0, ruler.top()), Pos2::new(x1, area.bottom())),
                 0.0,
@@ -386,7 +386,7 @@ impl App {
     }
 
     fn track_header(&mut self, ui: &mut egui::Ui, index: usize, inner: Rect) {
-        let mut track = self.project.tracks[index].clone();
+        let mut track = self.session.project().tracks[index].clone();
         let mut changed = false;
         ui.scope_builder(
             egui::UiBuilder::new()
@@ -422,7 +422,7 @@ impl App {
     }
 
     fn add_clip_at(&mut self, ctx: &egui::Context, track: usize, beat: f64) {
-        let per_bar = f64::from(self.project.beats_per_bar);
+        let per_bar = f64::from(self.session.project().beats_per_bar);
         let start = if self.snap_beats() > 0.0 && !ctx.input(|i| i.modifiers.alt) {
             (beat / per_bar).floor() * per_bar
         } else {
@@ -546,7 +546,7 @@ impl App {
             DragKind::Move => {
                 ctx.set_cursor_icon(CursorIcon::Grabbing);
                 let start = self.snap_to_grid(ctx, beat - grab).max(0.0);
-                let last_track = self.project.tracks.len().saturating_sub(1);
+                let last_track = self.session.project().tracks.len().saturating_sub(1);
                 let target = (track_at(pointer.y).max(0.0) as usize).min(last_track);
                 let mut new_at = at;
                 self.live(|p| {

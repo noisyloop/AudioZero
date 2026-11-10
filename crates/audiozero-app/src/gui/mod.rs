@@ -1,24 +1,20 @@
 //! The desktop window.
 //!
-//! The UI keeps its own copy of the project, which is what gets saved. Every edit goes through
-//! one pipeline ([`App::edit`], or [`App::live`] during a drag):
+//! The project being edited lives in a [`Session`], which is what gets saved. Every edit goes
+//! through it: the session validates the edit, records it for undo and reports what changed, and
+//! [`App::sync`] sends the audio thread only that ([`Controller::apply`]).
 //!
-//! 1. change the UI's copy;
-//! 2. run [`Project::sanitize`], the same check project files get, and undo the change if a limit
-//!    is exceeded;
-//! 3. record the previous state for undo;
-//! 4. send the audio thread only what changed ([`history::changes`]): one track's clips, a mix
-//!    setting, or a whole new engine when tracks are added or removed.
+//! [`Controller::apply`]: audiozero_engine::Controller::apply
 
 mod arrangement;
-mod history;
 mod piano_roll;
 mod theme;
 
 use crate::audio::Output;
-use audiozero_engine::{Clip, Command, Device, Project, Track, TrackMix, demo};
+use audiozero_engine::{
+    Changes, Clip, ClipRef, Command, Device, EditError, Project, Session, Track, demo,
+};
 use eframe::egui::{self, Color32, Key, Pos2, Rect, Sense, Vec2};
-use history::History;
 use std::path::{Path, PathBuf};
 
 pub fn run(start: Option<PathBuf>) -> Result<(), String> {
@@ -112,25 +108,13 @@ struct View {
     follow: bool,
 }
 
-/// A clip, by position. Positions change when clips or tracks are added or removed, so every
-/// use is checked with [`App::clip`].
-#[derive(Clone, Copy, PartialEq, Debug)]
-struct ClipRef {
-    track: usize,
-    clip: usize,
-}
-
 struct App {
     audio: Output,
-    project: Project,
+    session: Session,
     file: Option<PathBuf>,
-    dirty: bool,
     status: String,
     view: View,
     snap: Snap,
-    history: History,
-    /// The project as it was when the current drag started, for its undo step.
-    gesture: Option<Project>,
     selected_clip: Option<ClipRef>,
     arrangement_drag: Option<arrangement::Drag>,
     roll: Option<piano_roll::Roll>,
@@ -153,9 +137,8 @@ impl App {
         let mut app = Self {
             status: audio.description.clone(),
             audio,
-            project: Project::default(),
+            session: Session::new(Project::default()).expect("an empty project is valid"),
             file: None,
-            dirty: false,
             view: View {
                 pixels_per_beat: 28.0,
                 scroll_beats: 0.0,
@@ -163,8 +146,6 @@ impl App {
                 follow: true,
             },
             snap: Snap::Sixteenth,
-            history: History::default(),
-            gesture: None,
             selected_clip: None,
             arrangement_drag: None,
             roll: None,
@@ -183,12 +164,15 @@ impl App {
     // ---- project lifecycle ------------------------------------------------------------------
 
     /// Makes `project` current, in the UI and on the audio thread.
-    fn install(&mut self, mut project: Project, file: Option<PathBuf>) {
-        if let Err(e) = project.sanitize() {
-            self.status = format!("Can't open project: {e}");
-            return;
-        }
-        match self.audio.controller.load(project.clone()) {
+    fn install(&mut self, project: Project, file: Option<PathBuf>) {
+        let session = match Session::new(project) {
+            Ok(session) => session,
+            Err(e) => {
+                self.status = format!("Can't open project: {e}");
+                return;
+            }
+        };
+        match self.audio.controller.load(session.project().clone()) {
             Ok(warnings) => {
                 self.status = if warnings.is_empty() {
                     match &file {
@@ -198,11 +182,8 @@ impl App {
                 } else {
                     warnings.join(" · ")
                 };
-                self.project = project;
+                self.session = session;
                 self.file = file;
-                self.dirty = false;
-                self.history.clear();
-                self.gesture = None;
                 self.selected_clip = None;
                 self.arrangement_drag = None;
                 self.roll = None;
@@ -222,7 +203,7 @@ impl App {
 
     /// Replaces the current project, asking first if that would lose unsaved changes.
     fn replace(&mut self, project: Project, file: Option<PathBuf>) {
-        if self.dirty {
+        if self.session.is_dirty() {
             self.pending = Some(Pending::New(project, file));
         } else {
             self.install(project, file);
@@ -233,11 +214,11 @@ impl App {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        match self.project.save(&path) {
+        match self.session.project().save(&path) {
             Ok(()) => {
                 self.status = format!("Saved {}", path.display());
                 self.file = Some(path);
-                self.dirty = false;
+                self.session.mark_saved();
             }
             Err(e) => self.status = format!("Can't save {}: {e}", path.display()),
         }
@@ -265,123 +246,85 @@ impl App {
 
     // ---- the edit pipeline ------------------------------------------------------------------
 
-    /// Applies one edit as one undo step.
+    /// Applies one edit as one undo step (or as part of the current drag).
     fn edit(&mut self, change: impl FnOnce(&mut Project)) {
-        let before = self.project.clone();
-        change(&mut self.project);
-        if self.apply_change(&before) {
-            self.history.push(before);
-        }
+        let result = self.session.edit(change);
+        self.finish(result);
     }
 
-    /// Starts a drag. Every [`App::live`] change until [`App::end_gesture`] becomes one undo step.
+    /// Starts a drag. Every edit until [`App::end_gesture`] becomes one undo step.
     fn begin_gesture(&mut self) {
-        if self.gesture.is_none() {
-            self.gesture = Some(self.project.clone());
-        }
+        self.session.begin_gesture();
     }
 
     /// A change in the middle of a drag: applied and heard straight away, recorded for undo when
     /// the drag ends.
     fn live(&mut self, change: impl FnOnce(&mut Project)) {
-        let before = self.project.clone();
-        change(&mut self.project);
-        self.apply_change(&before);
+        self.edit(change);
     }
 
     fn end_gesture(&mut self) {
-        if let Some(start) = self.gesture.take()
-            && start != self.project
-        {
-            self.history.push(start);
-        }
+        self.session.end_gesture();
     }
 
-    /// Validates the UI's copy after a change and brings the audio thread up to date. Returns
-    /// `false`, with the change undone, if nothing changed or a limit was exceeded.
-    fn apply_change(&mut self, before: &Project) -> bool {
-        if self.project == *before {
-            return false;
-        }
-        if let Err(e) = self.project.sanitize() {
-            self.project = before.clone();
-            self.status = format!("Can't do that: {e}");
-            return false;
-        }
-        self.sync(before);
-        self.dirty = true;
-        true
+    /// Mixer and transport settings aren't undo steps (like most DAWs' faders), but they do
+    /// count as unsaved changes.
+    fn set_without_undo(&mut self, change: impl FnOnce(&mut Project)) {
+        let result = self.session.set(change);
+        self.finish(result);
     }
 
-    /// Sends the audio thread what changed between `before` and the current project.
-    fn sync(&mut self, before: &Project) {
-        let changes = history::changes(before, &self.project);
-        if changes.reload {
-            match self.audio.controller.reload(self.project.clone()) {
-                Ok(warnings) if !warnings.is_empty() => self.status = warnings.join(" · "),
-                Ok(_) => {}
-                Err(e) => self.status = format!("Audio engine: {e}"),
+    /// Hears about a typed [`Session`] operation: syncs the audio thread and returns its value,
+    /// or shows why it was refused.
+    fn done<T>(&mut self, result: Result<(T, Changes), EditError>) -> Option<T> {
+        match result {
+            Ok((value, changes)) => {
+                self.sync(&changes);
+                Some(value)
             }
+            Err(e) => {
+                self.status = format!("Can't do that: {e}");
+                None
+            }
+        }
+    }
+
+    fn finish(&mut self, result: Result<Changes, EditError>) {
+        self.done(result.map(|changes| ((), changes)));
+    }
+
+    /// Sends the audio thread what changed.
+    fn sync(&mut self, changes: &Changes) {
+        if changes.is_empty() {
             return;
         }
-        for track in changes.clips {
-            let clips = self.project.tracks[track].clips.clone();
-            if !self.audio.controller.set_clips(track, clips) {
-                self.status = "The audio engine isn't responding.".into();
-            }
-        }
-        for track in changes.mix {
-            let t = &self.project.tracks[track];
-            let mix = TrackMix {
-                volume: t.volume,
-                pan: t.pan,
-                mute: t.mute,
-                solo: t.solo,
-            };
-            self.send(Command::SetTrackMix { track, mix });
-        }
-        if changes.bpm {
-            self.send(Command::SetBpm(self.project.bpm));
-        }
-        if changes.master {
-            self.send(Command::SetMasterVolume(self.project.master_volume));
-        }
-        if changes.looping {
-            let p = &self.project;
-            let command = Command::SetLoop {
-                enabled: p.loop_enabled,
-                start: p.loop_start,
-                end: p.loop_end,
-            };
-            self.send(command);
+        match self.audio.controller.apply(self.session.project(), changes) {
+            Ok(warnings) if !warnings.is_empty() => self.status = warnings.join(" · "),
+            Ok(_) => {}
+            Err(e) => self.status = e,
         }
     }
 
     fn undo(&mut self) {
-        self.end_gesture();
-        if let Some(previous) = self.history.undo(&self.project) {
-            self.restore(previous, "Undone");
+        if let Some(changes) = self.session.undo() {
+            self.restored(&changes, "Undone");
         }
     }
 
     fn redo(&mut self) {
-        self.end_gesture();
-        if let Some(next) = self.history.redo(&self.project) {
-            self.restore(next, "Redone");
+        if let Some(changes) = self.session.redo() {
+            self.restored(&changes, "Redone");
         }
     }
 
-    fn restore(&mut self, mut project: Project, what: &str) {
-        history::keep_unrecorded(&self.project, &mut project);
-        let before = std::mem::replace(&mut self.project, project);
-        self.sync(&before);
-        self.dirty = true;
+    fn restored(&mut self, changes: &Changes, what: &str) {
+        self.status = what.into();
+        self.sync(changes);
         self.arrangement_drag = None;
         if let Some(roll) = &mut self.roll {
             roll.clear_selection();
         }
         self.validate_selection();
-        self.status = what.into();
     }
 
     /// Drops selections that no longer point at anything.
@@ -399,11 +342,11 @@ impl App {
     }
 
     fn clip(&self, at: ClipRef) -> Option<&Clip> {
-        self.project.tracks.get(at.track)?.clips.get(at.clip)
+        self.session.clip(at)
     }
 
     fn snap_beats(&self) -> f64 {
-        self.snap.beats(self.project.beats_per_bar)
+        self.snap.beats(self.session.project().beats_per_bar)
     }
 
     /// Rounds `beat` to the grid, unless snapping is off or Alt is held.
@@ -419,34 +362,32 @@ impl App {
     // ---- edits ------------------------------------------------------------------------------
 
     fn add_track(&mut self) {
-        let number = self.project.tracks.len() + 1;
-        self.edit(|p| {
-            p.tracks.push(Track {
-                name: format!("Track {number}"),
-                instrument: Some(Device::Builtin { id: "sine".into() }),
-                ..Default::default()
-            })
+        let number = self.session.project().tracks.len() + 1;
+        let result = self.session.add_track(Track {
+            name: format!("Track {number}"),
+            instrument: Some(Device::Builtin { id: "sine".into() }),
+            ..Default::default()
         });
+        self.done(result);
     }
 
     fn delete_track(&mut self, index: usize) {
-        self.edit(|p| {
-            if index < p.tracks.len() {
-                p.tracks.remove(index);
-            }
-        });
+        let result = self.session.remove_track(index);
+        self.finish(result);
         self.selected_clip = None;
         self.roll = None;
     }
 
+    fn set_instrument(&mut self, index: usize, id: &str) {
+        let result = self
+            .session
+            .set_instrument(index, Some(Device::Builtin { id: id.into() }));
+        self.finish(result);
+    }
+
     fn delete_clip(&mut self, at: ClipRef) {
-        self.edit(|p| {
-            if let Some(track) = p.tracks.get_mut(at.track)
-                && at.clip < track.clips.len()
-            {
-                track.clips.remove(at.clip);
-            }
-        });
+        let result = self.session.remove_clip(at);
+        self.finish(result);
         self.selected_clip = None;
         if self.roll.as_ref().is_some_and(|r| r.clip.track == at.track) {
             self.roll = None;
@@ -454,36 +395,17 @@ impl App {
     }
 
     fn duplicate_clip(&mut self, at: ClipRef) {
-        let Some(clip) = self.clip(at).cloned() else {
-            return;
-        };
-        let mut copy = clip;
-        copy.start = copy.end();
-        let mut new_index = None;
-        self.edit(|p| {
-            if let Some(track) = p.tracks.get_mut(at.track) {
-                track.clips.push(copy);
-                new_index = Some(track.clips.len() - 1);
-            }
-        });
-        if let Some(clip) = new_index {
-            self.selected_clip = Some(ClipRef {
-                track: at.track,
-                clip,
-            });
+        let result = self.session.duplicate_clip(at);
+        if let Some(copy) = self.done(result) {
+            self.selected_clip = Some(copy);
         }
     }
 
     fn toggle_clip_mute(&mut self, at: ClipRef) {
-        self.edit(|p| {
-            if let Some(clip) = p
-                .tracks
-                .get_mut(at.track)
-                .and_then(|t| t.clips.get_mut(at.clip))
-            {
-                clip.muted = !clip.muted;
-            }
-        });
+        let result = self
+            .session
+            .update_clip(at, |clip| clip.muted = !clip.muted);
+        self.finish(result);
     }
 
     fn open_roll(&mut self, at: ClipRef) {
@@ -525,14 +447,6 @@ impl App {
         self.send(Command::Seek(beats.max(0.0)));
     }
 
-    /// Mixer and transport settings aren't undo steps (like most DAWs' faders), but they do
-    /// count as unsaved changes.
-    fn set_without_undo(&mut self, change: impl FnOnce(&mut Project)) {
-        let before = self.project.clone();
-        change(&mut self.project);
-        self.apply_change(&before);
-    }
-
     // ---- drawing ----------------------------------------------------------------------------
 
     fn top_bar(&mut self, ui: &mut egui::Ui) {
@@ -561,13 +475,13 @@ impl App {
             });
             ui.menu_button("Edit", |ui| {
                 if ui
-                    .add_enabled(self.history.can_undo(), egui::Button::new("Undo"))
+                    .add_enabled(self.session.can_undo(), egui::Button::new("Undo"))
                     .clicked()
                 {
                     self.undo();
                 }
                 if ui
-                    .add_enabled(self.history.can_redo(), egui::Button::new("Redo"))
+                    .add_enabled(self.session.can_redo(), egui::Button::new("Redo"))
                     .clicked()
                 {
                     self.redo();
@@ -613,7 +527,7 @@ impl App {
             }
 
             let position = self.audio.controller.position();
-            let per_bar = f64::from(self.project.beats_per_bar);
+            let per_bar = f64::from(self.session.project().beats_per_bar);
             let bar = (position / per_bar).floor() as u64 + 1;
             let beat = (position % per_bar).floor() as u64 + 1;
             let sixteenth = (position.fract() * 4.0).floor() as u64 + 1;
@@ -625,7 +539,7 @@ impl App {
             ui.separator();
 
             ui.label("BPM");
-            let mut bpm = self.project.bpm;
+            let mut bpm = self.session.project().bpm;
             if ui
                 .add(
                     egui::DragValue::new(&mut bpm)
@@ -637,7 +551,7 @@ impl App {
             {
                 self.set_without_undo(|p| p.bpm = bpm);
             }
-            let mut looping = self.project.loop_enabled;
+            let mut looping = self.session.project().loop_enabled;
             if ui.toggle_value(&mut looping, "Loop").changed() {
                 self.set_without_undo(|p| p.loop_enabled = looping);
             }
@@ -656,7 +570,7 @@ impl App {
             ui.separator();
 
             ui.label("Master");
-            let mut master = self.project.master_volume;
+            let mut master = self.session.project().master_volume;
             if ui
                 .add(egui::Slider::new(&mut master, 0.0..=1.5).show_value(false))
                 .changed()
@@ -788,7 +702,7 @@ impl App {
                 && let Some(roll) = &mut self.roll
             {
                 roll.select_all(
-                    self.project.tracks[roll.clip.track].clips[roll.clip.clip]
+                    self.session.project().tracks[roll.clip.track].clips[roll.clip.clip]
                         .notes
                         .len(),
                 );
@@ -837,7 +751,10 @@ impl App {
         {
             self.open_path(&path);
         }
-        if ctx.input(|i| i.viewport().close_requested()) && self.dirty && !self.allow_close {
+        if ctx.input(|i| i.viewport().close_requested())
+            && self.session.is_dirty()
+            && !self.allow_close
+        {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.pending = Some(Pending::Quit);
         }
@@ -849,7 +766,10 @@ impl App {
             .as_ref()
             .and_then(|p| p.file_stem())
             .map_or("Untitled".into(), |s| s.to_string_lossy().into_owned());
-        let title = format!("{name}{} — AudioZero", if self.dirty { " •" } else { "" });
+        let title = format!(
+            "{name}{} — AudioZero",
+            if self.session.is_dirty() { " •" } else { "" }
+        );
         if title != self.title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.title = title;

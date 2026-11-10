@@ -15,6 +15,7 @@ use crate::project::{
     Clip, Project, ProjectError,
     limits::{MAX_CLIPS_PER_TRACK, MAX_TRACKS},
 };
+use crate::session::{Changes, mix_of};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::Relaxed};
@@ -242,6 +243,49 @@ impl Controller {
         Ok(warnings)
     }
 
+    /// Brings the audio thread up to date after a [`Session`](crate::Session) edit, sending
+    /// only what changed: one track's clips, a mix setting, or a whole new engine when tracks
+    /// or devices changed. Returns the new engine's warnings, if it was rebuilt.
+    pub fn apply(&mut self, project: &Project, changes: &Changes) -> Result<Vec<String>, String> {
+        if changes.reload {
+            return self
+                .reload(project.clone())
+                .map_err(|e| format!("Audio engine: {e}"));
+        }
+        let mut ok = true;
+        for &track in &changes.clips {
+            if let Some(t) = project.tracks.get(track) {
+                ok &= self.set_clips(track, t.clips.clone());
+            }
+        }
+        for &track in &changes.mix {
+            if let Some(t) = project.tracks.get(track) {
+                ok &= self.send(Command::SetTrackMix {
+                    track,
+                    mix: mix_of(t),
+                });
+            }
+        }
+        if changes.bpm {
+            ok &= self.send(Command::SetBpm(project.bpm));
+        }
+        if changes.master {
+            ok &= self.send(Command::SetMasterVolume(project.master_volume));
+        }
+        if changes.looping {
+            ok &= self.send(Command::SetLoop {
+                enabled: project.loop_enabled,
+                start: project.loop_start,
+                end: project.loop_end,
+            });
+        }
+        if ok {
+            Ok(Vec::new())
+        } else {
+            Err("The audio engine isn't responding.".into())
+        }
+    }
+
     /// Frees engines and clips the audio thread has finished with. Call it regularly, for example once
     /// per UI frame.
     pub fn collect_garbage(&mut self) {
@@ -365,6 +409,41 @@ mod tests {
         assert!(controller.is_playing(), "playback carries on");
         controller.collect_garbage();
         assert!(!controller.set_clips(0, vec![Clip::default(); MAX_CLIPS_PER_TRACK + 1]));
+    }
+
+    #[test]
+    fn session_edits_reach_the_audio_thread() {
+        use crate::session::{ClipRef, Session};
+        let (mut controller, mut player) = channel(48_000.0, 512);
+        let mut session = Session::new(crate::demo::project()).unwrap();
+        controller.load(session.project().clone()).unwrap();
+        run(&mut player, 64);
+
+        let at = ClipRef { track: 1, clip: 0 };
+        let changes = session.update_clip(at, |c| c.start = 40.0).unwrap();
+        let mix = TrackMix {
+            mute: true,
+            ..crate::session::mix_of(&session.project().tracks[0])
+        };
+        let mix_changes = session.set_track_mix(0, mix).unwrap();
+        let bpm_changes = session.set_bpm(150.0).unwrap();
+        for c in [&changes, &mix_changes, &bpm_changes] {
+            assert!(controller.apply(session.project(), c).unwrap().is_empty());
+        }
+        run(&mut player, 64);
+        let heard = player.engine.project();
+        assert_eq!(heard.tracks[1].clips[0].start, 40.0);
+        assert!(heard.tracks[0].mute);
+        assert_eq!(heard.bpm, 150.0);
+
+        let (_, changes) = session.add_track(crate::project::Track::default()).unwrap();
+        controller.apply(session.project(), &changes).unwrap();
+        run(&mut player, 64);
+        assert_eq!(
+            player.engine.project().tracks.len(),
+            session.project().tracks.len(),
+            "adding a track rebuilds the engine"
+        );
     }
 
     #[test]

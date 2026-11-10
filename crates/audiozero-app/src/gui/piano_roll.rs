@@ -143,8 +143,8 @@ impl App {
         ui.horizontal(|ui| {
             ui.add_space(8.0);
             ui.label(egui::RichText::new(&clip.name).strong().color(colour));
-            let track_name = &self.project.tracks[at.track].name;
-            ui.label(egui::RichText::new(format!("on {track_name} · {} notes · {} bars", clip.notes.len(), clip.length / f64::from(self.project.beats_per_bar))).color(theme::TEXT_DIM));
+            let track_name = &self.session.project().tracks[at.track].name;
+            ui.label(egui::RichText::new(format!("on {track_name} · {} notes · {} bars", clip.notes.len(), clip.length / f64::from(self.session.project().beats_per_bar))).color(theme::TEXT_DIM));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(8.0);
                 close = ui.button("Close").clicked();
@@ -259,7 +259,7 @@ impl App {
         }
 
         // Time grid: the snap step if it's wide enough, beats and bars stronger.
-        let per_bar = f64::from(self.project.beats_per_bar);
+        let per_bar = f64::from(self.session.project().beats_per_bar);
         let mut step = self.snap_beats();
         if step <= 0.0 {
             step = 0.25;
@@ -427,7 +427,7 @@ impl App {
                     DragKind::Resize
                 }
             };
-            let notes = &self.project.tracks[at.track].clips[at.clip].notes;
+            let notes = &self.session.project().tracks[at.track].clips[at.clip].notes;
             let roll = self.roll.as_mut().expect("checked above");
             let originals = roll
                 .selected
@@ -487,7 +487,7 @@ impl App {
                     if let Some(drag) = roll.drag.take()
                         && drag.kind == DragKind::Resize
                         && let Some(&(index, _)) = drag.originals.first()
-                        && let Some(note) = self.project.tracks[at.track].clips[at.clip]
+                        && let Some(note) = self.session.project().tracks[at.track].clips[at.clip]
                             .notes
                             .get(index)
                     {
@@ -553,43 +553,27 @@ impl App {
         let Some(roll) = &mut self.roll else { return };
         let at = roll.clip;
         let selected = std::mem::take(&mut roll.selected);
-        if selected.is_empty() {
-            return;
+        let indices = self.existing_notes(at, &selected);
+        if !indices.is_empty() {
+            let result = self.session.remove_notes(at, &indices);
+            self.finish(result);
         }
-        self.edit(|proj| {
-            if let Some(clip) = proj
-                .tracks
-                .get_mut(at.track)
-                .and_then(|t| t.clips.get_mut(at.clip))
-            {
-                for index in selected.iter().rev() {
-                    if *index < clip.notes.len() {
-                        clip.notes.remove(*index);
-                    }
-                }
-            }
-        });
     }
 
     pub(super) fn transpose_selected_notes(&mut self, semitones: i32) {
         let Some(roll) = &self.roll else { return };
-        if roll.selected.is_empty() {
-            return;
+        let at = roll.clip;
+        let indices = self.existing_notes(at, &roll.selected);
+        if !indices.is_empty() {
+            let result = self.session.transpose_notes(at, Some(&indices), semitones);
+            self.finish(result);
         }
-        let (at, selected) = (roll.clip, roll.selected.clone());
-        self.edit(|proj| {
-            if let Some(clip) = proj
-                .tracks
-                .get_mut(at.track)
-                .and_then(|t| t.clips.get_mut(at.clip))
-            {
-                for index in &selected {
-                    if let Some(note) = clip.notes.get_mut(*index) {
-                        note.pitch = (i32::from(note.pitch) + semitones).clamp(0, 127) as u8;
-                    }
-                }
-            }
-        });
+    }
+
+    /// The selected notes that still exist.
+    fn existing_notes(&self, at: ClipRef, selected: &BTreeSet<usize>) -> Vec<usize> {
+        let count = self.clip(at).map_or(0, |c| c.notes.len());
+        selected.iter().copied().filter(|&i| i < count).collect()
     }
 }
 
