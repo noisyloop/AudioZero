@@ -85,8 +85,8 @@ impl Canvas {
     }
 
     pub fn fill(&mut self, c: Rgb) {
-        for px in self.pixels.chunks_exact_mut(3) {
-            px.copy_from_slice(&[c.0, c.1, c.2]);
+        for px in self.pixels.as_chunks_mut::<3>().0 {
+            *px = [c.0, c.1, c.2];
         }
     }
 
@@ -174,7 +174,12 @@ impl Canvas {
         std::thread::scope(|scope| {
             for (dst, src) in out.chunks_mut(per * 4).zip(self.pixels.chunks(per * 3)) {
                 scope.spawn(move || {
-                    for (o, px) in dst.chunks_exact_mut(4).zip(src.chunks_exact(3)) {
+                    for (o, px) in dst
+                        .as_chunks_mut::<4>()
+                        .0
+                        .iter_mut()
+                        .zip(src.as_chunks::<3>().0)
+                    {
                         for (c, &v) in o.iter_mut().zip(px) {
                             let i = if v.is_finite() {
                                 (v.max(0.0) * TONE_STEPS) as usize
