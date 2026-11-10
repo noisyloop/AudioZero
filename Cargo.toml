@@ -4,6 +4,7 @@ members = [
     "crates/audiozero-engine",
     "crates/audiozero-host",
     "crates/audiozero-mcp",
+    "crates/audiozero-visuals",
     "crates/audiozero-app",
 ]
 

@@ -14,6 +14,7 @@ workspace = true
 audiozero-engine = { path = "../audiozero-engine" }
 audiozero-host = { path = "../audiozero-host" }
 audiozero-mcp = { path = "../audiozero-mcp" }
+audiozero-visuals = { path = "../audiozero-visuals" }
 cpal = "0.18.2"
 midir = "0.11.1"
 rtrb = "0.4.1"
