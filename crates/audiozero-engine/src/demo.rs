@@ -6,7 +6,7 @@ pub fn project() -> Project {
     // Am - F - C - G, two bars each, over eight bars.
     let chords: [[u8; 3]; 4] = [[57, 60, 64], [53, 57, 60], [55, 60, 64], [55, 59, 62]];
     let roots: [u8; 4] = [33, 29, 36, 31];
-    let sine = || Some(Device::Builtin { id: "sine".into() });
+    let sine = || Some(Device::builtin("sine"));
 
     let kick_notes = (0..32)
         .map(|beat| Note {
@@ -88,7 +88,7 @@ pub fn project() -> Project {
             Track {
                 name: "Kick".into(),
                 volume: 0.8,
-                instrument: Some(Device::Builtin { id: "kick".into() }),
+                instrument: Some(Device::builtin("kick")),
                 clips: vec![Clip {
                     name: "Kick".into(),
                     start: 0.0,

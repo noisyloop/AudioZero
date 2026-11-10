@@ -7,6 +7,7 @@
 //! [`Controller::apply`]: audiozero_engine::Controller::apply
 
 mod arrangement;
+mod devices;
 mod live;
 mod piano_roll;
 mod theme;
@@ -121,6 +122,8 @@ struct App {
     view: View,
     snap: Snap,
     selected_clip: Option<ClipRef>,
+    /// The track shown in the device panel.
+    device_track: Option<usize>,
     /// The lane under the pointer (track, beat), where a dropped audio file goes. A track index
     /// past the last track means "a new track".
     drop_target: Option<(usize, f64)>,
@@ -171,6 +174,7 @@ impl App {
             },
             snap: Snap::Sixteenth,
             selected_clip: None,
+            device_track: None,
             drop_target: None,
             arrangement_drag: None,
             roll: None,
@@ -417,7 +421,7 @@ impl App {
         let number = self.session.project().tracks.len() + 1;
         let result = self.session.add_track(Track {
             name: format!("Track {number}"),
-            instrument: Some(Device::Builtin { id: "sine".into() }),
+            instrument: Some(Device::builtin("sine")),
             ..Default::default()
         });
         self.done(result);
@@ -433,7 +437,7 @@ impl App {
     fn set_instrument(&mut self, index: usize, id: &str) {
         let result = self
             .session
-            .set_instrument(index, Some(Device::Builtin { id: id.into() }));
+            .set_instrument(index, Some(Device::builtin(id)));
         self.finish(result);
     }
 
@@ -1003,6 +1007,14 @@ impl eframe::App for App {
             ui.add_space(2.0);
         });
         egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui));
+        if self.device_track.is_some() {
+            egui::Panel::right("devices")
+                .resizable(true)
+                .default_size(280.0)
+                .min_size(220.0)
+                .frame(egui::Frame::NONE.fill(theme::PANEL).inner_margin(8.0))
+                .show(ui, |ui| self.devices(ui));
+        }
         if self.roll.is_some() {
             egui::Panel::bottom("piano-roll")
                 .resizable(true)

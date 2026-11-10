@@ -16,7 +16,7 @@ the computer's speakers. Positions and lengths are in beats (quarter notes); a b
 `beats_per_bar` beats. Notes use MIDI pitch (60 = middle C) and start relative to their clip. \
 Tracks, clips and notes are addressed by index; indices shift when something is removed, so call \
 get_project (or get_clip) again after removing things. Every edit can be undone with undo. \
-Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Audio clips (with \
+Effects (add_effect, set_effect_param) are undo steps. Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Audio clips (with \
 an `audio` field) play a recording at its own speed; they have no notes, and you can move, \
 trim, duplicate or remove them but not create them. Nothing is written \
 to disk until you call save.";
@@ -124,6 +124,44 @@ const TOOLS: &[Tool] = &[
             r#""instrument": { "type": "string", "description": "An id from list_instruments, or \"none\"" }"#
         ),
         required: &["track", "instrument"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "add_effect",
+        title: "Add effect",
+        description: "Adds a built-in effect (an id from list_instruments' effects) at the end of a track's effect chain. Returns its index.",
+        properties: props!(
+            track!(),
+            r#""effect": { "type": "string", "description": "Effect id, e.g. \"reverb\"" }"#
+        ),
+        required: &["track", "effect"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "remove_effect",
+        title: "Remove effect",
+        description: "Removes an effect from a track by index. Later effects move down one. Can be undone.",
+        properties: props!(
+            track!(),
+            r#""effect": { "type": "integer", "minimum": 0, "description": "Effect index on the track" }"#
+        ),
+        required: &["track", "effect"],
+        read_only: false,
+        destructive: true,
+    },
+    Tool {
+        name: "set_effect_param",
+        title: "Set effect parameter",
+        description: "Sets one effect parameter (names and ranges are in list_instruments). An undo step; heard straight away.",
+        properties: props!(
+            track!(),
+            r#""effect": { "type": "integer", "minimum": 0 }"#,
+            r#""param": { "type": "string" }"#,
+            r#""value": { "type": "number" }"#
+        ),
+        required: &["track", "effect", "param", "value"],
         read_only: false,
         destructive: false,
     },
@@ -428,7 +466,7 @@ fn instrument(id: &str) -> Result<Option<Device>, String> {
         return Ok(None);
     }
     if BUILTINS.iter().any(|(builtin, _)| *builtin == id) {
-        Ok(Some(Device::Builtin { id: id.into() }))
+        Ok(Some(Device::builtin(id)))
     } else {
         let ids: Vec<_> = BUILTINS.iter().map(|(id, _)| *id).collect();
         Err(format!(
@@ -441,7 +479,7 @@ fn instrument(id: &str) -> Result<Option<Device>, String> {
 fn describe(device: Option<&Device>) -> Value {
     match device {
         None => json!("none"),
-        Some(Device::Builtin { id }) => json!(id),
+        Some(Device::Builtin { id, .. }) => json!(id),
         Some(Device::Plugin(p)) => json!({ "plugin": p.name, "vendor": p.vendor }),
     }
 }
@@ -490,8 +528,19 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 .iter()
                 .map(|(id, name)| json!({ "id": id, "name": name }))
                 .collect();
+            let effects: Vec<Value> = audiozero_engine::effects::EFFECTS
+                .iter()
+                .map(|(id, name)| {
+                    let params: Vec<Value> = audiozero_engine::effects::params_for(id)
+                        .unwrap_or(&[])
+                        .iter()
+                        .map(|p| json!({ "name": p.name, "min": p.min, "max": p.max, "default": p.default, "unit": p.unit }))
+                        .collect();
+                    json!({ "id": id, "name": name, "params": params })
+                })
+                .collect();
             Ok(
-                json!({ "instruments": list, "note": "Third-party plugins aren't available to the assistant yet." }),
+                json!({ "instruments": list, "effects": effects, "note": "Third-party plugins aren't available to the assistant yet." }),
             )
         }
         "add_track" => {
@@ -549,6 +598,62 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 s,
                 &changes,
                 json!({ "track": a.track, "instrument": a.instrument }),
+            ))
+        }
+        "add_effect" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                effect: String,
+            }
+            let a: Args = parse(arguments)?;
+            let (index, changes) = s
+                .session
+                .add_effect(a.track, &a.effect)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "effect": index, "id": a.effect }),
+            ))
+        }
+        "remove_effect" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                effect: usize,
+            }
+            let a: Args = parse(arguments)?;
+            let changes = s
+                .session
+                .remove_effect(a.track, a.effect)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "removed_effect": a.effect }),
+            ))
+        }
+        "set_effect_param" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                effect: usize,
+                param: String,
+                value: f32,
+            }
+            let a: Args = parse(arguments)?;
+            let changes = s
+                .session
+                .set_effect_param(a.track, a.effect, &a.param, a.value)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "effect": a.effect, "param": a.param, "value": f32_out(a.value) }),
             ))
         }
         "set_track_mix" => {
@@ -888,6 +993,33 @@ fn done(s: &mut Ctx<'_>, changes: &Changes, mut result: Value) -> Value {
     result
 }
 
+/// A track's effects: index, id and every parameter's current value.
+fn effects_of(track: &Track) -> Value {
+    track
+        .effects
+        .iter()
+        .enumerate()
+        .map(|(i, d)| match d {
+            Device::Builtin { id, .. } => {
+                let params: serde_json::Map<String, Value> =
+                    audiozero_engine::effects::params_for(id)
+                        .unwrap_or(&[])
+                        .iter()
+                        .map(|p| {
+                            (
+                                p.name.to_string(),
+                                json!(f32_out(d.param(p.name).unwrap_or(p.default))),
+                            )
+                        })
+                        .collect();
+                json!({ "effect": i, "id": id, "params": params })
+            }
+            Device::Plugin(p) => json!({ "effect": i, "plugin": p.name }),
+        })
+        .collect::<Vec<_>>()
+        .into()
+}
+
 /// An audio clip's file (by name only, not its full path), offset and gain; null for MIDI clips.
 fn audio_of(clip: &Clip) -> Value {
     clip.audio.as_ref().map_or(Value::Null, |a| {
@@ -926,7 +1058,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
                 .collect();
             json!({
                 "track": i, "name": t.name, "instrument": describe(t.instrument.as_ref()),
-                "volume": f32_out(t.volume), "pan": f32_out(t.pan), "mute": t.mute, "solo": t.solo, "clips": clips,
+                "effects": effects_of(t), "volume": f32_out(t.volume), "pan": f32_out(t.pan), "mute": t.mute, "solo": t.solo, "clips": clips,
             })
         })
         .collect();

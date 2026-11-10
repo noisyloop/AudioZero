@@ -20,7 +20,7 @@ fn meter_decay(frames: usize, sample_rate: f64) -> f32 {
 fn block_peak(buf: &[f32]) -> f32 {
     buf.iter().fold(0.0f32, |m, x| m.max(x.abs()))
 }
-use crate::effects::{Effect, create_effect};
+use crate::effects::{Effect, MAX_PARAMS, create_effect, params_for};
 use crate::sample::{Sample, SamplePool};
 use crate::synth::{Instrument, create_builtin};
 use std::sync::Arc;
@@ -41,7 +41,8 @@ struct Event {
 
 struct TrackState {
     instrument: Option<Box<dyn Instrument>>,
-    effects: Vec<Box<dyn Effect>>,
+    /// One slot per project effect, so indices match; `None` for ones that can't run.
+    effects: Vec<Option<Box<dyn Effect>>>,
     notes_on: [bool; 128],
     events: Vec<Event>,
     peak: (f32, f32),
@@ -55,6 +56,26 @@ struct TrackState {
     live: Vec<Event>,
     /// Pitches held down live, so they can be released when playback stops.
     live_on: [bool; 128],
+}
+
+/// An effect's parameter values in [`params_for`] order (defaults for any not stored), padded
+/// with zeros.
+pub fn param_values(device: &Device) -> [f32; MAX_PARAMS] {
+    let mut values = [0.0; MAX_PARAMS];
+    if let Some(info) = device.builtin_id().and_then(params_for) {
+        for (value, p) in values.iter_mut().zip(info) {
+            *value = device.param(p.name).unwrap_or(p.default);
+        }
+    }
+    values
+}
+
+fn set_params(effect: &mut dyn Effect, values: &[f32; MAX_PARAMS]) {
+    for (i, &v) in values.iter().enumerate() {
+        if v.is_finite() {
+            effect.set_param(i, v);
+        }
+    }
 }
 
 /// Looks up the decoded audio for each clip, on the UI thread. Problems become warnings.
@@ -157,7 +178,7 @@ impl Engine {
             .map(|track| {
                 let instrument = match &track.instrument {
                     None => None,
-                    Some(Device::Builtin { id }) => {
+                    Some(Device::Builtin { id, .. }) => {
                         let made = create_builtin(id);
                         if made.is_none() {
                             warnings.push(format!("Track \"{}\": unknown built-in instrument \"{id}\"", track.name));
@@ -175,23 +196,23 @@ impl Engine {
                 let effects = track
                     .effects
                     .iter()
-                    .filter_map(|device| {
+                    .map(|device| {
                         let made = match device {
-                            Device::Builtin { id } => create_effect(id),
+                            Device::Builtin { id, .. } => create_effect(id).map(|mut effect| {
+                                effect.prepare(sample_rate);
+                                set_params(effect.as_mut(), &param_values(device));
+                                effect
+                            }),
                             Device::Plugin(_) => None,
                         };
                         if made.is_none() {
                             let what = match device {
-                                Device::Builtin { id } => format!("unknown effect \"{id}\""),
+                                Device::Builtin { id, .. } => format!("unknown effect \"{id}\""),
                                 Device::Plugin(p) => format!("plugin \"{}\" isn't loaded (plugin hosting isn't implemented yet)", p.name),
                             };
                             warnings.push(format!("Track \"{}\": {what}", track.name));
                         }
                         made
-                    })
-                    .map(|mut effect| {
-                        effect.prepare(sample_rate);
-                        effect
                     })
                     .collect();
                 let mut instrument = instrument;
@@ -316,6 +337,18 @@ impl Engine {
             }
         }
         (clips, samples)
+    }
+
+    /// Changes one effect's parameters while playing (values in [`params_for`] order, as
+    /// [`param_values`] gives them). Out-of-range tracks and effects are ignored.
+    pub fn set_effect_params(&mut self, track: usize, effect: usize, values: [f32; MAX_PARAMS]) {
+        if let Some(Some(effect)) = self
+            .tracks
+            .get_mut(track)
+            .and_then(|t| t.effects.get_mut(effect))
+        {
+            set_params(effect.as_mut(), &values);
+        }
     }
 
     /// Plays or releases a note on a track now, as from a MIDI keyboard. Notes for tracks that
@@ -452,7 +485,7 @@ impl Engine {
                 l[i] += state.audio_l[i];
                 r[i] += state.audio_r[i];
             }
-            for effect in &mut state.effects {
+            for effect in state.effects.iter_mut().flatten() {
                 effect.process(l, r);
             }
 
@@ -636,7 +669,7 @@ mod tests {
     fn one_note_project() -> Project {
         Project {
             tracks: vec![Track {
-                instrument: Some(Device::Builtin { id: "sine".into() }),
+                instrument: Some(Device::builtin("sine")),
                 clips: vec![Clip {
                     notes: vec![Note {
                         pitch: 69,
@@ -947,5 +980,35 @@ mod tests {
             engine.live_note(0, 60, 1.0, true); // more than a block holds: dropped, no allocation
         }
         assert!(engine.tracks[0].live.len() <= MAX_LIVE_EVENTS);
+    }
+
+    #[test]
+    fn effects_run_and_their_params_change_live() {
+        let mut project = one_note_project();
+        project.tracks[0].effects = vec![Device::builtin("delay"), Device::builtin("nope")];
+        let mut engine = Engine::new(project, 48_000.0, 512).unwrap();
+        assert_eq!(
+            engine.warnings().len(),
+            1,
+            "the unknown effect is a warning"
+        );
+        assert_eq!(
+            engine.tracks[0].effects.len(),
+            2,
+            "slots keep their indices"
+        );
+        engine.play();
+        let (l, _) = engine.render(48_000);
+        // The note lasts half a second at 120 BPM; the delay repeats it after that.
+        assert!(l[30_000..40_000].iter().any(|x| x.abs() > 0.01), "an echo");
+        engine.set_effect_params(0, 0, [0.375, 0.0, 0.0, 0.0]);
+        engine.set_effect_params(0, 9, [0.0; MAX_PARAMS]); // no such effect: ignored
+        engine.set_position(0.0);
+        engine.render(48_000);
+        let (l, _) = engine.render(48_000);
+        assert!(
+            l.iter().all(|x| x.abs() < 1e-3),
+            "mix 0: no echo, and the note is over"
+        );
     }
 }

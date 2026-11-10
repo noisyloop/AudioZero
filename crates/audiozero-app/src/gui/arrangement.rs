@@ -42,6 +42,7 @@ enum ClipAction {
 }
 
 enum TrackAction {
+    Devices(usize),
     Delete(usize),
     Add,
     SetInstrument(usize, &'static str),
@@ -246,12 +247,19 @@ impl App {
             );
             let header_visible = header.intersect(lanes_rect.with_min_x(area.left()));
             if header_visible.height() > 0.0 {
-                ui.interact(
+                let header_response = ui.interact(
                     header_visible,
                     ui.scope_id().with(("track-header", index)),
                     Sense::click(),
-                )
-                .context_menu(|ui| {
+                );
+                if header_response.clicked() {
+                    track_action = Some(TrackAction::Devices(index));
+                }
+                header_response.context_menu(|ui| {
+                    if ui.button("Devices and effects…").clicked() {
+                        track_action = Some(TrackAction::Devices(index));
+                    }
+                    ui.separator();
                     ui.label("Instrument");
                     for (id, name) in BUILTINS {
                         if ui.button(name).clicked() {
@@ -288,6 +296,7 @@ impl App {
             }
         }
         match track_action {
+            Some(TrackAction::Devices(index)) => self.device_track = Some(index),
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
             Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
@@ -439,13 +448,22 @@ impl App {
         let mut track = self.session.project().tracks[index].clone();
         let mut changed = false;
         let mut arm_clicked = false;
+        let mut devices_clicked = false;
         ui.scope_builder(
             egui::UiBuilder::new()
                 .max_rect(inner)
                 .id_salt(("track", index)),
             |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&track.name).strong());
+                    devices_clicked |= ui
+                        .add(
+                            egui::Label::new(egui::RichText::new(&track.name).strong())
+                                .selectable(false)
+                                .sense(Sense::click()),
+                        )
+                        .on_hover_text("Devices and effects")
+                        .on_hover_cursor(CursorIcon::PointingHand)
+                        .clicked();
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         changed |= ui
                             .toggle_value(&mut track.solo, "S")
@@ -479,6 +497,9 @@ impl App {
         }
         if arm_clicked {
             self.toggle_arm(index);
+        }
+        if devices_clicked {
+            self.device_track = Some(index);
         }
     }
 

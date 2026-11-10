@@ -375,7 +375,7 @@ fn instruments_are_built_ins_only() {
     );
     assert_eq!(
         s.session().project().tracks[0].instrument,
-        Some(Device::Builtin { id: "kick".into() })
+        Some(Device::builtin("kick"))
     );
 }
 
@@ -488,4 +488,56 @@ fn works_with_the_real_engine() {
     assert!(s.audio().is_playing());
     assert!(s.audio().position() > 4.0);
     assert!(l.iter().any(|x| x.abs() > 0.001), "the demo is audible");
+}
+
+#[test]
+fn effects_through_mcp() {
+    let mut s = server();
+    let list = ok(&mut s, "list_instruments", json!({}));
+    let reverb = list["effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "reverb")
+        .unwrap()
+        .clone();
+    assert!(
+        reverb["params"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "mix")
+    );
+    let r = ok(
+        &mut s,
+        "add_effect",
+        json!({ "track": 0, "effect": "reverb" }),
+    );
+    assert_eq!(r["effect"], 0);
+    assert!(s.audio().applied.last().unwrap().reload);
+    ok(
+        &mut s,
+        "set_effect_param",
+        json!({ "track": 0, "effect": 0, "param": "mix", "value": 0.6 }),
+    );
+    assert_eq!(
+        s.audio().applied.last().unwrap().effect_params,
+        vec![(0, 0)]
+    );
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][0]["effects"][0]["params"]["mix"], 0.6);
+    let m = refused(
+        &mut s,
+        "set_effect_param",
+        json!({ "track": 0, "effect": 0, "param": "mix", "value": 5 }),
+    );
+    assert!(m.contains("between"), "{m}");
+    refused(
+        &mut s,
+        "add_effect",
+        json!({ "track": 0, "effect": "/tmp/x.vst3" }),
+    );
+    ok(&mut s, "remove_effect", json!({ "track": 0, "effect": 0 }));
+    ok(&mut s, "undo", json!({}));
+    assert_eq!(s.session().project().tracks[0].effects.len(), 1);
 }
