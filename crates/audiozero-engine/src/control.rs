@@ -69,6 +69,8 @@ pub struct LiveNote {
 }
 
 const LIVE_CAPACITY: usize = 1024;
+/// Mono output samples kept for the visuals: a bit over a second at 48 kHz.
+const TAP_CAPACITY: usize = 1 << 16;
 
 /// Sends live notes straight to the audio thread from another thread (a MIDI input callback),
 /// without going through the UI. Get it once from [`Controller::take_live_input`].
@@ -133,6 +135,7 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
     let (commands, command_rx) = RingBuffer::new(COMMAND_CAPACITY);
     let (garbage_tx, garbage) = RingBuffer::new(GARBAGE_CAPACITY);
     let (live_tx, live_rx) = RingBuffer::new(LIVE_CAPACITY);
+    let (tap_tx, tap_rx) = RingBuffer::new(TAP_CAPACITY);
     let status = Arc::new(Status {
         position: AtomicU64::new(0f64.to_bits()),
         playing: AtomicBool::new(false),
@@ -149,6 +152,7 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
         sample_rate: engine.sample_rate(),
         max_block,
         pool: SamplePool::new(engine.sample_rate()),
+        output_tap: Some(tap_rx),
         live_input: Some(LiveInput {
             notes: live_tx,
             status: Arc::clone(&status),
@@ -157,6 +161,7 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
     let player = Player {
         engine: Box::new(engine),
         live: live_rx,
+        tap: tap_tx,
         commands: command_rx,
         garbage: garbage_tx,
         status,
@@ -168,6 +173,8 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
 pub struct Player {
     engine: Box<Engine>,
     live: Consumer<LiveNote>,
+    /// A copy of the output (mono) for the visuals. Dropped when nobody reads it.
+    tap: Producer<f32>,
     commands: Consumer<Command>,
     garbage: Producer<Garbage>,
     status: Arc<Status>,
@@ -188,6 +195,19 @@ impl Player {
                 .live_note(note.track, note.pitch, note.velocity, note.on);
         }
         self.engine.process(left, right);
+        // Copy the output for the visuals; when the reader falls behind, skip rather than wait.
+        let room = self.tap.slots().min(left.len().min(right.len()));
+        if let Ok(mut chunk) = self.tap.write_chunk(room) {
+            let (a, b) = chunk.as_mut_slices();
+            for (slot, (l, r)) in a
+                .iter_mut()
+                .chain(b.iter_mut())
+                .zip(left.iter().zip(right.iter()))
+            {
+                *slot = 0.5 * (l + r);
+            }
+            chunk.commit_all();
+        }
         self.publish();
     }
 
@@ -266,9 +286,16 @@ pub struct Controller {
     /// Decoded audio for audio clips, at the device's rate.
     pool: SamplePool,
     live_input: Option<LiveInput>,
+    output_tap: Option<Consumer<f32>>,
 }
 
 impl Controller {
+    /// The mono output, as the audio thread plays it, for the live visuals. There's one; later
+    /// calls return `None`. Drain it regularly, or it fills and new audio is skipped.
+    pub fn take_output_tap(&mut self) -> Option<Consumer<f32>> {
+        self.output_tap.take()
+    }
+
     /// The sender for live notes from another thread. There's one; later calls return `None`.
     pub fn take_live_input(&mut self) -> Option<LiveInput> {
         self.live_input.take()
@@ -599,5 +626,26 @@ mod tests {
             assert!(controller.send(Command::Play));
         }
         assert!(!controller.send(Command::Play));
+    }
+
+    #[test]
+    fn the_output_tap_copies_what_plays() {
+        let (mut controller, mut player) = channel(48_000.0, 512);
+        let mut tap = controller.take_output_tap().unwrap();
+        assert!(controller.take_output_tap().is_none());
+        controller.load(crate::demo::project()).unwrap();
+        controller.send(Command::Play);
+        let out = run(&mut player, 4800);
+        assert_eq!(tap.slots(), 4800);
+        let chunk = tap.read_chunk(4800).unwrap();
+        let (a, _) = chunk.as_slices();
+        assert!(a.iter().any(|x| x.abs() > 0.0));
+        assert!((a[100] - out[100]).abs() < 0.5, "a mono copy of the output");
+        chunk.commit_all();
+        // Nobody reading: the tap fills and the audio thread carries on.
+        for _ in 0..40 {
+            run(&mut player, 4800);
+        }
+        assert!(tap.slots() <= TAP_CAPACITY);
     }
 }

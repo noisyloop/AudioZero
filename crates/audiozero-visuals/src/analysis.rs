@@ -11,7 +11,8 @@ use audiozero_engine::{Engine, Project};
 pub const RATE: f64 = 48_000.0;
 /// Bands in [`Features::spectrum`].
 pub const SPECTRUM_BANDS: usize = 32;
-const WINDOW: usize = 2048;
+/// Samples measured per frame.
+pub const WINDOW: usize = 2048;
 /// Longest stretch that can be rendered, in seconds (an hour).
 pub const MAX_SECONDS: f64 = 3600.0;
 
@@ -173,21 +174,31 @@ pub struct Features {
     pub tracks: usize,
 }
 
-/// Walks a [`Song`] frame by frame.
-pub struct Analyzer<'a> {
-    song: &'a Song,
-    fps: f64,
-    frame: usize,
-    last: Features,
-    low_average: f32,
-    next_note: usize,
-    window: Vec<f32>,
+/// Measures a window of audio: levels, bands, onsets and the spectrum, with the smoothing that
+/// carries from one frame to the next. Shared by the offline [`Analyzer`] and [`LiveAnalyzer`],
+/// so export and the live window react the same way.
+pub struct Meter {
     hann: Vec<f32>,
-    bands: Vec<f64>,
+    /// Goertzel coefficients for the band centres.
+    coefficients: Vec<f64>,
+    low_average: f32,
+    spectrum: [f32; SPECTRUM_BANDS],
+    scratch: Vec<f32>,
 }
 
-impl<'a> Analyzer<'a> {
-    pub fn new(song: &'a Song, fps: u32) -> Self {
+/// What [`Meter::measure`] gives.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Levels {
+    pub level: f32,
+    pub low: f32,
+    pub mid: f32,
+    pub high: f32,
+    pub onset: f32,
+    pub spectrum: [f32; SPECTRUM_BANDS],
+}
+
+impl Default for Meter {
+    fn default() -> Self {
         let hann = (0..WINDOW)
             .map(|i| {
                 let x = i as f32 / (WINDOW - 1) as f32;
@@ -195,19 +206,132 @@ impl<'a> Analyzer<'a> {
             })
             .collect();
         // Log-spaced band centres from 40 Hz to 12 kHz.
-        let bands = (0..SPECTRUM_BANDS)
-            .map(|i| 40.0 * (12_000.0f64 / 40.0).powf(i as f64 / (SPECTRUM_BANDS - 1) as f64))
+        let coefficients = (0..SPECTRUM_BANDS)
+            .map(|i| {
+                let freq = 40.0 * (12_000.0f64 / 40.0).powf(i as f64 / (SPECTRUM_BANDS - 1) as f64);
+                (2.0 * std::f64::consts::PI * freq / RATE).cos() * 2.0
+            })
             .collect();
+        Self {
+            hann,
+            coefficients,
+            low_average: 0.0,
+            spectrum: [0.0; SPECTRUM_BANDS],
+            scratch: vec![0.0; WINDOW],
+        }
+    }
+}
+
+impl Meter {
+    /// Measures one window (up to [`WINDOW`] samples): the mono mix, and the same low-passed at
+    /// 200 Hz and at 4 kHz.
+    pub fn measure(&mut self, mono: &[f32], low: &[f32], below_high: &[f32]) -> Levels {
+        let rms = |x: &mut dyn Iterator<Item = f32>| {
+            let (sum, n) = x.fold((0.0f32, 0usize), |(s, n), v| (s + v * v, n + 1));
+            if n == 0 { 0.0 } else { (sum / n as f32).sqrt() }
+        };
+        let level = rms(&mut mono.iter().copied());
+        let low_rms = rms(&mut low.iter().copied());
+        let mid = rms(&mut below_high.iter().zip(low).map(|(h, l)| h - l));
+        let high = rms(&mut mono.iter().zip(below_high).map(|(m, h)| m - h));
+        let shape = |x: f32, gain: f32| 1.0 - (-x * gain).exp();
+
+        // Onsets: the low end jumping above its recent average.
+        let onset = ((low_rms - self.low_average * 1.25) * 6.0).clamp(0.0, 1.0);
+        self.low_average = self.low_average * 0.92 + low_rms * 0.08;
+
+        // Goertzel magnitudes over a Hann window, in rough dB; quick to rise, slow to fall.
+        let n = mono.len().min(WINDOW);
+        self.scratch.fill(0.0);
+        for i in 0..n {
+            self.scratch[i] = mono[mono.len() - n + i] * self.hann[i];
+        }
+        for (band, &k) in self.spectrum.iter_mut().zip(&self.coefficients) {
+            let (mut s1, mut s2) = (0.0f64, 0.0f64);
+            for &x in &self.scratch {
+                let s = f64::from(x) + k * s1 - s2;
+                s2 = s1;
+                s1 = s;
+            }
+            let power = (s1 * s1 + s2 * s2 - k * s1 * s2).max(0.0);
+            let magnitude = power.sqrt() / (WINDOW as f64 / 4.0);
+            let db = 20.0 * magnitude.max(1e-9).log10();
+            let now = (((db + 60.0) / 60.0).clamp(0.0, 1.0)) as f32;
+            *band = if now > *band {
+                *band + (now - *band) * 0.7
+            } else {
+                *band * 0.86 + now * 0.14
+            };
+        }
+        Levels {
+            level: shape(level, 4.0),
+            low: shape(low_rms, 5.0),
+            mid: shape(mid, 6.0),
+            high: shape(high, 12.0),
+            onset,
+            spectrum: self.spectrum,
+        }
+    }
+}
+
+/// Builds [`Features`] from levels and where the song is.
+#[allow(clippy::too_many_arguments)]
+fn features(
+    levels: Levels,
+    time: f64,
+    progress: f32,
+    beat: f64,
+    previous_beat: Option<f64>,
+    beats_per_bar: u32,
+    hits: Vec<Hit>,
+    held: Vec<Hit>,
+    tracks: usize,
+) -> Features {
+    let per_bar = f64::from(beats_per_bar.max(1));
+    let (new_beat, new_bar) = match previous_beat {
+        None => (true, true),
+        Some(p) => (
+            beat.floor() != p.floor(),
+            (beat / per_bar).floor() != (p / per_bar).floor(),
+        ),
+    };
+    Features {
+        time,
+        progress,
+        beat,
+        beat_phase: beat.rem_euclid(1.0) as f32,
+        bar_phase: (beat / per_bar).rem_euclid(1.0) as f32,
+        new_beat,
+        new_bar,
+        level: levels.level,
+        low: levels.low,
+        mid: levels.mid,
+        high: levels.high,
+        onset: levels.onset,
+        spectrum: levels.spectrum,
+        hits,
+        held,
+        tracks,
+    }
+}
+
+/// Walks a [`Song`] frame by frame.
+pub struct Analyzer<'a> {
+    song: &'a Song,
+    fps: f64,
+    frame: usize,
+    meter: Meter,
+    next_note: usize,
+}
+
+impl<'a> Analyzer<'a> {
+    pub fn new(song: &'a Song, fps: u32) -> Self {
         Self {
             song,
             fps: f64::from(fps.clamp(1, 240)),
             frame: 0,
-            last: Features::default(),
-            low_average: 0.0,
+            meter: Meter::default(),
             next_note: 0,
-            window: vec![0.0; WINDOW],
-            hann,
-            bands,
         }
     }
 
@@ -221,32 +345,14 @@ impl<'a> Analyzer<'a> {
         let song = self.song;
         let time = self.frame as f64 / self.fps;
         let centre = (time * RATE) as usize;
-        let rms = |signal: &dyn Fn(usize) -> f32| {
-            let from = centre.saturating_sub(WINDOW / 2);
-            let to = (from + WINDOW).min(song.left.len());
-            if to <= from {
-                return 0.0;
-            }
-            ((from..to).map(|i| signal(i).powi(2)).sum::<f32>() / (to - from) as f32).sqrt()
-        };
-        let mono = |i: usize| 0.5 * (song.left[i] + song.right[i]);
-        let level = rms(&mono);
-        let low = rms(&|i| song.low[i]);
-        let mid = rms(&|i| song.below_high[i] - song.low[i]);
-        let high = rms(&|i| mono(i) - song.below_high[i]);
-        let shape = |x: f32, gain: f32| 1.0 - (-x * gain).exp();
-
-        // Onsets: the low end jumping above its recent average.
-        let onset = ((low - self.low_average * 1.25) * 6.0).clamp(0.0, 1.0);
-        self.low_average = self.low_average * 0.92 + low * 0.08;
-
-        let spectrum = self.spectrum(centre);
-
-        let beat = song.start_beat + time * song.bpm / 60.0;
-        let per_bar = f64::from(song.beats_per_bar.max(1));
-        let previous = song.start_beat + (time - 1.0 / self.fps) * song.bpm / 60.0;
-        let new_beat = self.frame == 0 || beat.floor() != previous.floor();
-        let new_bar = self.frame == 0 || (beat / per_bar).floor() != (previous / per_bar).floor();
+        let to = (centre + WINDOW / 2).min(song.left.len());
+        let from = to.saturating_sub(WINDOW);
+        let mono: Vec<f32> = (from..to)
+            .map(|i| 0.5 * (song.left[i] + song.right[i]))
+            .collect();
+        let levels = self
+            .meter
+            .measure(&mono, &song.low[from..to], &song.below_high[from..to]);
 
         // Notes that started since the last frame, and those sounding now.
         let mut hits = Vec::new();
@@ -260,64 +366,124 @@ impl<'a> Analyzer<'a> {
             .map(|n| n.hit)
             .collect();
 
+        let beat = song.start_beat + time * song.bpm / 60.0;
+        let previous =
+            (self.frame > 0).then(|| song.start_beat + (time - 1.0 / self.fps) * song.bpm / 60.0);
         self.frame += 1;
-        let features = Features {
+        features(
+            levels,
             time,
-            progress: (time / song.seconds().max(1e-9)).clamp(0.0, 1.0) as f32,
+            (time / song.seconds().max(1e-9)).clamp(0.0, 1.0) as f32,
             beat,
-            beat_phase: beat.fract() as f32,
-            bar_phase: ((beat / per_bar).fract()) as f32,
-            new_beat,
-            new_bar,
-            level: shape(level, 4.0),
-            low: shape(low, 5.0),
-            mid: shape(mid, 6.0),
-            high: shape(high, 12.0),
-            onset,
-            spectrum,
+            previous,
+            song.beats_per_bar,
             hits,
             held,
-            tracks: song.tracks,
-        };
-        self.last = features.clone();
-        features
+            song.tracks,
+        )
+    }
+}
+
+/// Analyses audio as it plays, for the live visuals window: feed it the output with
+/// [`LiveAnalyzer::push`], then ask for a frame with the playhead and the project.
+pub struct LiveAnalyzer {
+    mono: Vec<f32>,
+    low: Vec<f32>,
+    below_high: Vec<f32>,
+    low_state: f32,
+    high_state: f32,
+    meter: Meter,
+    last_beat: Option<f64>,
+    rate: f64,
+}
+
+impl LiveAnalyzer {
+    /// `rate` is the output's sample rate.
+    pub fn new(rate: f64) -> Self {
+        Self {
+            mono: Vec::with_capacity(WINDOW * 2),
+            low: Vec::with_capacity(WINDOW * 2),
+            below_high: Vec::with_capacity(WINDOW * 2),
+            low_state: 0.0,
+            high_state: 0.0,
+            meter: Meter::default(),
+            last_beat: None,
+            rate: if rate.is_finite() && rate > 1000.0 {
+                rate
+            } else {
+                RATE
+            },
+        }
     }
 
-    /// Goertzel magnitudes at the band centres over a Hann window, in rough dB, smoothed:
-    /// quick to rise, slow to fall.
-    fn spectrum(&mut self, centre: usize) -> [f32; SPECTRUM_BANDS] {
-        let song = self.song;
-        let from = centre.saturating_sub(WINDOW / 2);
-        for (i, w) in self.window.iter_mut().enumerate() {
-            let at = from + i;
-            *w = if at < song.left.len() {
-                0.5 * (song.left[at] + song.right[at]) * self.hann[i]
-            } else {
-                0.0
-            };
+    /// Adds mono output samples, keeping the last window.
+    pub fn push(&mut self, samples: &[f32]) {
+        let a_low = (-2.0 * std::f64::consts::PI * 200.0 / self.rate).exp() as f32;
+        let a_high = (-2.0 * std::f64::consts::PI * 4000.0 / self.rate).exp() as f32;
+        for &x in samples {
+            let x = if x.is_finite() { x } else { 0.0 };
+            self.low_state = x + a_low * (self.low_state - x);
+            self.high_state = x + a_high * (self.high_state - x);
+            self.mono.push(x);
+            self.low.push(self.low_state);
+            self.below_high.push(self.high_state);
         }
-        let mut out = [0.0f32; SPECTRUM_BANDS];
-        for (band, &freq) in out.iter_mut().zip(&self.bands) {
-            let k = (2.0 * std::f64::consts::PI * freq / RATE).cos() * 2.0;
-            let (mut s1, mut s2) = (0.0f64, 0.0f64);
-            for &x in &self.window {
-                let s = f64::from(x) + k * s1 - s2;
-                s2 = s1;
-                s1 = s;
+        for buf in [&mut self.mono, &mut self.low, &mut self.below_high] {
+            if buf.len() > WINDOW {
+                let extra = buf.len() - WINDOW;
+                buf.drain(..extra);
             }
-            let power = (s1 * s1 + s2 * s2 - k * s1 * s2).max(0.0);
-            let magnitude = power.sqrt() / (WINDOW as f64 / 4.0);
-            let db = 20.0 * magnitude.max(1e-9).log10();
-            *band = (((db + 60.0) / 60.0).clamp(0.0, 1.0)) as f32;
         }
-        for (now, before) in out.iter_mut().zip(self.last.spectrum) {
-            *now = if *now > before {
-                before + (*now - before) * 0.7
-            } else {
-                before * 0.86 + *now * 0.14
-            };
+    }
+
+    /// The features now: the playhead at `beat`, and the notes in `project` that started since
+    /// the last frame or are sounding (only while `playing`).
+    pub fn frame(&mut self, project: &Project, beat: f64, playing: bool) -> Features {
+        let levels = self.meter.measure(&self.mono, &self.low, &self.below_high);
+        let previous = self.last_beat.filter(|p| beat >= *p && beat - *p < 4.0);
+        let (mut hits, mut held) = (Vec::new(), Vec::new());
+        if playing {
+            let from = previous.unwrap_or(beat);
+            let any_solo = project.tracks.iter().any(|t| t.solo);
+            for (track, t) in project.tracks.iter().enumerate() {
+                if t.mute || (any_solo && !t.solo) || t.instrument.is_none() {
+                    continue;
+                }
+                for clip in t
+                    .clips
+                    .iter()
+                    .filter(|c| !c.muted && c.start <= beat && c.end() > from)
+                {
+                    for n in &clip.notes {
+                        let on = clip.start + n.start;
+                        let off = (on + n.length).min(clip.end());
+                        let hit = Hit {
+                            track,
+                            pitch: n.pitch,
+                            velocity: n.velocity,
+                        };
+                        if on > from && on <= beat {
+                            hits.push(hit);
+                        }
+                        if on <= beat && off > beat {
+                            held.push(hit);
+                        }
+                    }
+                }
+            }
         }
-        out
+        self.last_beat = Some(beat);
+        features(
+            levels,
+            beat * 60.0 / project.bpm,
+            0.0,
+            beat,
+            previous,
+            project.beats_per_bar,
+            hits,
+            held,
+            project.tracks.len(),
+        )
     }
 }
 
@@ -375,5 +541,24 @@ mod tests {
             "muted tracks send no notes"
         );
         assert!(render_song(&project, &mut pool, Range::Beats(8.0, 8.0)).is_err());
+    }
+
+    #[test]
+    fn live_analysis_reacts_to_audio_and_notes() {
+        let project = demo::project();
+        let mut live = LiveAnalyzer::new(48_000.0);
+        let quiet = live.frame(&project, 0.0, true);
+        assert_eq!(quiet.level, 0.0);
+        let tone: Vec<f32> = (0..4800).map(|i| (i as f32 * 0.02).sin() * 0.5).collect();
+        live.push(&tone);
+        let loud = live.frame(&project, 0.5, true);
+        assert!(loud.level > 0.1 && loud.low > 0.05);
+        // The demo's first notes are at beat 0: a frame from before to after them sees hits.
+        let mut live = LiveAnalyzer::new(48_000.0);
+        live.frame(&project, -0.01, true);
+        let f = live.frame(&project, 0.05, true);
+        assert!(!f.hits.is_empty() && !f.held.is_empty());
+        let stopped = live.frame(&project, 0.1, false);
+        assert!(stopped.hits.is_empty(), "no notes while stopped");
     }
 }

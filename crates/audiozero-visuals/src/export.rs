@@ -99,6 +99,9 @@ pub struct Exported {
     pub path: PathBuf,
 }
 
+/// The error an export returns when its progress callback cancels it.
+pub const CANCELLED: &str = "export cancelled";
+
 /// Whether FFmpeg is available for video files.
 pub fn has_ffmpeg() -> bool {
     Command::new("ffmpeg")
@@ -117,13 +120,13 @@ fn is_video(path: &Path) -> bool {
 
 /// Renders `settings.look` over `project` to `out`: a video file if it ends in .mp4, .mov, .mkv
 /// or .webm (needs FFmpeg), otherwise a folder of PNG frames plus `audio.wav`. `progress` gets
-/// (frame, frames) as it goes.
+/// (frame, frames) as it goes and returns `false` to cancel, which removes a partial video.
 pub fn export(
     project: &Project,
     pool: &mut SamplePool,
     settings: &VideoSettings,
     out: &Path,
-    mut progress: impl FnMut(usize, usize),
+    mut progress: impl FnMut(usize, usize) -> bool,
 ) -> Result<Exported, String> {
     settings.check()?;
     let video = is_video(out);
@@ -160,7 +163,9 @@ pub fn export(
             look.draw(&mut canvas, &analyzer.next_frame());
             canvas.to_rgba(&mut rgba);
             write_png(&out.join(format!("frame_{:06}.png", i + 1)), w, h, &rgba)?;
-            progress(i + 1, frames);
+            if !progress(i + 1, frames) {
+                return Err(CANCELLED.into());
+            }
         }
         return Ok(Exported {
             frames,
@@ -232,6 +237,7 @@ pub fn export(
         .map_err(|e| format!("can't start FFmpeg: {e}"))?;
     let mut stdin = child.stdin.take().expect("piped");
     let mut write_error = None;
+    let mut cancelled = false;
     for i in 0..frames {
         look.draw(&mut canvas, &analyzer.next_frame());
         canvas.to_rgba(&mut rgba);
@@ -239,9 +245,19 @@ pub fn export(
             write_error = Some(e);
             break;
         }
-        progress(i + 1, frames);
+        if !progress(i + 1, frames) {
+            cancelled = true;
+            break;
+        }
     }
     drop(stdin);
+    if cancelled {
+        let _ = child.kill();
+        let _ = child.wait();
+        let _ = std::fs::remove_file(&audio);
+        let _ = std::fs::remove_file(out);
+        return Err(CANCELLED.into());
+    }
     let output = child.wait_with_output().map_err(|e| e.to_string());
     let _ = std::fs::remove_file(&audio);
     let output = output?;
@@ -343,7 +359,10 @@ mod tests {
             &mut pool,
             &short_settings("rings"),
             &out,
-            |_, _| calls += 1,
+            |_, _| {
+                calls += 1;
+                true
+            },
         )
         .unwrap();
         // 4 beats at 110 BPM is about 2.18 s, so 22 frames at 10 fps.
@@ -368,7 +387,7 @@ mod tests {
             &mut pool,
             &short_settings("particles"),
             &out,
-            |_, _| {},
+            |_, _| true,
         )
         .unwrap();
         assert_eq!(result.frames, 22);
@@ -395,6 +414,26 @@ mod tests {
         )
         .unwrap();
         assert!(std::fs::metadata(&out).unwrap().len() > 100);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn cancelling_stops_and_cleans_up() {
+        if !has_ffmpeg() {
+            return;
+        }
+        let dir = temp("cancel");
+        let out = dir.join("clip.mp4");
+        let mut pool = SamplePool::new(RATE);
+        let result = export(
+            &demo::project(),
+            &mut pool,
+            &short_settings("spectrum"),
+            &out,
+            |frame, _| frame < 5,
+        );
+        assert_eq!(result, Err(CANCELLED.to_string()));
+        assert!(!out.exists(), "the partial video is removed");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

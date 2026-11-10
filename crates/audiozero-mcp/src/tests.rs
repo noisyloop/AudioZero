@@ -541,3 +541,44 @@ fn effects_through_mcp() {
     ok(&mut s, "undo", json!({}));
     assert_eq!(s.session().project().tracks[0].effects.len(), 1);
 }
+
+#[test]
+fn export_video_writes_new_files_only_in_the_folder() {
+    let folder = temp_folder("video");
+    let mut project = demo::project();
+    project.loop_start = 0.0;
+    project.loop_end = 2.0;
+    let mut s = server_with(project, None, folder.clone());
+    for bad in ["../x", "a/b", ""] {
+        let m = refused(
+            &mut s,
+            "export_video",
+            json!({ "name": bad, "container": "frames" }),
+        );
+        assert!(m.contains("letters, digits"), "{bad}: {m}");
+    }
+    refused(&mut s, "export_video", json!({ "name": "x", "fps": 24 }));
+    refused(
+        &mut s,
+        "export_video",
+        json!({ "name": "x", "look": "nope", "container": "frames" }),
+    );
+    let r = ok(
+        &mut s,
+        "export_video",
+        json!({ "name": "clip", "loop": true, "container": "frames", "format": "square", "look": "rings" }),
+    );
+    assert_eq!(r["exported"], "clip");
+    assert_eq!(
+        (r["width"].clone(), r["height"].clone()),
+        (json!(1080), json!(1080))
+    );
+    assert!(folder.join("clip").join("frame_000001.png").exists());
+    let m = refused(
+        &mut s,
+        "export_video",
+        json!({ "name": "clip", "container": "frames", "loop": true }),
+    );
+    assert!(m.contains("already exists"), "{m}");
+    std::fs::remove_dir_all(&folder).unwrap();
+}
