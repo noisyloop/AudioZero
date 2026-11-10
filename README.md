@@ -126,6 +126,37 @@ What works so far:
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
 | `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project, list installed plugins or run the MCP server. |
 
+### Download a build
+
+The latest release, no GitHub account needed:
+
+| System | Download |
+| --- | --- |
+| Linux, x86-64 | [audiozero-linux-x64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-linux-x64.zip) |
+| Windows 10/11, x86-64 | [audiozero-windows-x64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-windows-x64.zip) |
+| macOS, Apple silicon | [audiozero-macos-arm64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-macos-arm64.zip) |
+
+Checksums are in [SHA256SUMS.txt](https://github.com/noisyloop/AudioZero/releases/latest/download/SHA256SUMS.txt), and older versions are on the [Releases](https://github.com/noisyloop/AudioZero/releases) page. These links work once the first release has been published.
+
+To publish a release, open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml), click **Run workflow**, pick the branch and fill in **Publish a release with this tag** (for example `v0.1.0`). It builds all three systems, macOS included, and publishes them as a GitHub Release.
+
+Builds from any run (without a release) are under that run's **Artifacts**:
+
+1. Open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml) and click a green run. The [first run with downloads](https://github.com/noisyloop/AudioZero/actions/runs/42753120183) is an example.
+2. Under **Artifacts** at the bottom of the run's page, download the file for your system. You need to be signed in to GitHub, and downloads expire after 90 days.
+
+| Artifact | System | Run it |
+| --- | --- | --- |
+| `audiozero-linux-x64` | Linux, x86-64 | `chmod +x audiozero && ./audiozero` |
+| `audiozero-windows-x64` | Windows 10/11, x86-64 | Double-click `audiozero.exe`. SmartScreen warns because it's unsigned: choose **More info > Run anyway**. |
+| `audiozero-macos-arm64` | macOS on Apple silicon | `chmod +x audiozero && xattr -d com.apple.quarantine audiozero && ./audiozero` in Terminal. It's unsigned, and the first recording asks for microphone access. |
+
+Each download is a zip containing the program. The command-line options below work with it too, for example `./audiozero --mcp song.json`.
+
+To make a new build, open the workflow, click **Run workflow** and pick a branch. Tick **Also build on macOS** only when you need it: macOS minutes count 10x against the Actions allowance.
+
+### Build it yourself
+
 ```sh
 cargo run --release -p audiozero-app                          # open the window with the demo song
 cargo run --release -p audiozero-app -- song.json             # open a project
@@ -176,7 +207,7 @@ Every build is manual for now: pushes, pull requests and merges don't start any 
 
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `rust.yml` | Linux | Rust workspace: format check, Clippy, tests, demo render (about a minute) |
+| `rust.yml` | Linux, Windows (+ macOS on request) | Rust workspace: format check, Clippy, tests, demo render, and release builds of the app uploaded as downloads (see [Download a build](#download-a-build)) |
 | `ci.yml` | Windows + Linux | C++ app: build, all tests, app + VST3 artifacts, Linux UI screenshot |
 | `mac-build.yml` | macOS | C++ app: build, all tests (including the VST3 host smoke test), unsigned DMG, Operator VST3 artifact |
 
@@ -200,13 +231,8 @@ This is an early but working DAW. Not done yet:
 1. **Hardening:** trust plugins by identity instead of the path in the project file, validate project and audio input, plugin sandboxing, latency compensation, crash recovery and autosave, signed installers. See [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) for the findings and the prioritised plan.
 2. **Workflow:** automation, clip launcher, audio recording, warping, sampler and drum rack, more built-in effects.
 3. **MCP server:** the first version is in the Rust app. Next: drive the open window's session live (with the activity log visible in the UI), give plugins by identity once hosting lands, and render previews the assistant can check.
-
-## Related projects
-
-- [Nusick](https://github.com/noisyloop/Nusick): NOISYLOOP's MIT-licensed Rust framework for audio plugins, home of the Kick Me kick synth.
-
-## License
-
-AudioZero's own source code is released under the [MIT License](LICENSE).
-
-AudioZero is built on [JUCE](https://juce.com), which has its own license: JUCE 8 is available under the AGPLv3 or a commercial JUCE license. The MIT License covers the code in this repository. Builds you distribute, which link JUCE, also have to meet JUCE's terms. Third-party plugins keep their own licenses.
+4. **Plugins by others:** host CLAP and VST3 out of process, and offer [Nusick](https://github.com/noisyloop/Nusick) as the SDK for writing them, with a template and docs.
+5. **Audio-reactive visuals (built-in VJ):** visuals driven by the arrangement's notes, beats and audio, shown live while playing and exported for the song's length (or the loop or a selection) as 16:9, 9:16 shorts, 1:1 or 4:5, in MP4/H.264, H.265, WebM, ProRes or PNG frames with the audio.
+   1. A visualizer device with built-in looks, a live window, and export (rendered offline, frame-accurate).
+   2. Your own shaders (WGSL, reloaded as you edit), mapping any sound feature to any parameter, and automatable visual parameters.
+   3. A TouchDesigner-style node graph on `wgpu`, sandboxed visual plugins (shaders and WebAssembly), and a visual SDK in Nusick.
