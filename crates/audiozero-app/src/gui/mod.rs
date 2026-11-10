@@ -7,10 +7,13 @@
 //! [`Controller::apply`]: audiozero_engine::Controller::apply
 
 mod arrangement;
+mod live;
 mod piano_roll;
 mod theme;
 
 use crate::audio::Output;
+use crate::input::{AudioIn, MidiIn};
+use crate::record::Take;
 use crate::{default_folder, project_folder};
 use audiozero_engine::sample::AUDIO_EXTENSIONS;
 use audiozero_engine::{
@@ -33,7 +36,7 @@ pub fn run(start: Option<PathBuf>) -> Result<(), String> {
         options,
         Box::new(move |cc| {
             theme::apply(&cc.egui_ctx);
-            Ok(Box::new(App::new(start)))
+            Ok(Box::new(App::new(start, cc.egui_ctx.clone())))
         }),
     )
     .map_err(|e| e.to_string())
@@ -127,11 +130,34 @@ struct App {
     pending: Option<Pending>,
     allow_close: bool,
     title: String,
+    /// Every MIDI input, playing the live target track.
+    midi: Option<MidiIn>,
+    /// The audio input, open while an audio track is armed.
+    audio_in: Option<AudioIn>,
+    /// The track that records, if any.
+    armed: Option<usize>,
+    recording: Option<Take>,
+    /// The transport has been seen playing since the take started.
+    record_rolling: bool,
+    keys: live::Keys,
 }
 
 impl App {
-    fn new(start: Option<PathBuf>) -> Self {
-        let audio = Output::open();
+    fn new(start: Option<PathBuf>, ctx: egui::Context) -> Self {
+        let mut audio = Output::open();
+        let (midi, midi_status) = match audio.controller.take_live_input() {
+            Some(live) => match MidiIn::open(live, move || ctx.request_repaint()) {
+                Ok(midi) if midi.ports.is_empty() => {
+                    (Some(midi), " · No MIDI inputs; A–K play notes".to_string())
+                }
+                Ok(midi) => {
+                    let names = midi.ports.join(", ");
+                    (Some(midi), format!(" · MIDI: {names}"))
+                }
+                Err(e) => (None, format!(" · MIDI unavailable ({e})")),
+            },
+            None => (None, String::new()),
+        };
         let mut app = Self {
             status: audio.description.clone(),
             audio,
@@ -152,11 +178,18 @@ impl App {
             pending: None,
             allow_close: false,
             title: String::new(),
+            midi,
+            audio_in: None,
+            armed: None,
+            recording: None,
+            record_rolling: false,
+            keys: live::Keys::default(),
         };
         match start {
             Some(path) => app.open_path(&path),
             None => app.install(demo::project(), None),
         }
+        app.status.push_str(&midi_status);
         app
     }
 
@@ -193,6 +226,9 @@ impl App {
                 };
                 self.session = session;
                 self.file = file;
+                self.recording = None;
+                self.armed = None;
+                self.audio_in = None;
                 self.selected_clip = None;
                 self.arrangement_drag = None;
                 self.roll = None;
@@ -525,6 +561,9 @@ impl App {
     }
 
     fn toggle_play(&mut self) {
+        if self.audio.controller.is_playing() {
+            self.stop_recording();
+        }
         let command = if self.audio.controller.is_playing() {
             Command::Stop
         } else {
@@ -615,6 +654,14 @@ impl App {
             {
                 self.toggle_play();
             }
+            let recording = self.is_recording();
+            ui.label("Rec");
+            if record_dot(ui, recording)
+                .on_hover_text("Record on the armed track (R)")
+                .clicked()
+            {
+                self.toggle_record();
+            }
 
             let position = self.audio.controller.position();
             let per_bar = f64::from(self.session.project().beats_per_bar);
@@ -646,6 +693,8 @@ impl App {
                 self.set_without_undo(|p| p.loop_enabled = looping);
             }
             ui.checkbox(&mut self.view.follow, "Follow");
+            ui.label(egui::RichText::new(self.keys_label()).color(theme::TEXT_DIM))
+                .on_hover_text("Computer keyboard: A–K play notes on the armed or selected track; Z/X change octave, C/V velocity");
             ui.separator();
 
             ui.label("Snap");
@@ -673,15 +722,21 @@ impl App {
     }
 
     fn status_bar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(&self.status).color(theme::TEXT_DIM));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let colour = if self.audio.has_device() {
-                    theme::TEXT_DIM
-                } else {
-                    theme::ACCENT
-                };
-                ui.label(egui::RichText::new(&self.audio.description).color(colour));
+        // The device on the right, then the status in what's left, cut short if it's long.
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let colour = if self.audio.has_device() {
+                theme::TEXT_DIM
+            } else {
+                theme::ACCENT
+            };
+            ui.label(egui::RichText::new(&self.audio.description).color(colour));
+            ui.separator();
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.add(
+                    egui::Label::new(egui::RichText::new(&self.status).color(theme::TEXT_DIM))
+                        .truncate(),
+                )
+                .on_hover_text(&self.status);
             });
         });
     }
@@ -766,6 +821,7 @@ impl App {
 
     fn shortcuts(&mut self, ctx: &egui::Context) {
         if self.prompt.is_some() || self.pending.is_some() || ctx.egui_wants_keyboard_input() {
+            self.release_keys();
             return;
         }
         let pressed = |key| ctx.input(|i| i.key_pressed(key));
@@ -798,6 +854,10 @@ impl App {
                 );
             }
             return;
+        }
+        self.computer_keys(ctx);
+        if pressed(Key::R) {
+            self.toggle_record();
         }
         if pressed(Key::Space) {
             self.toggle_play();
@@ -878,6 +938,26 @@ impl App {
     }
 }
 
+/// A round record button: a red dot when on, a grey ring when off. (Drawn, because the
+/// built-in fonts have no "●".)
+fn record_dot(ui: &mut egui::Ui, on: bool) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(18.0), Sense::click());
+    let painter = ui.painter_at(rect);
+    let red = Color32::from_rgb(0xef, 0x53, 0x50);
+    let radius = if response.hovered() { 6.0 } else { 5.5 };
+    if on {
+        painter.circle_filled(rect.center(), radius, red);
+    } else {
+        let colour = if response.hovered() {
+            red
+        } else {
+            theme::TEXT_DIM
+        };
+        painter.circle_stroke(rect.center(), radius, egui::Stroke::new(1.5, colour));
+    }
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
 /// A stereo level meter: two thin bars, green to orange to red.
 fn meter(ui: &mut egui::Ui, left: f32, right: f32, size: Vec2) {
     let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
@@ -914,6 +994,7 @@ impl eframe::App for App {
         self.audio.controller.collect_garbage();
         self.validate_selection();
         self.handle_drops_and_close(&ctx);
+        self.live_input(&ctx);
         self.shortcuts(&ctx);
 
         egui::Panel::top("transport").show(ui, |ui| {

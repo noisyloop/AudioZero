@@ -96,6 +96,13 @@ What works so far:
 - **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, snap, master volume and per-track mute, solo and volume with level meters.
 - **Instruments:** a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument. The demo song has a Kick track.
 - **Audio clips:** drag audio files (wav, aif, flac, mp3, ogg) from your file manager onto a track, or below the last track to get a new track. Several files at once go one after another. Audio clips show their waveform and play at the file's own speed (no time-stretching yet). They move, resize, duplicate, mute and undo like MIDI clips. Files inside the project's folder are stored with relative paths, so the folder can be moved.
+- **Playing and recording:**
+  - Every MIDI input is connected at startup. Notes go straight to the audio thread, so playing doesn't wait for the window.
+  - The computer keyboard works as a MIDI keyboard: A–K play notes (W, E, T, Y, U are the black keys), Z/X change octave and C/V change velocity.
+  - Live notes play the armed track, or else the track you're editing or have selected.
+  - Arm a track with its ● button and press **R** (or the Rec button) to record; recording starts playback if it's stopped. Press R again, or stop, to finish the take. A loop wrap ends it too.
+  - A track with an instrument records MIDI into a new clip that covers whole bars. A track without an instrument records audio from the default input as a 24-bit WAV in the project's `Recordings` folder (`~/Music/AudioZero/Recordings` if the project hasn't been saved), then adds it as an audio clip.
+  - A take is one undo step. There's no input monitoring or latency compensation yet.
 - **Clip editing:** click to select, drag to move (also onto another track), drag the right edge to resize, double-click an empty lane to add a clip, and right-click for Edit notes, Duplicate, Mute and Delete. Add tracks with **+ Add track** and remove them by right-clicking a track's header.
 - **Piano roll:** double-click a clip to edit its notes:
   - click to add a note, or drag from an empty spot to draw one at the length you want;
@@ -130,7 +137,7 @@ cargo run --release -p audiozero-app -- --mcp song.json       # MCP server for a
 cargo test --workspace                                        # all tests
 ```
 
-On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio output) and `eframe`/`egui` (the window).
+On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio input and output), `midir` (MIDI input) and `eframe`/`egui` (the window).
 
 ### AI control (MCP)
 

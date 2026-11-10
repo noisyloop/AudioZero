@@ -438,6 +438,7 @@ impl App {
     fn track_header(&mut self, ui: &mut egui::Ui, index: usize, inner: Rect) {
         let mut track = self.session.project().tracks[index].clone();
         let mut changed = false;
+        let mut arm_clicked = false;
         ui.scope_builder(
             egui::UiBuilder::new()
                 .max_rect(inner)
@@ -454,6 +455,13 @@ impl App {
                             .toggle_value(&mut track.mute, "M")
                             .on_hover_text("Mute")
                             .changed();
+                        let armed = self.armed == Some(index);
+                        let hint = if track.instrument.is_some() {
+                            "Arm to record MIDI (and play it from a MIDI keyboard or A–K)"
+                        } else {
+                            "Arm to record audio from the input"
+                        };
+                        arm_clicked |= super::record_dot(ui, armed).on_hover_text(hint).clicked();
                     });
                 });
                 ui.horizontal(|ui| {
@@ -468,6 +476,9 @@ impl App {
         );
         if changed {
             self.set_without_undo(|p| p.tracks[index] = track);
+        }
+        if arm_clicked {
+            self.toggle_arm(index);
         }
     }
 

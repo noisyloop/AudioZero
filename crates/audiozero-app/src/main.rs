@@ -3,6 +3,8 @@
 
 mod audio;
 mod gui;
+mod input;
+mod record;
 
 use audiozero_engine::sample::SamplePool;
 use audiozero_engine::{Command, Engine, PluginFormat, Project, wav};

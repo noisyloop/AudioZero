@@ -27,6 +27,8 @@ use std::sync::Arc;
 /// Note events one track can schedule in one block. More are dropped rather than allocating
 /// on the audio thread.
 const MAX_EVENTS_PER_BLOCK: usize = 4096;
+/// Live notes (MIDI input, computer keyboard) one track can queue between blocks.
+const MAX_LIVE_EVENTS: usize = 256;
 
 #[derive(Clone, Copy)]
 struct Event {
@@ -47,6 +49,10 @@ struct TrackState {
     /// Audio clips' output for the current block.
     audio_l: Vec<f32>,
     audio_r: Vec<f32>,
+    /// Notes played live since the last block, played at its start.
+    live: Vec<Event>,
+    /// Pitches held down live, so they can be released when playback stops.
+    live_on: [bool; 128],
 }
 
 /// Looks up the decoded audio for each clip, on the UI thread. Problems become warnings.
@@ -181,6 +187,8 @@ impl Engine {
                     samples,
                     audio_l: vec![0.0; max_block],
                     audio_r: vec![0.0; max_block],
+                    live: Vec::with_capacity(MAX_LIVE_EVENTS),
+                    live_on: [false; 128],
                 }
             })
             .collect();
@@ -288,6 +296,42 @@ impl Engine {
         (clips, samples)
     }
 
+    /// Plays or releases a note on a track now, as from a MIDI keyboard. Notes for tracks that
+    /// don't exist, or beyond what one block can hold, are dropped. Doesn't allocate.
+    pub fn live_note(&mut self, track: usize, pitch: u8, velocity: f32, on: bool) {
+        let Some(state) = self.tracks.get_mut(track) else {
+            return;
+        };
+        let pitch = pitch.min(127);
+        if state.live.len() < MAX_LIVE_EVENTS {
+            state.live_on[usize::from(pitch)] = on;
+            state.live.push(Event {
+                offset: 0,
+                on,
+                pitch,
+                velocity: finite32(velocity, 0.0, 1.0, 0.8),
+            });
+        }
+    }
+
+    /// Releases every note held live, on every track.
+    pub fn release_live(&mut self) {
+        for state in &mut self.tracks {
+            for pitch in 0..128u8 {
+                if std::mem::take(&mut state.live_on[usize::from(pitch)])
+                    && state.live.len() < MAX_LIVE_EVENTS
+                {
+                    state.live.push(Event {
+                        offset: 0,
+                        on: false,
+                        pitch,
+                        velocity: 0.0,
+                    });
+                }
+            }
+        }
+    }
+
     pub fn play(&mut self) {
         self.playing = true;
     }
@@ -347,6 +391,8 @@ impl Engine {
         out_r.fill(0.0);
         for track in &mut self.tracks {
             track.events.clear();
+            // `append` keeps `live`'s capacity, so nothing is freed here.
+            track.events.append(&mut track.live);
             track.audio_l[..n].fill(0.0);
             track.audio_r[..n].fill(0.0);
         }
@@ -854,5 +900,27 @@ mod tests {
         let (l, _) = engine.render(24_000);
         assert!(l.iter().all(|x| x.abs() < 1e-6));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn live_notes_play_while_stopped() {
+        let mut engine = Engine::new(one_note_project(), 48_000.0, 512).unwrap();
+        let (l, _) = engine.render(512);
+        assert!(
+            l.iter().all(|x| *x == 0.0),
+            "stopped and nothing held: silent"
+        );
+        engine.live_note(0, 60, 1.0, true);
+        engine.live_note(99, 60, 1.0, true); // no such track: ignored
+        let (l, _) = engine.render(4800);
+        assert!(l.iter().any(|x| x.abs() > 0.01), "the live note sounds");
+        engine.release_live();
+        engine.render(48_000);
+        let (l, _) = engine.render(512);
+        assert!(l.iter().all(|x| x.abs() < 1e-3), "released");
+        for _ in 0..1000 {
+            engine.live_note(0, 60, 1.0, true); // more than a block holds: dropped, no allocation
+        }
+        assert!(engine.tracks[0].live.len() <= MAX_LIVE_EVENTS);
     }
 }

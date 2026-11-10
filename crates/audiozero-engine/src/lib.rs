@@ -21,7 +21,7 @@ pub mod session;
 pub mod synth;
 pub mod wav;
 
-pub use control::{Command, Controller, Player};
+pub use control::{Command, Controller, LiveInput, LiveNote, Player};
 pub use engine::{Engine, TrackMix};
 pub use project::{
     AudioRegion, Clip, Device, Note, PluginFormat, PluginRef, Project, ProjectError, Track,

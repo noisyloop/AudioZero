@@ -47,6 +47,42 @@ pub enum Command {
     },
     /// Swap in an engine built on the UI thread.
     Replace(Box<Engine>),
+    /// Play or release a note now (computer keyboard). MIDI input uses [`LiveInput`] instead.
+    LiveNote(LiveNote),
+    /// Release every note held live.
+    ReleaseLive,
+}
+
+/// A note played live on a track.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LiveNote {
+    pub track: usize,
+    pub pitch: u8,
+    pub velocity: f32,
+    pub on: bool,
+}
+
+const LIVE_CAPACITY: usize = 1024;
+
+/// Sends live notes straight to the audio thread from another thread (a MIDI input callback),
+/// without going through the UI. Get it once from [`Controller::take_live_input`].
+pub struct LiveInput {
+    notes: Producer<LiveNote>,
+    status: Arc<Status>,
+}
+
+impl LiveInput {
+    /// Queues a note. Returns `false` if the queue is full (the audio thread has stopped).
+    pub fn send(&mut self, note: LiveNote) -> bool {
+        self.notes.push(note).is_ok()
+    }
+    /// The playhead in beats, for timestamping recorded notes.
+    pub fn position(&self) -> f64 {
+        f64::from_bits(self.status.position.load(Relaxed))
+    }
+    pub fn is_playing(&self) -> bool {
+        self.status.playing.load(Relaxed)
+    }
 }
 
 /// Things the audio thread has finished with, sent back to be freed on the UI thread.
@@ -90,6 +126,7 @@ fn peak_pair(cells: &[AtomicU32; 2]) -> (f32, f32) {
 pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
     let (commands, command_rx) = RingBuffer::new(COMMAND_CAPACITY);
     let (garbage_tx, garbage) = RingBuffer::new(GARBAGE_CAPACITY);
+    let (live_tx, live_rx) = RingBuffer::new(LIVE_CAPACITY);
     let status = Arc::new(Status {
         position: AtomicU64::new(0f64.to_bits()),
         playing: AtomicBool::new(false),
@@ -106,9 +143,14 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
         sample_rate: engine.sample_rate(),
         max_block,
         pool: SamplePool::new(engine.sample_rate()),
+        live_input: Some(LiveInput {
+            notes: live_tx,
+            status: Arc::clone(&status),
+        }),
     };
     let player = Player {
         engine: Box::new(engine),
+        live: live_rx,
         commands: command_rx,
         garbage: garbage_tx,
         status,
@@ -119,6 +161,7 @@ pub fn channel(sample_rate: f64, max_block: usize) -> (Controller, Player) {
 /// The audio thread's half. Call [`Player::process`] from the audio callback.
 pub struct Player {
     engine: Box<Engine>,
+    live: Consumer<LiveNote>,
     commands: Consumer<Command>,
     garbage: Producer<Garbage>,
     status: Arc<Status>,
@@ -133,6 +176,10 @@ impl Player {
                 break;
             };
             self.apply(command);
+        }
+        while let Ok(note) = self.live.pop() {
+            self.engine
+                .live_note(note.track, note.pitch, note.velocity, note.on);
         }
         self.engine.process(left, right);
         self.publish();
@@ -160,6 +207,8 @@ impl Player {
                 let (clips, samples) = engine.replace_clips(track, clips, samples);
                 self.throw_away(Garbage::Clips(clips, samples));
             }
+            Command::LiveNote(n) => engine.live_note(n.track, n.pitch, n.velocity, n.on),
+            Command::ReleaseLive => engine.release_live(),
             Command::Replace(new) => {
                 let old = std::mem::replace(&mut self.engine, new);
                 self.throw_away(Garbage::Engine(old));
@@ -205,9 +254,15 @@ pub struct Controller {
     max_block: usize,
     /// Decoded audio for audio clips, at the device's rate.
     pool: SamplePool,
+    live_input: Option<LiveInput>,
 }
 
 impl Controller {
+    /// The sender for live notes from another thread. There's one; later calls return `None`.
+    pub fn take_live_input(&mut self) -> Option<LiveInput> {
+        self.live_input.take()
+    }
+
     /// The decoded audio files. Set its folder ([`SamplePool::set_base`]) to the project's
     /// folder before loading a project with relative audio paths.
     pub fn samples(&mut self) -> &mut SamplePool {
