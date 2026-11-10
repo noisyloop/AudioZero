@@ -451,7 +451,7 @@ fn serves_newline_delimited_messages() {
         json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "add_track", "arguments": {} } }),
     );
     let mut output = Vec::new();
-    serve(&mut s, io::Cursor::new(input), &mut output).unwrap();
+    serve(io::Cursor::new(input), &mut output, |m| s.handle(m)).unwrap();
     let replies: Vec<Value> = String::from_utf8(output)
         .unwrap()
         .lines()

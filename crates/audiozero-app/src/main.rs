@@ -197,10 +197,8 @@ fn mcp(file: Option<PathBuf>) -> Result<(), String> {
     };
     let mut server =
         audiozero_mcp::Server::new(project, rules, output, Box::new(std::io::stderr()))?;
-    audiozero_mcp::serve(
-        &mut server,
-        std::io::stdin().lock(),
-        std::io::stdout().lock(),
-    )
+    audiozero_mcp::serve(std::io::stdin().lock(), std::io::stdout().lock(), |m| {
+        server.handle(m)
+    })
     .map_err(|e| e.to_string())
 }

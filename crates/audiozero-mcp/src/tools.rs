@@ -1,6 +1,6 @@
 //! The tools: their definitions (names, descriptions, JSON schemas) and what each one does.
 
-use crate::{Audio, MAX_NOTES_PER_CALL, Server};
+use crate::{Ctx, MAX_NOTES_PER_CALL};
 use audiozero_engine::project::limits::MAX_BEATS;
 use audiozero_engine::session::mix_of;
 use audiozero_engine::synth::BUILTINS;
@@ -456,12 +456,7 @@ fn check_beat(what: &str, value: f64) -> Result<(), String> {
 
 /// Runs a tool. `Ok` is the result to show the client; `Err` is a message for it, reported as a
 /// tool error so the model can correct itself.
-pub fn call<A: Audio>(
-    server: &mut Server<A>,
-    name: &str,
-    arguments: Value,
-) -> Result<Value, String> {
-    let s = server;
+pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, String> {
     match name {
         "get_project" => {
             parse::<NoArgs>(arguments)?;
@@ -881,7 +876,7 @@ fn range<T: Into<f64> + Copy>(what: &str, value: T, lo: f64, hi: f64) -> Result<
 }
 
 /// Sends an edit to the audio thread and adds any warnings to its result.
-fn done<A: Audio>(s: &mut Server<A>, changes: &Changes, mut result: Value) -> Value {
+fn done(s: &mut Ctx<'_>, changes: &Changes, mut result: Value) -> Value {
     let warnings = s.hear(changes);
     if !warnings.is_empty() {
         result["warnings"] = json!(warnings);
@@ -889,7 +884,7 @@ fn done<A: Audio>(s: &mut Server<A>, changes: &Changes, mut result: Value) -> Va
     result
 }
 
-fn clip_summary<A: Audio>(s: &Server<A>, at: ClipRef) -> Value {
+fn clip_summary(s: &Ctx<'_>, at: ClipRef) -> Value {
     match s.session.clip(at) {
         Some(c) => json!({
             "track": at.track, "clip": at.clip, "name": c.name, "start": c.start,
@@ -899,7 +894,7 @@ fn clip_summary<A: Audio>(s: &Server<A>, at: ClipRef) -> Value {
     }
 }
 
-fn project_summary<A: Audio>(s: &Server<A>) -> Value {
+fn project_summary(s: &Ctx<'_>) -> Value {
     let p = s.session.project();
     let tracks: Vec<Value> = p
         .tracks
@@ -958,7 +953,7 @@ fn file_name(name: &str) -> Result<String, String> {
     }
 }
 
-fn save<A: Audio>(s: &mut Server<A>, name: Option<&str>) -> Result<Value, String> {
+fn save(s: &mut Ctx<'_>, name: Option<&str>) -> Result<Value, String> {
     let path = match (&s.save.file, name) {
         (Some(file), None) => file.clone(),
         (Some(_), Some(_)) => {
