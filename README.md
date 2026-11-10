@@ -95,6 +95,7 @@ What works so far:
 
 - **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, snap, master volume and per-track mute, solo and volume with level meters.
 - **Instruments:** a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument. The demo song has a Kick track.
+- **Audio clips:** drag audio files (wav, aif, flac, mp3, ogg) from your file manager onto a track, or below the last track to get a new track. Several files at once go one after another. Audio clips show their waveform and play at the file's own speed (no time-stretching yet). They move, resize, duplicate, mute and undo like MIDI clips. Files inside the project's folder are stored with relative paths, so the folder can be moved.
 - **Clip editing:** click to select, drag to move (also onto another track), drag the right edge to resize, double-click an empty lane to add a clip, and right-click for Edit notes, Duplicate, Mute and Delete. Add tracks with **+ Add track** and remove them by right-clicking a track's header.
 - **Piano roll:** double-click a clip to edit its notes:
   - click to add a note, or drag from an empty spot to draw one at the length you want;
@@ -113,7 +114,7 @@ What works so far:
 
 | Crate | What it is |
 | --- | --- |
-| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes a small built-in sine synth and a demo song. |
+| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Audio files are opened only after a path check (no network paths, no `..` out of the project folder, audio extensions only) and decoded with size, length and memory caps. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes a small built-in sine synth and a demo song. |
 | `crates/audiozero-mcp` | The MCP server: every tool is a `Session` operation, so an assistant's edits get the same checks and undo as yours. Speaks MCP over stdio, with no dependencies beyond `serde_json`. See [AI control (MCP)](#ai-control-mcp). |
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
 | `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project, list installed plugins or run the MCP server. |
@@ -129,7 +130,7 @@ cargo run --release -p audiozero-app -- --mcp song.json       # MCP server for a
 cargo test --workspace                                        # all tests
 ```
 
-On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `rtrb` (the lock-free command queue), `cpal` (audio output) and `eframe`/`egui` (the window).
+On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio output) and `eframe`/`egui` (the window).
 
 ### AI control (MCP)
 

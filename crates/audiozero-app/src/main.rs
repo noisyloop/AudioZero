@@ -4,6 +4,7 @@
 mod audio;
 mod gui;
 
+use audiozero_engine::sample::SamplePool;
 use audiozero_engine::{Command, Engine, PluginFormat, Project, wav};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -121,8 +122,10 @@ fn run(args: Args) -> Result<(), String> {
 
     if let Some(out) = &args.render {
         let sample_rate = 48_000;
-        let mut engine =
-            Engine::new(project, f64::from(sample_rate), 512).map_err(|e| e.to_string())?;
+        let mut pool = SamplePool::new(f64::from(sample_rate));
+        pool.set_base(project_folder(args.project.as_deref()));
+        let mut engine = Engine::with_samples(project, f64::from(sample_rate), 512, &mut pool)
+            .map_err(|e| e.to_string())?;
         print_warnings(&engine);
         engine.play();
         let frames = ((engine.seconds_to_end() + 2.0) * f64::from(sample_rate)) as usize;
@@ -138,7 +141,18 @@ fn run(args: Args) -> Result<(), String> {
         return Ok(());
     }
 
-    play(project)
+    play(project, project_folder(args.project.as_deref()))
+}
+
+/// The folder a project's relative audio paths resolve against.
+pub fn project_folder(file: Option<&std::path::Path>) -> Option<PathBuf> {
+    file.and_then(|f| f.parent()).map(|p| {
+        if p.as_os_str().is_empty() {
+            PathBuf::from(".")
+        } else {
+            p.to_path_buf()
+        }
+    })
 }
 
 fn print_warnings(engine: &Engine) {
@@ -165,8 +179,9 @@ fn scan() {
     }
 }
 
-fn play(project: Project) -> Result<(), String> {
+fn play(project: Project, folder: Option<PathBuf>) -> Result<(), String> {
     let mut output = audio::Output::open();
+    output.controller.samples().set_base(folder);
     println!("{}", output.description);
     if !output.has_device() {
         return Err("no audio output device (use --render to write a WAV file instead)".into());
@@ -189,7 +204,11 @@ fn mcp(file: Option<PathBuf>) -> Result<(), String> {
         }
         _ => Project::default(),
     };
-    let output = audio::Output::open();
+    let mut output = audio::Output::open();
+    output
+        .controller
+        .samples()
+        .set_base(project_folder(file.as_deref()));
     eprintln!("[audiozero-mcp] {}", output.description);
     let rules = audiozero_mcp::SaveRules {
         file,

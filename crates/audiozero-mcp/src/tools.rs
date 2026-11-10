@@ -16,7 +16,9 @@ the computer's speakers. Positions and lengths are in beats (quarter notes); a b
 `beats_per_bar` beats. Notes use MIDI pitch (60 = middle C) and start relative to their clip. \
 Tracks, clips and notes are addressed by index; indices shift when something is removed, so call \
 get_project (or get_clip) again after removing things. Every edit can be undone with undo. \
-Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Nothing is written \
+Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Audio clips (with \
+an `audio` field) play a recording at its own speed; they have no notes, and you can move, \
+trim, duplicate or remove them but not create them. Nothing is written \
 to disk until you call save.";
 
 const NOTE_SCHEMA: &str = r#"{
@@ -479,6 +481,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
             Ok(json!({
                 "track": a.track, "clip": a.clip, "name": clip.name, "start": clip.start,
                 "length": clip.length, "muted": clip.muted, "notes": notes,
+                "audio": audio_of(clip),
             }))
         }
         "list_instruments" => {
@@ -602,6 +605,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 length: a.length,
                 muted: false,
                 notes: notes(a.notes)?,
+                audio: None,
             };
             let count = clip.notes.len();
             let (at, changes) = s
@@ -884,11 +888,22 @@ fn done(s: &mut Ctx<'_>, changes: &Changes, mut result: Value) -> Value {
     result
 }
 
+/// An audio clip's file (by name only, not its full path), offset and gain; null for MIDI clips.
+fn audio_of(clip: &Clip) -> Value {
+    clip.audio.as_ref().map_or(Value::Null, |a| {
+        let name = Path::new(&a.file)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned());
+        json!({ "file": name, "offset_seconds": a.offset, "gain": f32_out(a.gain) })
+    })
+}
+
 fn clip_summary(s: &Ctx<'_>, at: ClipRef) -> Value {
     match s.session.clip(at) {
         Some(c) => json!({
             "track": at.track, "clip": at.clip, "name": c.name, "start": c.start,
             "length": c.length, "muted": c.muted, "notes": c.notes.len(),
+            "audio": audio_of(c),
         }),
         None => json!({ "track": at.track, "clip": at.clip }),
     }
@@ -906,7 +921,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
                 .iter()
                 .enumerate()
                 .map(|(j, c)| {
-                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "notes": c.notes.len() })
+                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "notes": c.notes.len(), "audio": audio_of(c) })
                 })
                 .collect();
             json!({

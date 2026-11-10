@@ -11,9 +11,10 @@ mod piano_roll;
 mod theme;
 
 use crate::audio::Output;
-use crate::default_folder;
+use crate::{default_folder, project_folder};
+use audiozero_engine::sample::AUDIO_EXTENSIONS;
 use audiozero_engine::{
-    Changes, Clip, ClipRef, Command, Device, EditError, Project, Session, Track, demo,
+    AudioRegion, Changes, Clip, ClipRef, Command, Device, EditError, Project, Session, Track, demo,
 };
 use eframe::egui::{self, Color32, Key, Pos2, Rect, Sense, Vec2};
 use std::path::{Path, PathBuf};
@@ -117,6 +118,9 @@ struct App {
     view: View,
     snap: Snap,
     selected_clip: Option<ClipRef>,
+    /// The lane under the pointer (track, beat), where a dropped audio file goes. A track index
+    /// past the last track means "a new track".
+    drop_target: Option<(usize, f64)>,
     arrangement_drag: Option<arrangement::Drag>,
     roll: Option<piano_roll::Roll>,
     prompt: Option<PathPrompt>,
@@ -141,6 +145,7 @@ impl App {
             },
             snap: Snap::Sixteenth,
             selected_clip: None,
+            drop_target: None,
             arrangement_drag: None,
             roll: None,
             prompt: None,
@@ -166,6 +171,16 @@ impl App {
                 return;
             }
         };
+        let previous_folder = self
+            .audio
+            .controller
+            .samples()
+            .base()
+            .map(Path::to_path_buf);
+        self.audio
+            .controller
+            .samples()
+            .set_base(project_folder(file.as_deref()));
         match self.audio.controller.load(session.project().clone()) {
             Ok(warnings) => {
                 self.status = if warnings.is_empty() {
@@ -184,7 +199,10 @@ impl App {
                 self.view.scroll_beats = 0.0;
                 self.view.scroll_y = 0.0;
             }
-            Err(e) => self.status = format!("Can't open project: {e}"),
+            Err(e) => {
+                self.audio.controller.samples().set_base(previous_folder);
+                self.status = format!("Can't open project: {e}");
+            }
         }
     }
 
@@ -211,6 +229,10 @@ impl App {
         match self.session.project().save(&path) {
             Ok(()) => {
                 self.status = format!("Saved {}", path.display());
+                self.audio
+                    .controller
+                    .samples()
+                    .set_base(project_folder(Some(&path)));
                 self.file = Some(path);
                 self.session.mark_saved();
             }
@@ -402,7 +424,81 @@ impl App {
         self.finish(result);
     }
 
+    /// How a project names an audio file: relative to the project's folder when it's inside it
+    /// (so the folder can be moved), otherwise absolute.
+    fn audio_file_name(&self, path: &Path) -> String {
+        let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+        if let Some(folder) = self.file.as_deref().and_then(|f| project_folder(Some(f)))
+            && let Ok(folder) = std::path::absolute(folder)
+            && let Ok(inside) = absolute.strip_prefix(&folder)
+        {
+            return inside.to_string_lossy().into_owned();
+        }
+        absolute.to_string_lossy().into_owned()
+    }
+
+    /// Adds an audio file as a clip at `target` (track, beat), or on a new track at the start
+    /// when there's no target. Returns where the next file should go: straight after this one.
+    fn import_audio(&mut self, path: &Path, target: Option<(usize, f64)>) -> Option<(usize, f64)> {
+        let file = self.audio_file_name(path);
+        let sample = match self.audio.controller.samples().get(&file) {
+            Ok(sample) => sample,
+            Err(e) => {
+                self.status = format!("Can't import {}: {e}", path.display());
+                return target;
+            }
+        };
+        let name = path
+            .file_stem()
+            .map_or("Audio".into(), |s| s.to_string_lossy().into_owned());
+        let bpm = self.session.project().bpm;
+        let length = (sample.seconds() * bpm / 60.0).max(1.0 / 16.0);
+        let tracks = self.session.project().tracks.len();
+        let (track, beat) = target.unwrap_or((tracks, 0.0));
+        let step = self.snap_beats();
+        let start = if step > 0.0 {
+            (beat.max(0.0) / step).floor() * step
+        } else {
+            beat.max(0.0)
+        };
+        let clip = Clip {
+            name: name.clone(),
+            start,
+            length,
+            audio: Some(AudioRegion {
+                file,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let result = self.session.try_edit(|p| {
+            let track = if track >= p.tracks.len() {
+                p.tracks.push(Track {
+                    name: name.clone(),
+                    instrument: None,
+                    ..Default::default()
+                });
+                p.tracks.len() - 1
+            } else {
+                track
+            };
+            p.tracks[track].clips.push(clip);
+            Ok(ClipRef {
+                track,
+                clip: p.tracks[track].clips.len() - 1,
+            })
+        });
+        let at = self.done(result)?;
+        self.selected_clip = Some(at);
+        self.status = format!("Imported {name} ({:.1} s)", sample.seconds());
+        Some((at.track, start + length))
+    }
+
     fn open_roll(&mut self, at: ClipRef) {
+        if self.clip(at).is_some_and(Clip::is_audio) {
+            self.status = "That's an audio clip; it has no notes to edit.".into();
+            return;
+        }
         if self.clip(at).is_some() {
             self.selected_clip = Some(at);
             self.roll = Some(piano_roll::Roll::new(at, self.clip(at)));
@@ -739,11 +835,22 @@ impl App {
                 .map(|f| f.path().to_path_buf())
                 .collect()
         });
-        if let Some(path) = dropped
-            .into_iter()
+        let is_audio = |p: &PathBuf| {
+            p.extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| AUDIO_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+        };
+        let audio_files: Vec<&PathBuf> = dropped.iter().filter(|p| is_audio(p)).collect();
+        if !audio_files.is_empty() {
+            let mut target = self.drop_target;
+            for path in audio_files {
+                target = self.import_audio(path, target);
+            }
+        } else if let Some(path) = dropped
+            .iter()
             .find(|p| p.extension().is_some_and(|e| e == "json"))
         {
-            self.open_path(&path);
+            self.open_path(path);
         }
         if ctx.input(|i| i.viewport().close_requested())
             && self.session.is_dirty()

@@ -373,6 +373,9 @@ impl Session {
     /// Adds a clip, with any notes it has, to a track and returns where it went.
     pub fn add_clip(&mut self, track: usize, clip: Clip) -> Result<(ClipRef, Changes), EditError> {
         check_clip_shape(&clip)?;
+        if clip.is_audio() && !clip.notes.is_empty() {
+            return Err(EditError::Invalid("audio clips can't have notes".into()));
+        }
         for note in &clip.notes {
             check_note(note, clip.length)?;
         }
@@ -467,6 +470,7 @@ impl Session {
         self.try_edit(|p| {
             check_clip(p, at)?;
             let clip = &mut p.tracks[at.track].clips[at.clip];
+            no_audio(clip)?;
             for note in notes {
                 check_note(note, clip.length)?;
             }
@@ -480,6 +484,7 @@ impl Session {
         self.try_edit(|p| {
             check_clip(p, at)?;
             let clip = &mut p.tracks[at.track].clips[at.clip];
+            no_audio(clip)?;
             for note in &notes {
                 check_note(note, clip.length)?;
             }
@@ -563,6 +568,16 @@ impl Session {
             ));
         }
         self.set(|p| (p.loop_enabled, p.loop_start, p.loop_end) = (enabled, start, end))
+    }
+}
+
+fn no_audio(clip: &Clip) -> Result<(), EditError> {
+    if clip.is_audio() {
+        Err(EditError::Invalid(
+            "that's an audio clip; it has no notes".into(),
+        ))
+    } else {
+        Ok(())
     }
 }
 
@@ -873,6 +888,28 @@ mod tests {
             (c.mix, c.bpm, c.looping, c.reload),
             (vec![0], true, true, false)
         );
+    }
+
+    #[test]
+    fn audio_clips_take_no_notes() {
+        let mut s = session();
+        let audio = Clip {
+            start: 80.0,
+            audio: Some(crate::project::AudioRegion {
+                file: "a.wav".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let with_notes = Clip {
+            notes: vec![note(60, 0.0)],
+            ..audio.clone()
+        };
+        assert!(s.add_clip(0, with_notes).is_err());
+        let (at, _) = s.add_clip(0, audio).unwrap();
+        assert!(s.add_notes(at, &[note(60, 0.0)]).is_err());
+        assert!(s.set_notes(at, vec![note(60, 0.0)]).is_err());
+        assert!(s.set_notes(at, Vec::new()).is_err());
     }
 
     #[test]

@@ -65,6 +65,7 @@ pub fn project() -> Project {
                     length: 32.0,
                     muted: false,
                     notes: chord_notes,
+                    audio: None,
                 }],
                 ..Default::default()
             },
@@ -79,6 +80,7 @@ pub fn project() -> Project {
                     length: 32.0,
                     muted: false,
                     notes: bass_notes,
+                    audio: None,
                 }],
                 ..Default::default()
             },
@@ -93,6 +95,7 @@ pub fn project() -> Project {
                     length: 32.0,
                     muted: false,
                     notes: kick_notes,
+                    audio: None,
                 }],
                 ..Default::default()
             },
