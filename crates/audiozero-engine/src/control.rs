@@ -51,6 +51,12 @@ pub enum Command {
     LiveNote(LiveNote),
     /// Release every note held live.
     ReleaseLive,
+    /// Change one effect's parameters, in [`crate::effects::params_for`] order.
+    SetEffectParams {
+        track: usize,
+        effect: usize,
+        values: [f32; crate::effects::MAX_PARAMS],
+    },
 }
 
 /// A note played live on a track.
@@ -209,6 +215,11 @@ impl Player {
             }
             Command::LiveNote(n) => engine.live_note(n.track, n.pitch, n.velocity, n.on),
             Command::ReleaseLive => engine.release_live(),
+            Command::SetEffectParams {
+                track,
+                effect,
+                values,
+            } => engine.set_effect_params(track, effect, values),
             Command::Replace(new) => {
                 let old = std::mem::replace(&mut self.engine, new);
                 self.throw_away(Garbage::Engine(old));
@@ -368,6 +379,19 @@ impl Controller {
                 ok &= self.send(Command::SetTrackMix {
                     track,
                     mix: mix_of(t),
+                });
+            }
+        }
+        for &(track, effect) in &changes.effect_params {
+            if let Some(device) = project
+                .tracks
+                .get(track)
+                .and_then(|t| t.effects.get(effect))
+            {
+                ok &= self.send(Command::SetEffectParams {
+                    track,
+                    effect,
+                    values: crate::engine::param_values(device),
                 });
             }
         }

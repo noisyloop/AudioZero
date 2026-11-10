@@ -5,6 +5,7 @@
 //! every limit and range, so the checks can't drift apart between entry points.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
@@ -99,10 +100,63 @@ impl Default for Track {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Device {
-    /// A device built into AudioZero, such as `"sine"`.
-    Builtin { id: String },
+    /// A device built into AudioZero, such as `"sine"` or `"reverb"`, with its settings by
+    /// name (effects only; see [`crate::effects::params_for`]).
+    Builtin {
+        id: String,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        params: BTreeMap<String, f32>,
+    },
     /// A third-party plugin, named by identity only.
     Plugin(PluginRef),
+}
+
+impl Device {
+    /// A built-in device with its default settings.
+    pub fn builtin(id: &str) -> Self {
+        Self::Builtin {
+            id: id.into(),
+            params: BTreeMap::new(),
+        }
+    }
+
+    /// The built-in id, if this is a built-in device.
+    pub fn builtin_id(&self) -> Option<&str> {
+        match self {
+            Self::Builtin { id, .. } => Some(id),
+            Self::Plugin(_) => None,
+        }
+    }
+
+    /// An effect parameter's value: the stored one, else the default. `None` if this isn't a
+    /// built-in effect with that parameter.
+    pub fn param(&self, name: &str) -> Option<f32> {
+        let Self::Builtin { id, params } = self else {
+            return None;
+        };
+        let info = crate::effects::params_for(id)?
+            .iter()
+            .find(|p| p.name == name)?;
+        Some(params.get(name).copied().unwrap_or(info.default))
+    }
+
+    /// Keeps only parameters the effect has, clamped into range.
+    fn sanitize(&mut self) {
+        if let Self::Builtin { id, params } = self {
+            truncate_name(id);
+            match crate::effects::params_for(id) {
+                None => params.clear(),
+                Some(info) => {
+                    params.retain(|name, _| info.iter().any(|p| p.name == name));
+                    for p in info {
+                        if let Some(v) = params.get_mut(p.name) {
+                            *v = finite32(*v, p.min, p.max, p.default);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Names a plugin by its identity. There is deliberately no file path: the host resolves the
@@ -374,6 +428,12 @@ impl Project {
             truncate_name(&mut track.name);
             track.volume = finite32(track.volume, 0.0, 2.0, 0.8);
             track.pan = finite32(track.pan, -1.0, 1.0, 0.0);
+            if let Some(instrument) = &mut track.instrument {
+                instrument.sanitize();
+            }
+            for effect in &mut track.effects {
+                effect.sanitize();
+            }
             for clip in &mut track.clips {
                 clip.sanitize();
             }
@@ -499,6 +559,28 @@ mod tests {
             !crate::demo::project().to_json().contains("\"audio\""),
             "MIDI clips don't write an audio field"
         );
+    }
+
+    #[test]
+    fn effect_params_are_kept_by_name_and_clamped() {
+        let json = minimal(
+            r#","tracks":[{"effects":[{"type":"builtin","id":"delay","params":{"time":99,"mix":0.5,"bogus":1}},{"type":"builtin","id":"reverb"}]}]"#,
+        );
+        let p = Project::from_json(&json).unwrap();
+        let delay = &p.tracks[0].effects[0];
+        assert_eq!(delay.param("time"), Some(2.0), "clamped to the maximum");
+        assert_eq!(delay.param("mix"), Some(0.5));
+        assert_eq!(delay.param("feedback"), Some(0.45), "missing means default");
+        assert_eq!(delay.param("bogus"), None);
+        assert!(
+            !p.to_json().contains("bogus"),
+            "unknown parameters are dropped"
+        );
+        assert!(
+            !p.to_json().contains("\"params\": {}"),
+            "no params written for defaults"
+        );
+        assert_eq!(Project::from_json(&p.to_json()).unwrap(), p);
     }
 
     #[test]

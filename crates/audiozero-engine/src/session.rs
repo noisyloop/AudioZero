@@ -81,6 +81,8 @@ pub struct Changes {
     pub clips: Vec<usize>,
     /// Tracks whose volume, pan, mute or solo changed.
     pub mix: Vec<usize>,
+    /// (track, effect) pairs whose parameters changed, with the effects themselves unchanged.
+    pub effect_params: Vec<(usize, usize)>,
     pub bpm: bool,
     pub master: bool,
     pub looping: bool,
@@ -98,11 +100,14 @@ impl Changes {
 pub fn changes(before: &Project, after: &Project) -> Changes {
     let reload = before.tracks.len() != after.tracks.len()
         || before.beats_per_bar != after.beats_per_bar
-        || before
-            .tracks
-            .iter()
-            .zip(&after.tracks)
-            .any(|(a, b)| a.instrument != b.instrument || a.effects != b.effects);
+        || before.tracks.iter().zip(&after.tracks).any(|(a, b)| {
+            a.instrument != b.instrument
+                || a.effects.len() != b.effects.len()
+                || a.effects
+                    .iter()
+                    .zip(&b.effects)
+                    .any(|(x, y)| !same_device(x, y))
+        });
     if reload {
         return Changes {
             reload,
@@ -116,6 +121,16 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
             .filter(|(_, (a, b))| a.clips != b.clips)
             .map(|(i, _)| i)
             .collect(),
+        effect_params: pairs()
+            .flat_map(|(t, (a, b))| {
+                a.effects
+                    .iter()
+                    .zip(&b.effects)
+                    .enumerate()
+                    .filter(|(_, (x, y))| x != y)
+                    .map(move |(e, _)| (t, e))
+            })
+            .collect(),
         mix: pairs()
             .filter(|(_, (a, b))| mix_of(a) != mix_of(b))
             .map(|(i, _)| i)
@@ -124,6 +139,14 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
         master: before.master_volume != after.master_volume,
         looping: (before.loop_enabled, before.loop_start, before.loop_end)
             != (after.loop_enabled, after.loop_start, after.loop_end),
+    }
+}
+
+/// The same device, ignoring its parameter values (which change live, without a rebuild).
+fn same_device(a: &Device, b: &Device) -> bool {
+    match (a, b) {
+        (Device::Builtin { id: x, .. }, Device::Builtin { id: y, .. }) => x == y,
+        _ => a == b,
     }
 }
 
@@ -359,6 +382,65 @@ impl Session {
         .map(|((), c)| c)
     }
 
+    /// Adds a built-in effect at the end of a track's chain and returns its index.
+    pub fn add_effect(&mut self, track: usize, id: &str) -> Result<(usize, Changes), EditError> {
+        if crate::effects::params_for(id).is_none() {
+            let ids: Vec<_> = crate::effects::EFFECTS.iter().map(|(id, _)| *id).collect();
+            return Err(EditError::Invalid(format!(
+                "unknown effect \"{id}\"; use one of {}",
+                ids.join(", ")
+            )));
+        }
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            let effects = &mut p.tracks[track].effects;
+            effects.push(Device::builtin(id));
+            Ok(effects.len() - 1)
+        })
+    }
+
+    pub fn remove_effect(&mut self, track: usize, effect: usize) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_effect(p, track, effect)?;
+            p.tracks[track].effects.remove(effect);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Sets one parameter of an effect. An undo step (a whole knob drag is one, inside a
+    /// gesture), heard without rebuilding the engine.
+    pub fn set_effect_param(
+        &mut self,
+        track: usize,
+        effect: usize,
+        name: &str,
+        value: f32,
+    ) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_effect(p, track, effect)?;
+            let Device::Builtin { id, params } = &mut p.tracks[track].effects[effect] else {
+                return Err(EditError::Invalid(
+                    "plugin parameters aren't supported yet".into(),
+                ));
+            };
+            let info = crate::effects::params_for(id)
+                .and_then(|ps| ps.iter().find(|p| p.name == name))
+                .ok_or_else(|| {
+                    EditError::Invalid(format!("effect \"{id}\" has no parameter \"{name}\""))
+                })?;
+            check_range(
+                name,
+                f64::from(value),
+                f64::from(info.min),
+                f64::from(info.max),
+            )?;
+            params.insert(name.to_owned(), value);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
     /// Sets a track's volume, pan, mute and solo. Not an undo step.
     pub fn set_track_mix(&mut self, index: usize, mix: TrackMix) -> Result<Changes, EditError> {
         check_track(&self.project, index)?;
@@ -589,6 +671,17 @@ fn check_track(p: &Project, index: usize) -> Result<(), EditError> {
     }
 }
 
+fn check_effect(p: &Project, track: usize, effect: usize) -> Result<(), EditError> {
+    check_track(p, track)?;
+    if effect < p.tracks[track].effects.len() {
+        Ok(())
+    } else {
+        Err(EditError::Invalid(format!(
+            "track {track} has no effect {effect}"
+        )))
+    }
+}
+
 fn check_clip(p: &Project, at: ClipRef) -> Result<(), EditError> {
     check_track(p, at.track)?;
     if at.clip < p.tracks[at.track].clips.len() {
@@ -701,9 +794,7 @@ mod tests {
     fn device_changes_are_undo_steps() {
         let mut s = session();
         let before = s.project().tracks[0].instrument.clone();
-        let changes = s
-            .set_instrument(0, Some(Device::Builtin { id: "kick".into() }))
-            .unwrap();
+        let changes = s.set_instrument(0, Some(Device::builtin("kick"))).unwrap();
         assert!(changes.reload);
         s.undo();
         assert_eq!(s.project().tracks[0].instrument, before);
@@ -910,6 +1001,43 @@ mod tests {
         assert!(s.add_notes(at, &[note(60, 0.0)]).is_err());
         assert!(s.set_notes(at, vec![note(60, 0.0)]).is_err());
         assert!(s.set_notes(at, Vec::new()).is_err());
+    }
+
+    #[test]
+    fn effects_add_set_and_remove_with_undo() {
+        let mut s = session();
+        assert!(s.add_effect(0, "flanger9000").is_err());
+        let (index, changes) = s.add_effect(0, "delay").unwrap();
+        assert_eq!(index, 0);
+        assert!(changes.reload, "a new effect rebuilds the engine");
+        let changes = s.set_effect_param(0, 0, "mix", 0.9).unwrap();
+        assert!(!changes.reload, "a parameter change is heard live");
+        assert_eq!(changes.effect_params, vec![(0, 0)]);
+        assert_eq!(s.project().tracks[0].effects[0].param("mix"), Some(0.9));
+        assert!(
+            s.set_effect_param(0, 0, "mix", 7.0).is_err(),
+            "out of range"
+        );
+        assert!(s.set_effect_param(0, 0, "wobble", 0.5).is_err());
+        assert!(s.set_effect_param(0, 3, "mix", 0.5).is_err());
+
+        s.begin_gesture();
+        for v in [0.1, 0.2, 0.3] {
+            s.set_effect_param(0, 0, "feedback", v).unwrap();
+        }
+        s.end_gesture();
+        s.undo();
+        assert_eq!(
+            s.project().tracks[0].effects[0].param("feedback"),
+            Some(0.45),
+            "a whole drag undoes in one step"
+        );
+        s.undo();
+        assert_eq!(s.project().tracks[0].effects[0].param("mix"), Some(0.35));
+        assert!(s.remove_effect(0, 0).unwrap().reload);
+        assert!(s.project().tracks[0].effects.is_empty());
+        s.undo();
+        assert_eq!(s.project().tracks[0].effects.len(), 1, "removal undoes");
     }
 
     #[test]

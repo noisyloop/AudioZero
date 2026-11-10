@@ -21,4 +21,5 @@ unsafe_code = "forbid"
 all = { level = "warn", priority = -1 }
 
 [profile.release]
-debug = 1
+# Smaller downloads: no debug info or symbols in release builds.
+strip = true
