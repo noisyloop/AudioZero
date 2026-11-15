@@ -735,7 +735,7 @@ fn drum_beats_through_mcp() {
             .unwrap()
             .contains(&json!("Trap"))
     );
-    assert_eq!(list["drum_beats"].as_array().unwrap().len(), 18);
+    assert_eq!(list["drum_beats"].as_array().unwrap().len(), 53);
 
     let r = ok(&mut s, "add_drum_beat", json!({ "beat": "lofi-chill" }));
     assert_eq!(
@@ -879,4 +879,38 @@ fn groups_through_mcp() {
             .len(),
         3
     );
+}
+
+#[test]
+fn clip_fades_and_the_new_drum_styles_through_mcp() {
+    let mut s = server();
+    let set = ok(
+        &mut s,
+        "set_clip_fades",
+        json!({ "track": 0, "clip": 0, "fade_in": 4 }),
+    );
+    assert_eq!(
+        (set["fade_in"].clone(), set["fade_out"].clone()),
+        (json!(4.0), json!(0.0))
+    );
+    ok(
+        &mut s,
+        "set_clip_fades",
+        json!({ "track": 0, "clip": 0, "fade_out": 8 }),
+    );
+    let clip = ok(&mut s, "get_project", json!({}))["tracks"][0]["clips"][0].clone();
+    assert_eq!(
+        (clip["fade_in"].clone(), clip["fade_out"].clone()),
+        (json!(4.0), json!(8.0))
+    );
+    refused(
+        &mut s,
+        "set_clip_fades",
+        json!({ "track": 0, "clip": 0, "fade_in": 1e9 }),
+    );
+    refused(&mut s, "set_clip_fades", json!({ "track": 0, "clip": 9 }));
+
+    for beat in ["dnb-amen", "halftime-stomp", "jazz-swing"] {
+        ok(&mut s, "add_drum_beat", json!({ "beat": beat }));
+    }
 }

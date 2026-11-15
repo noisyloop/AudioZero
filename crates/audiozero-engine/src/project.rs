@@ -123,6 +123,20 @@ impl Default for Track {
     }
 }
 
+impl Track {
+    /// The volume the track's clip fades give at `beat`: that of the clip that started last
+    /// (muted ones don't count), or full volume before the first clip.
+    pub fn fade_gain(&self, beat: f64) -> f32 {
+        let mut latest: Option<&Clip> = None;
+        for clip in &self.clips {
+            if !clip.muted && clip.start <= beat && latest.is_none_or(|l| clip.start >= l.start) {
+                latest = Some(clip);
+            }
+        }
+        latest.and_then(|c| c.fade_gain(beat)).unwrap_or(1.0)
+    }
+}
+
 /// An instrument or effect on a track.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -226,6 +240,18 @@ pub struct Clip {
     pub notes: Vec<Note>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio: Option<AudioRegion>,
+    /// How long the track's volume takes to rise from silence at the start of the clip, in
+    /// beats. Zero for no fade.
+    #[serde(skip_serializing_if = "is_zero_f64")]
+    pub fade_in: f64,
+    /// How long the volume takes to fall to silence at the end of the clip, in beats. The track
+    /// then stays silent until its next clip starts.
+    #[serde(skip_serializing_if = "is_zero_f64")]
+    pub fade_out: f64,
+}
+
+fn is_zero_f64(x: &f64) -> bool {
+    *x == 0.0
 }
 
 /// The audio an audio clip plays. It plays at the file's own speed (no time-stretching yet), so
@@ -261,11 +287,35 @@ impl Default for Clip {
             muted: false,
             notes: Vec::new(),
             audio: None,
+            fade_in: 0.0,
+            fade_out: 0.0,
         }
     }
 }
 
 impl Clip {
+    /// The volume the clip's fades give at `beat` on the timeline (0 to 1), or `None` before
+    /// the clip starts. After a clip that fades out, it stays at zero.
+    pub fn fade_gain(&self, beat: f64) -> Option<f32> {
+        let t = beat - self.start;
+        if t < 0.0 {
+            return None;
+        }
+        let rise = if self.fade_in > 0.0 {
+            (t / self.fade_in).min(1.0)
+        } else {
+            1.0
+        };
+        let fall = if self.fade_out > 0.0 {
+            ((self.length - t) / self.fade_out).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        // Squared, so the fade sounds even rather than dropping away at the end.
+        let g = (rise * fall) as f32;
+        Some(g * g)
+    }
+
     pub fn is_audio(&self) -> bool {
         self.audio.is_some()
     }
@@ -291,6 +341,8 @@ impl Clip {
             audio.gain = finite32(audio.gain, 0.0, 4.0, 1.0);
             self.notes.clear();
         }
+        self.fade_in = finite(self.fade_in, 0.0, self.length, 0.0);
+        self.fade_out = finite(self.fade_out, 0.0, self.length - self.fade_in, 0.0);
         let length = self.length;
         self.notes
             .retain(|n| n.start.is_finite() && n.start >= 0.0 && n.start < length);

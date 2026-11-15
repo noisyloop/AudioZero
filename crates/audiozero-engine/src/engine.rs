@@ -59,6 +59,8 @@ struct TrackState {
     /// What the tracks inside a group have sent to it this block (silent for other tracks).
     bus_l: Vec<f32>,
     bus_r: Vec<f32>,
+    /// The volume from the track's clip fades at the end of the last block.
+    fade: f32,
     /// Notes played live since the last block, played at its start.
     live: Vec<Event>,
     /// Pitches held down live, so they can be released when playback stops.
@@ -260,6 +262,7 @@ impl Engine {
                     audio_r: vec![0.0; max_block],
                     bus_l: vec![0.0; if track.group { max_block } else { 0 }],
                     bus_r: vec![0.0; if track.group { max_block } else { 0 }],
+                    fade: 1.0,
                     live: Vec::with_capacity(MAX_LIVE_EVENTS),
                     live_on: [false; 128],
                 }
@@ -594,6 +597,24 @@ impl Engine {
                 effect.sync(bpm, block_start, playing);
                 effect.process(l, r);
             }
+
+            // Clip fades: a ramp from where the last block ended to where this one does, so the
+            // volume never jumps. Stopped, the track is at full volume for playing live.
+            let target = if playing {
+                track.fade_gain(self.position)
+            } else {
+                1.0
+            };
+            if state.fade != 1.0 || target != 1.0 {
+                let step = (target - state.fade) / n as f32;
+                let mut g = state.fade;
+                for j in 0..n {
+                    g += step;
+                    l[j] *= g;
+                    r[j] *= g;
+                }
+            }
+            state.fade = target;
 
             let gain_l = track.volume * (1.0 - track.pan).min(1.0);
             let gain_r = track.volume * (1.0 + track.pan).min(1.0);
@@ -1326,5 +1347,50 @@ mod tests {
             with_fx > 0.0 && (with_fx - plain).abs() > 1e-4,
             "{with_fx} vs {plain}"
         );
+    }
+
+    #[test]
+    fn clip_fades_shape_the_volume() {
+        // One long note over a two-bar clip, so the level is steady without fades.
+        let project = |fade_in: f64, fade_out: f64| {
+            let mut p = one_note_project();
+            let clip = &mut p.tracks[0].clips[0];
+            clip.length = 8.0;
+            clip.notes[0].length = 8.0;
+            clip.fade_in = fade_in;
+            clip.fade_out = fade_out;
+            p.bpm = 120.0;
+            p
+        };
+        // Half a second is one beat at 120 BPM.
+        let beat = 24_000;
+        let level = |p: Project, from_beat: usize| {
+            let mut engine = Engine::new(p, 48_000.0, 512).unwrap();
+            engine.play();
+            let (l, _) = engine.render(beat * 9);
+            rms(&l[from_beat * beat..(from_beat + 1) * beat])
+        };
+        let plain = level(project(0.0, 0.0), 3);
+        assert!(plain > 0.01);
+
+        // Fading in over four beats: quiet at first, full after.
+        assert!(level(project(4.0, 0.0), 0) < plain * 0.1);
+        assert!(level(project(4.0, 0.0), 1) < level(project(4.0, 0.0), 3));
+        assert!((level(project(4.0, 0.0), 5) - plain).abs() < plain * 0.02);
+
+        // Fading out over the last four: full before, nearly gone at the end, silent after.
+        assert!((level(project(0.0, 4.0), 2) - plain).abs() < plain * 0.02);
+        assert!(level(project(0.0, 4.0), 7) < plain * 0.1);
+        assert_eq!(level(project(0.0, 4.0), 8), 0.0);
+
+        // The fades never make a click: no jump between samples bigger than the plain signal's.
+        let mut engine = Engine::new(project(1.0, 1.0), 48_000.0, 512).unwrap();
+        engine.play();
+        let (l, _) = engine.render(beat * 9);
+        let jump = l
+            .windows(2)
+            .map(|w| (w[1] - w[0]).abs())
+            .fold(0.0, f32::max);
+        assert!(jump < 0.1, "{jump}");
     }
 }

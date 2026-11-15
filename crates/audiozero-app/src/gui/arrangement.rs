@@ -32,9 +32,88 @@ pub struct Drag {
 enum DragKind {
     Move,
     Resize,
+    FadeIn,
+    FadeOut,
+}
+
+/// How far in from a clip's corners its fade handles sit, and how close a press has to be.
+const FADE_INSET: f32 = 14.0;
+const FADE_GRAB: f32 = 7.0;
+/// Clips narrower than this have no fade handles (the right-click menu still sets fades).
+const FADE_MIN_WIDTH: f32 = 70.0;
+
+/// Where a clip's fade-in and fade-out handles are, on its title bar.
+fn fade_handles(body: Rect, clip: &Clip) -> Option<(Pos2, Pos2)> {
+    if body.width() < FADE_MIN_WIDTH {
+        return None;
+    }
+    let per_beat = body.width() / clip.length as f32;
+    let y = body.top() + 7.5;
+    Some((
+        Pos2::new(
+            (body.left() + clip.fade_in as f32 * per_beat).max(body.left() + FADE_INSET),
+            y,
+        ),
+        Pos2::new(
+            (body.right() - clip.fade_out as f32 * per_beat).min(body.right() - FADE_INSET),
+            y,
+        ),
+    ))
+}
+
+/// The fades drawn over a clip: the part the volume hasn't reached yet is shaded, with a line
+/// along the volume, and a handle at the end of each fade.
+fn draw_fades(painter: &egui::Painter, lanes: Rect, body: Rect, clip: &Clip, show_handles: bool) {
+    let painter = painter.with_clip_rect(body.intersect(lanes));
+    let per_beat = body.width() / clip.length as f32;
+    let shade = Color32::from_black_alpha(130);
+    let line = Stroke::new(1.5, Color32::from_white_alpha(220));
+    let steps = 12;
+    // The curve is the same squared ramp the engine plays.
+    let curve = |from_x: f32, width: f32| -> Vec<Pos2> {
+        (0..=steps)
+            .map(|i| {
+                let t = i as f32 / steps as f32;
+                Pos2::new(
+                    from_x + width * t,
+                    body.bottom() - (body.height() - 15.0) * t * t,
+                )
+            })
+            .collect()
+    };
+    if clip.fade_in > 0.0 {
+        let points = curve(body.left(), clip.fade_in as f32 * per_beat);
+        let mut area = vec![Pos2::new(body.left(), body.top() + 15.0)];
+        area.extend(points.iter().rev());
+        painter.add(egui::Shape::convex_polygon(area, shade, Stroke::NONE));
+        painter.add(egui::Shape::line(points, line));
+    }
+    if clip.fade_out > 0.0 {
+        let points = curve(body.right(), -(clip.fade_out as f32) * per_beat);
+        let mut area = vec![Pos2::new(body.right(), body.top() + 15.0)];
+        area.extend(points.iter().rev());
+        painter.add(egui::Shape::convex_polygon(area, shade, Stroke::NONE));
+        painter.add(egui::Shape::line(points, line));
+    }
+    if show_handles && let Some((fade_in, fade_out)) = fade_handles(body, clip) {
+        for at in [fade_in, fade_out] {
+            painter.rect_filled(
+                Rect::from_center_size(at, Vec2::splat(8.0)),
+                CornerRadius::same(2),
+                Color32::from_white_alpha(230),
+            );
+            painter.rect_stroke(
+                Rect::from_center_size(at, Vec2::splat(8.0)),
+                CornerRadius::same(2),
+                Stroke::new(1.0, Color32::BLACK),
+                StrokeKind::Inside,
+            );
+        }
+    }
 }
 
 enum ClipAction {
+    Fades(ClipRef, f64, f64),
     Edit(ClipRef),
     Duplicate(ClipRef),
     ToggleMute(ClipRef),
@@ -256,6 +335,10 @@ impl App {
                         bpm,
                     );
                 }
+                let hovered = ctx
+                    .input(|i| i.pointer.hover_pos())
+                    .is_some_and(|p| body.contains(p));
+                draw_fades(&lane_painter, lanes_rect, body, clip, selected || hovered);
                 let visible = body.intersect(lanes_rect);
                 if visible.width() > 0.0 && visible.height() > 0.0 {
                     clip_rects.push((at, visible, body));
@@ -734,6 +817,26 @@ impl App {
             if near_edge {
                 ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
             }
+            let handles = self.clip(at).and_then(|clip| fade_handles(body, clip));
+            let on_handle = |p: Pos2| {
+                handles.and_then(|(fade_in, fade_out)| {
+                    if p.distance(fade_out) <= FADE_GRAB {
+                        Some(DragKind::FadeOut)
+                    } else if p.distance(fade_in) <= FADE_GRAB {
+                        Some(DragKind::FadeIn)
+                    } else {
+                        None
+                    }
+                })
+            };
+            if let Some(p) = response.hover_pos()
+                && on_handle(p).is_some()
+            {
+                ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
+                response.clone().on_hover_text(
+                    "Drag to fade the track in or out over this clip (Alt: no snap)",
+                );
+            }
             // Measure from where the button went down: egui reports a drag only after the
             // pointer has moved a few pixels, and starting from there would lose that distance.
             if response.drag_started()
@@ -743,7 +846,9 @@ impl App {
                 && let Some(clip) = self.clip(at)
             {
                 let grab = time.beat(pointer.x) - clip.start;
-                let kind = if (body.right() - pointer.x).abs() <= EDGE_GRAB {
+                let kind = if let Some(fade) = on_handle(pointer) {
+                    fade
+                } else if (body.right() - pointer.x).abs() <= EDGE_GRAB {
                     DragKind::Resize
                 } else {
                     DragKind::Move
@@ -770,6 +875,38 @@ impl App {
                 if ui.button("Duplicate").clicked() {
                     action = Some(ClipAction::Duplicate(at));
                 }
+                if let Some(clip) = self.clip(at) {
+                    let bar = f64::from(self.session.project().beats_per_bar);
+                    let (length, fade_in, fade_out) = (clip.length, clip.fade_in, clip.fade_out);
+                    let choices = [
+                        ("None", 0.0),
+                        ("1 beat", 1.0),
+                        ("1 bar", bar),
+                        ("2 bars", 2.0 * bar),
+                        ("4 bars", 4.0 * bar),
+                        ("Whole clip", length),
+                    ];
+                    ui.menu_button("Fade in", |ui| {
+                        for (label, beats) in choices {
+                            let beats = beats.min(length);
+                            if ui.button(label).clicked() {
+                                let out = fade_out.min(length - beats);
+                                action = Some(ClipAction::Fades(at, beats, out));
+                                ui.close();
+                            }
+                        }
+                    });
+                    ui.menu_button("Fade out", |ui| {
+                        for (label, beats) in choices {
+                            let beats = beats.min(length);
+                            if ui.button(label).clicked() {
+                                let into = fade_in.min(length - beats);
+                                action = Some(ClipAction::Fades(at, into, beats));
+                                ui.close();
+                            }
+                        }
+                    });
+                }
                 let muted = self.clip(at).is_some_and(|c| c.muted);
                 if ui.button(if muted { "Unmute" } else { "Mute" }).clicked() {
                     action = Some(ClipAction::ToggleMute(at));
@@ -780,6 +917,10 @@ impl App {
             });
         }
         match action {
+            Some(ClipAction::Fades(at, fade_in, fade_out)) => {
+                let result = self.session.set_clip_fades(at, fade_in, fade_out);
+                self.finish(result);
+            }
             Some(ClipAction::Edit(at)) => self.open_roll(at),
             Some(ClipAction::Duplicate(at)) => self.duplicate_clip(at),
             Some(ClipAction::ToggleMute(at)) => self.toggle_clip_mute(at),
@@ -843,6 +984,20 @@ impl App {
                         drag.at = new_at;
                     }
                 }
+            }
+            DragKind::FadeIn => {
+                ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
+                let fade = (self.snap_to_grid(ctx, beat) - clip.start)
+                    .clamp(0.0, clip.length - clip.fade_out);
+                self.live(|p| p.tracks[at.track].clips[at.clip].fade_in = fade);
+                self.status = format!("Fade in: {fade:.2} beats");
+            }
+            DragKind::FadeOut => {
+                ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
+                let fade = (clip.end() - self.snap_to_grid(ctx, beat))
+                    .clamp(0.0, clip.length - clip.fade_in);
+                self.live(|p| p.tracks[at.track].clips[at.clip].fade_out = fade);
+                self.status = format!("Fade out: {fade:.2} beats");
             }
             DragKind::Resize => {
                 ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);

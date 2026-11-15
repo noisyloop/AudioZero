@@ -238,6 +238,20 @@ const TOOLS: &[Tool] = &[
         destructive: false,
     },
     Tool {
+        name: "set_clip_fades",
+        title: "Set clip fades",
+        description: "Fades the track's volume in at the start of a clip and/or out at its end, in beats (0 removes a fade). After a clip that fades out, the track stays silent until its next clip starts. Use it for intros, outros and transitions. Only the fades given change. Can be undone.",
+        properties: props!(
+            track!(),
+            r#""clip": { "type": "integer", "minimum": 0 }"#,
+            r#""fade_in": { "type": "number", "minimum": 0, "description": "Beats to rise from silence" }"#,
+            r#""fade_out": { "type": "number", "minimum": 0, "description": "Beats to fall to silence" }"#
+        ),
+        required: &["track", "clip"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
         name: "add_clip",
         title: "Add clip",
         description: "Adds a MIDI clip to a track, optionally with notes, as one undo step. Returns the new clip's index.",
@@ -944,6 +958,36 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 json!({ "track": a.track, "volume": f32_out(mix.volume), "pan": f32_out(mix.pan), "mute": mix.mute, "solo": mix.solo }),
             ))
         }
+        "set_clip_fades" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                clip: usize,
+                fade_in: Option<f64>,
+                fade_out: Option<f64>,
+            }
+            let a: Args = parse(arguments)?;
+            let at = ClipRef {
+                track: a.track,
+                clip: a.clip,
+            };
+            let current = s
+                .session
+                .clip(at)
+                .ok_or_else(|| format!("track {} has no clip {}", a.track, a.clip))?;
+            let fade_in = a.fade_in.unwrap_or(current.fade_in);
+            let fade_out = a.fade_out.unwrap_or(current.fade_out);
+            let changes = s
+                .session
+                .set_clip_fades(at, fade_in, fade_out)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "clip": a.clip, "fade_in": fade_in, "fade_out": fade_out }),
+            ))
+        }
         "add_clip" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -963,6 +1007,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 muted: false,
                 notes: notes(a.notes)?,
                 audio: None,
+                ..Default::default()
             };
             let count = clip.notes.len();
             let (at, changes) = s
@@ -1495,7 +1540,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
                 .iter()
                 .enumerate()
                 .map(|(j, c)| {
-                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "notes": c.notes.len(), "audio": audio_of(c) })
+                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "fade_in": c.fade_in, "fade_out": c.fade_out, "notes": c.notes.len(), "audio": audio_of(c) })
                 })
                 .collect();
             json!({

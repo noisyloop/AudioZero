@@ -897,6 +897,31 @@ impl Session {
         .map(|((), c)| c)
     }
 
+    /// Sets a clip's fades, in beats (0 for none). Together they can't be longer than the clip.
+    pub fn set_clip_fades(
+        &mut self,
+        at: ClipRef,
+        fade_in: f64,
+        fade_out: f64,
+    ) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_clip(p, at)?;
+            let clip = &mut p.tracks[at.track].clips[at.clip];
+            check_range("fade in", fade_in, 0.0, clip.length)?;
+            check_range("fade out", fade_out, 0.0, clip.length)?;
+            if fade_in + fade_out > clip.length + 1e-9 {
+                return Err(EditError::Invalid(format!(
+                    "the fades add up to {} beats, but the clip is {} beats long",
+                    fade_in + fade_out,
+                    clip.length
+                )));
+            }
+            (clip.fade_in, clip.fade_out) = (fade_in, fade_out);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
     // ---- notes ------------------------------------------------------------------------------
 
     /// Adds notes to a clip. Every note has to start inside the clip. Returns the clip's note
@@ -1973,5 +1998,26 @@ mod tests {
         s.undo().unwrap();
         assert_eq!(names(&s), ["Chords", "Low", "-Bass", "Kick"]);
         assert!(s.paste_tracks(Vec::new(), None).is_err());
+    }
+
+    #[test]
+    fn clip_fades_are_checked_and_heard_live() {
+        let mut s = session();
+        let at = ClipRef { track: 0, clip: 0 };
+        let length = s.clip(at).unwrap().length;
+        let changes = s.set_clip_fades(at, 2.0, 4.0).unwrap();
+        assert!(!changes.reload && changes.clips == vec![0]);
+        let clip = s.clip(at).unwrap();
+        assert_eq!((clip.fade_in, clip.fade_out), (2.0, 4.0));
+        assert!(s.set_clip_fades(at, -1.0, 0.0).is_err());
+        assert!(s.set_clip_fades(at, length, 1.0).is_err());
+        assert!(s.set_clip_fades(at, f64::NAN, 0.0).is_err());
+        // Shortening the clip shortens the fades with it.
+        s.update_clip(at, |c| c.length = 4.0).unwrap();
+        let clip = s.clip(at).unwrap();
+        assert!(clip.fade_in + clip.fade_out <= clip.length);
+        s.undo().unwrap();
+        s.undo().unwrap();
+        assert_eq!(s.clip(at).unwrap().fade_out, 0.0);
     }
 }
