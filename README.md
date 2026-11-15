@@ -5,7 +5,7 @@
 **A digital audio workstation written in Rust.** One small program for Windows, macOS and Linux, with no sample libraries to download:
 
 - an arrangement view and a piano roll that knows the song's key (with **Randomize** for instant in-key melodies);
-- built-in instruments: **Soundgineer** (a wavetable synth with 59 presets, in its own window), **Operator** (FM), a **drum rack** with techno, house, dubstep, hip hop, lo-fi and trap kits and ready-made beats, and **Kick Me**;
+- built-in instruments: **Soundgineer** (a wavetable synth with 59 presets plus 72 generated ones, in its own window), **Operator** (FM), a **drum rack** with techno, house, dubstep, hip hop, lo-fi and trap kits and ready-made beats, and **Kick Me**;
 - effects, recording from MIDI and audio inputs, and a choice of sound card;
 - **WAV and MP3 export**, and audio-reactive video export;
 - an **MCP server**, so an AI assistant can build and edit songs while you listen;
@@ -45,9 +45,12 @@ It's early but working. [Download a build](#download-a-build) or [build it yours
   - Two filters in series or parallel (12/24 dB low, high, band pass, notch, comb and vowel formant), a distortion section, six envelopes, eight LFOs, four macros, and a rack of eight effects (chorus, phaser, flanger, delay, reverb, EQ, compressor, distortion). The LFOs and the delay can follow the song's tempo. Each LFO has a drawable curve (click to add points, drag to move or bend, right-click a point to delete, or start from a template), and you can right-click any modulatable control to send an envelope, LFO or macro to it.
   - A modulation matrix with 16 slots: any of 24 sources to any of 112 targets.
   - The 59 factory presets, by category (**Presets** in the device panel, or in its own window).
+  - **Your own presets:** **Save / Import** in the editor's top bar saves the current sound as a JSON file in `presets/soundgineer` next to the settings (`~/.config/audiozero` on Linux), and imports a preset file by path or by dropping it on the window. They show up under **My presets**. Files are checked as they're read: a preset must be a small `.json` file with the right format tag, only Soundgineer's own parameter names are kept, values must be numbers and are fitted to their range, and an imported file is written out again from the checked data, never copied. Saving never replaces a file, and names can't turn into paths. Applying a preset is one undo step.
+  - **More presets:** 72 generated presets (12 each of bass, leads, pads, plucks, keys and FX) under **More presets**, made by `scripts/soundgineer/make_presets.py` and checked by a test that renders every one.
+  - **Wavetable view:** the Sound page draws each oscillator's table in 3D (all 32 frames, with the frame Morph is on highlighted).
   - **Open editor** in the device panel opens Soundgineer in **its own window**: every control on five pages, the preset browser, and a four-octave keyboard you can play with the mouse or the computer keyboard (A–K). **Record** puts what you play into a clip, and **Add clip** makes an empty one and opens it in the piano roll.
   - The parameters and presets are generated from the original's source (`scripts/soundgineer`), so the two stay in step.
-  - Not ported: importing your own wavetables and the noise sample slot, reordering the effects, the sustain pedal and the visualisers.
+  - Not ported: importing your own wavetables and the noise sample slot, reordering the effects, the sustain pedal, and the scope and the modulation-aware wavetable view (the 3D view shows the Morph knob's own value).
 
   ![Soundgineer's window](docs/screenshots/rust-soundgineer.png)
 - **Drum rack** (**Drum rack** in the instrument list): 16 synthesized pads on the General MIDI drum notes 36–51 (kick, rim, snare, clap, toms, hats, shaker, perc, 808, crash, FX, ride), with six kits: **techno, house, dubstep, hip hop, lo-fi and trap**. Nothing is sampled, so it adds almost nothing to the download. Kit, volume, tune, decay, tone and a level per pad are in the device panel, which also has a 4×4 pad grid to play with the mouse (the computer keyboard plays the pads too). The closed and open hi-hats choke each other.

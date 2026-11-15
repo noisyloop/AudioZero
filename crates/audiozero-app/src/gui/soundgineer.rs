@@ -5,8 +5,11 @@
 //! puts what you play into a clip.
 
 use super::devices::param_control;
+use super::sg_presets::{self, Stored};
 use super::{App, theme};
 use audiozero_engine::effects::Param;
+use audiozero_engine::soundgineer::userpreset::{self, UserPreset};
+use audiozero_engine::soundgineer::wavetable::{self, FRAME_SIZE, FRAMES};
 use audiozero_engine::soundgineer::{
     FIRST_MATRIX_PARAM, MOD_SLOTS, MOD_SOURCES, PARAMS, PRESET_NAMES, SECTIONS, SHAPE_POINTS,
     Shape, mod_dest_for, shape_param,
@@ -84,6 +87,13 @@ pub(super) struct Window {
     edited: bool,
     /// The LFO shown in the curve editor (0 to 7).
     lfo: usize,
+    /// The oscillator shown in the wavetable view (0 to 2).
+    wave_osc: usize,
+    /// The user's saved presets, read from their folder when the window opens and after changes.
+    user: Vec<Stored>,
+    /// What's typed in the "Save as" and "Import" boxes.
+    save_name: String,
+    import_path: String,
 }
 
 impl App {
@@ -96,6 +106,12 @@ impl App {
             preset: None,
             edited: false,
             lfo: 0,
+            wave_osc: 0,
+            user: sg_presets::folder()
+                .map(|d| sg_presets::list(&d))
+                .unwrap_or_default(),
+            save_name: String::new(),
+            import_path: String::new(),
         });
     }
 
@@ -180,6 +196,8 @@ impl App {
     /// The presets, the pages, and the buttons for playing and recording.
     fn sg_top_bar(&mut self, ui: &mut egui::Ui, track: usize) {
         let mut chosen: Option<usize> = None;
+        let mut extra: Option<UserPreset> = None;
+        let mut remove: Option<std::path::PathBuf> = None;
         ui.horizontal(|ui| {
             let current = self
                 .sg_window
@@ -213,6 +231,60 @@ impl App {
                             ui.close();
                         }
                     }
+                    ui.separator();
+                    ui.menu_button(
+                        format!("More presets ({})", userpreset::extras().len()),
+                        |ui| {
+                            egui::ScrollArea::vertical()
+                                .max_height(480.0)
+                                .show(ui, |ui| {
+                                    let mut category = "";
+                                    for (cat, preset) in userpreset::extras() {
+                                        if cat != category {
+                                            category = cat;
+                                            ui.label(
+                                                egui::RichText::new(cat)
+                                                    .color(theme::text_dim())
+                                                    .small(),
+                                            );
+                                        }
+                                        if ui.button(&preset.name).clicked() {
+                                            extra = Some(preset.clone());
+                                            ui.close();
+                                        }
+                                    }
+                                });
+                        },
+                    );
+                    let mine = self.sg_window.as_ref().map_or(0, |w| w.user.len());
+                    ui.menu_button(format!("My presets ({mine})"), |ui| {
+                        if mine == 0 {
+                            ui.label(
+                                egui::RichText::new("None yet. Use Save / Import.")
+                                    .color(theme::text_dim()),
+                            );
+                        }
+                        let list = self
+                            .sg_window
+                            .as_ref()
+                            .map(|w| w.user.clone())
+                            .unwrap_or_default();
+                        for stored in &list {
+                            ui.horizontal(|ui| {
+                                if ui.button(&stored.preset.name).clicked() {
+                                    extra = Some(stored.preset.clone());
+                                    ui.close();
+                                }
+                                if ui
+                                    .small_button("×")
+                                    .on_hover_text("Delete this preset's file")
+                                    .clicked()
+                                {
+                                    remove = Some(stored.path.clone());
+                                }
+                            });
+                        }
+                    });
                 });
             })
             .response
@@ -220,6 +292,7 @@ impl App {
             if ui.small_button(">").on_hover_text("Next preset").clicked() {
                 chosen = Some(current.map_or(0, |(p, _)| (p + 1) % count));
             }
+            ui.menu_button("Save / Import", |ui| self.sg_preset_files(ui, track));
             ui.separator();
             for tab in Tab::ALL {
                 let on = self.sg_window.as_ref().is_some_and(|w| w.tab == tab);
@@ -276,6 +349,23 @@ impl App {
                 .color(theme::text_dim()),
             );
         });
+        if let Some(preset) = extra {
+            self.sg_apply_user(track, &preset);
+        }
+        if let Some(path) = remove {
+            self.sg_delete_user(&path);
+        }
+        // A .json file dropped on this window is imported and played.
+        let dropped: Vec<std::path::PathBuf> = ui.ctx().input(|i| {
+            i.raw
+                .dropped_files
+                .iter()
+                .map(|f| f.path().to_path_buf())
+                .collect()
+        });
+        for path in dropped.iter().take(8) {
+            self.sg_import(track, path);
+        }
         if let Some(i) = chosen {
             let name = PRESET_NAMES[i].0;
             let result = self.session.set_instrument_preset(track, name);
@@ -287,6 +377,224 @@ impl App {
                 }
             }
         }
+    }
+
+    /// The "Save / Import" menu: save the sound as a preset file, or import one.
+    fn sg_preset_files(&mut self, ui: &mut egui::Ui, track: usize) {
+        let Some(dir) = sg_presets::folder() else {
+            ui.label("There's no home folder to keep presets in.");
+            return;
+        };
+        ui.set_min_width(300.0);
+        ui.label(egui::RichText::new("Save this sound").strong());
+        let mut save = false;
+        let mut import = false;
+        if let Some(w) = &mut self.sg_window {
+            ui.horizontal(|ui| {
+                let edit = ui.add(
+                    egui::TextEdit::singleline(&mut w.save_name)
+                        .hint_text("Preset name")
+                        .char_limit(userpreset::MAX_NAME_LENGTH)
+                        .desired_width(190.0),
+                );
+                let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                save = ui.button("Save").clicked() || enter;
+            });
+            ui.separator();
+            ui.label(egui::RichText::new("Import a preset file").strong());
+            ui.horizontal(|ui| {
+                let edit = ui.add(
+                    egui::TextEdit::singleline(&mut w.import_path)
+                        .hint_text("Path to a .json file")
+                        .desired_width(190.0),
+                );
+                let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                import = ui.button("Import").clicked() || enter;
+            });
+        }
+        ui.label(
+            egui::RichText::new("You can also drop a .json file on this window.")
+                .small()
+                .color(theme::text_dim()),
+        );
+        ui.label(
+            egui::RichText::new(format!("Presets are kept in {}", dir.display()))
+                .small()
+                .color(theme::text_dim()),
+        );
+        if save {
+            self.sg_save_user(track, &dir);
+        }
+        if import {
+            let path = self
+                .sg_window
+                .as_ref()
+                .map(|w| w.import_path.trim().trim_matches('"').to_owned())
+                .unwrap_or_default();
+            if !path.is_empty() {
+                self.sg_import(track, std::path::Path::new(&path));
+            }
+        }
+    }
+
+    fn sg_refresh_user(&mut self) {
+        if let (Some(w), Some(dir)) = (&mut self.sg_window, sg_presets::folder()) {
+            w.user = sg_presets::list(&dir);
+        }
+    }
+
+    /// Saves the track's current sound as a new preset file.
+    fn sg_save_user(&mut self, track: usize, dir: &std::path::Path) {
+        let Some(Device::Builtin { params, .. }) =
+            self.session.project().tracks[track].instrument.clone()
+        else {
+            return;
+        };
+        let name = self
+            .sg_window
+            .as_ref()
+            .map(|w| w.save_name.clone())
+            .unwrap_or_default();
+        let preset = UserPreset::capture(&name, &params);
+        match sg_presets::save(dir, &preset) {
+            Ok(path) => {
+                self.status = format!("Saved \"{}\" to {}.", preset.name, path.display());
+                if let Some(w) = &mut self.sg_window {
+                    w.save_name.clear();
+                }
+                self.sg_refresh_user();
+            }
+            Err(e) => self.status = format!("Can't save the preset: {e}"),
+        }
+    }
+
+    /// Imports a preset file into the user's folder and plays it on the track.
+    fn sg_import(&mut self, track: usize, path: &std::path::Path) {
+        let Some(dir) = sg_presets::folder() else {
+            self.status = "There's no home folder to keep presets in.".into();
+            return;
+        };
+        match sg_presets::import(&dir, path) {
+            Ok(stored) => {
+                self.sg_refresh_user();
+                self.sg_apply_user(track, &stored.preset);
+                if let Some(w) = &mut self.sg_window {
+                    w.import_path.clear();
+                }
+            }
+            Err(e) => self.status = format!("Can't import that preset: {e}"),
+        }
+    }
+
+    fn sg_delete_user(&mut self, path: &std::path::Path) {
+        let Some(dir) = sg_presets::folder() else {
+            return;
+        };
+        match sg_presets::delete(&dir, path) {
+            Ok(()) => self.sg_refresh_user(),
+            Err(e) => self.status = format!("Can't delete the preset: {e}"),
+        }
+    }
+
+    /// Sets every parameter from a saved or generated preset. One undo step.
+    fn sg_apply_user(&mut self, track: usize, preset: &UserPreset) {
+        let result = self
+            .session
+            .set_instrument_settings(track, "soundgineer", &preset.params);
+        if self.done(result.map(|c| ((), c))).is_some() {
+            self.status = format!("Soundgineer: {}.", preset.name);
+            if let Some(w) = &mut self.sg_window {
+                w.preset = None;
+                w.edited = false;
+            }
+        }
+    }
+
+    /// The oscillators' wavetables drawn in 3D: every frame as a line receding into the
+    /// distance, with the frame the Morph knob is on drawn bright. (Morph shown is the knob's
+    /// own value; modulation isn't included.)
+    fn sg_wavetable_view(&mut self, ui: &mut egui::Ui, device: &Device) {
+        let Some(osc) = self.sg_window.as_ref().map(|w| w.wave_osc) else {
+            return;
+        };
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new("Wavetable")
+                    .strong()
+                    .color(theme::accent()),
+            );
+            for n in 0..3 {
+                if ui
+                    .selectable_label(osc == n, format!("Osc {}", n + 1))
+                    .clicked()
+                    && let Some(w) = &mut self.sg_window
+                {
+                    w.wave_osc = n;
+                }
+            }
+        });
+        let get = |name: String| {
+            let default = PARAMS
+                .iter()
+                .find(|p| p.name == name)
+                .map_or(0.0, |p| p.default);
+            device.param(&name).unwrap_or(default)
+        };
+        let table = get(format!("osc{}.wavetable", osc + 1)).round().max(0.0) as usize;
+        let morph = get(format!("osc{}.morph", osc + 1)).clamp(0.0, 1.0);
+        let tables = wavetable::tables();
+        let table = &tables[table.min(tables.len() - 1)];
+
+        let (rect, _) = ui.allocate_exact_size(
+            Vec2::new(ui.available_width().clamp(240.0, 760.0), 190.0),
+            Sense::hover(),
+        );
+        let painter = ui.painter_at(rect);
+        painter.rect_filled(rect, 4.0, theme::bg());
+        // The same view as the original's: yaw, then pitch, then a simple perspective.
+        let project = |x: f32, y: f32, z: f32| -> Pos2 {
+            let (px, py, pz) = (x * 1.7 - 0.85, y * 0.35, z * 1.5 - 0.75);
+            let (cy, sy) = (0.55f32.cos(), 0.55f32.sin());
+            let (px, pz) = (px * cy + pz * sy, -px * sy + pz * cy);
+            let (cx, sx) = (0.42f32.cos(), 0.42f32.sin());
+            let (py, pz) = (py * cx - pz * sx, py * sx + pz * cx);
+            let depth = pz + 2.6;
+            let (nx, ny) = (px * 2.0 / depth, py * 2.0 / depth + 0.05);
+            let scale = rect.height() * 0.5;
+            Pos2::new(rect.center().x + nx * scale, rect.center().y - ny * scale)
+        };
+        const POINTS: usize = 128;
+        let line = |sample: &dyn Fn(usize) -> f32, z: f32| -> Vec<Pos2> {
+            (0..POINTS)
+                .map(|i| project(i as f32 / (POINTS - 1) as f32, sample(i), z))
+                .collect()
+        };
+        // Back to front, so nearer frames are drawn over farther ones.
+        for f in (0..FRAMES).rev() {
+            let cycle = table.frame(f);
+            let pts = line(
+                &|i| cycle[(i * FRAME_SIZE / POINTS).min(FRAME_SIZE - 1)],
+                f as f32 / (FRAMES - 1) as f32,
+            );
+            let fade = 0.25 + 0.5 * (1.0 - f as f32 / (FRAMES - 1) as f32);
+            painter.add(egui::Shape::line(
+                pts,
+                Stroke::new(1.0, theme::text_dim().gamma_multiply(fade)),
+            ));
+        }
+        // The frame the knob is on, blended between the two nearest.
+        let at = morph * (FRAMES - 1) as f32;
+        let f0 = (at as usize).min(FRAMES - 2);
+        let t = at - f0 as f32;
+        let (a, b) = (table.frame(f0), table.frame(f0 + 1));
+        let pts = line(
+            &|i| {
+                let k = (i * FRAME_SIZE / POINTS).min(FRAME_SIZE - 1);
+                a[k] + (b[k] - a[k]) * t
+            },
+            morph,
+        );
+        painter.add(egui::Shape::line(pts, Stroke::new(2.0, theme::accent())));
     }
 
     /// An empty clip of four bars after the track's last one, opened in the piano roll.
@@ -318,6 +626,9 @@ impl App {
         };
         if tab == Tab::Modulators {
             self.sg_lfo_editor(ui, track, &device);
+        }
+        if tab == Tab::Sound {
+            self.sg_wavetable_view(ui, &device);
         }
         // (The LFO curves have their own editor above, not a slider each.)
         for (title, range) in SECTIONS

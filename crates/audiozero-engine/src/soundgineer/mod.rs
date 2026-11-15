@@ -23,6 +23,7 @@ mod dsp;
 pub(crate) mod effects;
 #[rustfmt::skip]
 mod data;
+pub mod userpreset;
 pub mod wavetable;
 
 use crate::effects::{Kind, Param};
@@ -1379,6 +1380,40 @@ mod tests {
             render(&mut s, 0.3);
             assert_eq!(s.active_voices(), 0, "{name} lets go when told to");
         }
+    }
+
+    #[test]
+    fn every_generated_extra_makes_a_clean_sound() {
+        let mut problems: Vec<String> = Vec::new();
+        for (category, preset) in userpreset::extras() {
+            let name = &preset.name;
+            let mut s = synth();
+            for (param, value) in &preset.params {
+                set(&mut s, param, *value);
+            }
+            set(&mut s, "env1.delay", 0.0);
+            set(&mut s, "env1.attack", 0.002);
+            for pitch in [48, 55, 60] {
+                s.note_on(pitch, 0.9);
+            }
+            let (l, r) = render(&mut s, 0.6);
+            assert!(
+                l.iter().chain(&r).all(|x| x.is_finite()),
+                "{category}/{name} is finite"
+            );
+            let level = peak(&l).max(peak(&r));
+            if !(level > 0.01 && level < 2.01) {
+                problems.push(format!("{category}/{name}: peak {level}"));
+            }
+            s.all_notes_off();
+            render(&mut s, 0.3);
+            assert_eq!(
+                s.active_voices(),
+                0,
+                "{category}/{name} lets go when told to"
+            );
+        }
+        assert!(problems.is_empty(), "silent or too loud: {problems:#?}");
     }
 
     #[test]
