@@ -3,7 +3,8 @@
 //! - [`analysis`]: renders the song with the engine and works out, for every video frame,
 //!   loudness, bands, spectrum, onsets, the beat and bar, and every note on every track.
 //! - [`canvas`]: a small CPU drawing surface (fades, additive glow, soft shapes).
-//! - [`looks`]: the built-in looks: spectrum bars, track rings and note particles.
+//! - [`looks`]: the built-in looks: spectrum bars, track rings, note particles and raymarched fractals.
+//! - [`fractals`]: the 3D fractals behind the fractal looks.
 //! - [`export`]: renders a look over the song to MP4/MOV/MKV/WebM (through FFmpeg, with the
 //!   song's audio) or to PNG frames, in widescreen, shorts, square, portrait or 4K.
 //!
@@ -12,6 +13,7 @@
 pub mod analysis;
 pub mod canvas;
 pub mod export;
+pub mod fractals;
 pub mod looks;
 
 pub use analysis::{Analyzer, Features, LiveAnalyzer, Range, render_song};
