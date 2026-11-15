@@ -22,6 +22,7 @@
 //! - [`wav`]: a minimal WAV writer for export.
 
 pub mod arp;
+pub mod bounce;
 pub mod control;
 pub mod demo;
 pub mod drums;
@@ -37,8 +38,11 @@ pub mod project;
 pub mod sample;
 pub mod session;
 pub mod soundgineer;
+pub mod spectral;
+pub mod stems;
 pub mod synth;
 pub mod tags;
+pub mod transcribe;
 pub mod wav;
 
 pub use control::{Command, Controller, LiveInput, LiveNote, Player};

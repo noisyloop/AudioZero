@@ -8,6 +8,7 @@
 
 mod arrangement;
 mod audio_settings;
+mod audio_tools;
 mod devices;
 mod export_audio;
 mod live;
@@ -202,6 +203,8 @@ struct App {
     audio_export: Option<export_audio::AudioExportDialog>,
     audio_job: Option<export_audio::AudioExportJob>,
     export_job: Option<visuals::ExportJob>,
+    /// A bounce, reverse, audio-to-MIDI or stem job that's running.
+    tool_job: Option<audio_tools::ToolJob>,
 }
 
 impl App {
@@ -253,6 +256,7 @@ impl App {
             sg_window: None,
             audio_export: None,
             audio_job: None,
+            tool_job: None,
             export_job: None,
         };
         match start {
@@ -1379,6 +1383,7 @@ impl eframe::App for App {
         self.audio_dialog(&ctx);
         self.export_ui(&ctx);
         self.audio_export_ui(&ctx);
+        self.tool_ui(&ctx);
         self.soundgineer_window(&ctx);
         self.update_title(&ctx);
 

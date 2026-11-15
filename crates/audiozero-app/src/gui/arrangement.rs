@@ -5,8 +5,10 @@
 //! - Double-click an empty lane to add a one-bar clip.
 //! - Hold Alt while dragging to ignore the grid.
 
+use super::audio_tools::Tool;
 use super::{App, ClipRef, meter, theme};
 use audiozero_engine::sample::{PEAK_FRAMES, Sample};
+use audiozero_engine::transcribe::Kind;
 use audiozero_engine::{AudioRegion, Clip, Project, synth::BUILTINS};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, StrokeKind,
@@ -114,6 +116,12 @@ fn draw_fades(painter: &egui::Painter, lanes: Rect, body: Rect, clip: &Clip, sho
 
 enum ClipAction {
     Fades(ClipRef, f64, f64),
+    /// Reverse an audio clip.
+    Reverse(ClipRef),
+    /// Find the melody, chords or drums of an audio clip as notes.
+    ToMidi(ClipRef, Kind),
+    /// Split an audio clip into drums, bass, vocals and other.
+    Stems(ClipRef),
     Edit(ClipRef),
     Duplicate(ClipRef),
     ToggleMute(ClipRef),
@@ -134,6 +142,10 @@ enum TrackAction {
     Ungroup(usize),
     /// Move a track into a group, or out to the top level.
     MoveTo(usize, Option<usize>),
+    /// Play the track offline into audio on a new track below.
+    Bounce(usize),
+    /// Reverse every clip of an audio track, and its order in time.
+    ReverseTrack(usize),
 }
 
 /// Converts between beats and screen x for the current scroll and zoom.
@@ -409,6 +421,12 @@ impl App {
                     );
                 }
                 let has_copy = !self.track_clipboard.is_empty();
+                let can_bounce = is_group
+                    || self
+                        .session
+                        .track(index)
+                        .is_some_and(|t| t.instrument.is_some());
+                let is_audio = self.is_audio_track(index);
                 let groups: Vec<(usize, String)> = {
                     let p = self.session.project();
                     (0..p.tracks.len())
@@ -423,6 +441,27 @@ impl App {
                     }
                     if ui.button("Devices and effects…").clicked() {
                         track_action = Some(TrackAction::Devices(index));
+                    }
+                    if can_bounce {
+                        let label = if is_group {
+                            "Bounce group to audio track"
+                        } else {
+                            "Bounce to audio track"
+                        };
+                        if ui
+                            .button(label)
+                            .on_hover_text(
+                                "Plays the track offline into a WAV and puts it on a new audio track just below",
+                            )
+                            .clicked()
+                        {
+                            track_action = Some(TrackAction::Bounce(index));
+                            ui.close();
+                        }
+                    }
+                    if is_audio && ui.button("Reverse track").clicked() {
+                        track_action = Some(TrackAction::ReverseTrack(index));
+                        ui.close();
                     }
                     ui.separator();
                     if ui.button("Copy  (Ctrl+C)").clicked() {
@@ -550,6 +589,20 @@ impl App {
             }
             Some(TrackAction::Ungroup(index)) => self.ungroup_track(index),
             Some(TrackAction::MoveTo(track, group)) => self.move_to_group(track, group),
+            Some(TrackAction::Bounce(index)) => {
+                self.selected_track = Some(index);
+                self.start_tool(Tool::Bounce { track: index });
+            }
+            Some(TrackAction::ReverseTrack(index)) => {
+                self.selected_track = Some(index);
+                let clips = self.audio_clips_of(index);
+                if !clips.is_empty() {
+                    self.start_tool(Tool::Reverse {
+                        clips,
+                        mirror: true,
+                    });
+                }
+            }
             None => {}
         }
 
@@ -875,6 +928,34 @@ impl App {
                 if ui.button("Duplicate").clicked() {
                     action = Some(ClipAction::Duplicate(at));
                 }
+                if is_audio {
+                    ui.separator();
+                    if ui
+                        .button("Reverse")
+                        .on_hover_text("Plays this clip backwards (as a new file; Undo brings the original back)")
+                        .clicked()
+                    {
+                        action = Some(ClipAction::Reverse(at));
+                        ui.close();
+                    }
+                    ui.menu_button("Convert to MIDI", |ui| {
+                        for kind in Kind::ALL {
+                            if ui.button(kind.label()).clicked() {
+                                action = Some(ClipAction::ToMidi(at, kind));
+                                ui.close();
+                            }
+                        }
+                    });
+                    if ui
+                        .button("Separate stems")
+                        .on_hover_text("Splits the clip into drums, bass, vocals and other on four new tracks below")
+                        .clicked()
+                    {
+                        action = Some(ClipAction::Stems(at));
+                        ui.close();
+                    }
+                    ui.separator();
+                }
                 if let Some(clip) = self.clip(at) {
                     let bar = f64::from(self.session.project().beats_per_bar);
                     let (length, fade_in, fade_out) = (clip.length, clip.fade_in, clip.fade_out);
@@ -920,6 +1001,24 @@ impl App {
             Some(ClipAction::Fades(at, fade_in, fade_out)) => {
                 let result = self.session.set_clip_fades(at, fade_in, fade_out);
                 self.finish(result);
+            }
+            Some(ClipAction::Reverse(at)) => {
+                if let Some(clip) = self.audio_clip(at) {
+                    self.start_tool(Tool::Reverse {
+                        clips: vec![clip],
+                        mirror: false,
+                    });
+                }
+            }
+            Some(ClipAction::ToMidi(at, kind)) => {
+                if let Some(clip) = self.audio_clip(at) {
+                    self.start_tool(Tool::ToMidi { clip, kind });
+                }
+            }
+            Some(ClipAction::Stems(at)) => {
+                if let Some(clip) = self.audio_clip(at) {
+                    self.start_tool(Tool::Stems { clip });
+                }
             }
             Some(ClipAction::Edit(at)) => self.open_roll(at),
             Some(ClipAction::Duplicate(at)) => self.duplicate_clip(at),

@@ -15,7 +15,7 @@
 //! closure, for the window's direct manipulation.
 
 use crate::engine::TrackMix;
-use crate::project::{Clip, Device, Note, Project, ProjectError, Track};
+use crate::project::{AudioRegion, Clip, Device, Note, Project, ProjectError, Track};
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 
@@ -28,6 +28,16 @@ pub const MAX_UNDO_STEPS: usize = 100;
 pub struct ClipRef {
     pub track: usize,
     pub clip: usize,
+}
+
+/// Audio that's been written to a file, to go on a track of its own.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewAudio {
+    pub name: String,
+    /// The file, as a project refers to it (relative to the project's folder, or absolute).
+    pub file: String,
+    pub start: f64,
+    pub length: f64,
 }
 
 /// Why an edit was refused. The project is left as it was.
@@ -546,6 +556,142 @@ impl Session {
     /// Inserts copies of `tracks` (a track and anything inside it, as copied from a project)
     /// after the track `after` and what it holds, in its group, or at the end. They get new ids
     /// and the first is renamed "... copy". Returns the index of the first.
+    /// Adds new tracks just below track `after` (below the whole group, if it's one), in the same
+    /// group. One undo step. Returns where the first went.
+    fn insert_below(
+        &mut self,
+        after: usize,
+        mut tracks: Vec<Track>,
+    ) -> Result<(usize, Changes), EditError> {
+        if tracks.is_empty() {
+            return Err(EditError::Invalid("no tracks to add".into()));
+        }
+        for t in &tracks {
+            for clip in &t.clips {
+                check_clip_shape(clip)?;
+            }
+        }
+        self.try_edit(|p| {
+            check_track(p, after)?;
+            let at = p.block(after).end;
+            let parent = p.tracks[after].parent;
+            let mut next = p.tracks.iter().map(|t| t.id).max().unwrap_or(0);
+            for t in &mut tracks {
+                next += 1;
+                t.id = next;
+                t.parent = parent;
+            }
+            for (k, t) in tracks.into_iter().enumerate() {
+                p.tracks.insert(at + k, t);
+            }
+            Ok(at)
+        })
+    }
+
+    /// Adds a track of audio below track `after` for each of `audio`: a clip of the file at
+    /// `start` beats, `length` beats long, at full volume (the audio already has any mixing in
+    /// it). Used for bounces and stems.
+    pub fn add_audio_tracks_below(
+        &mut self,
+        after: usize,
+        audio: Vec<NewAudio>,
+    ) -> Result<(usize, Changes), EditError> {
+        let tracks = audio
+            .into_iter()
+            .map(|a| Track {
+                name: a.name.clone(),
+                volume: 1.0,
+                clips: vec![Clip {
+                    name: a.name,
+                    start: a.start,
+                    length: a.length,
+                    audio: Some(AudioRegion {
+                        file: a.file,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })
+            .collect();
+        self.insert_below(after, tracks)
+    }
+
+    /// Adds a MIDI track below track `after`, playing `instrument` (a built-in id), with `clip`
+    /// on it. Used for audio-to-MIDI.
+    pub fn add_midi_track_below(
+        &mut self,
+        after: usize,
+        name: &str,
+        instrument: &str,
+        clip: Clip,
+    ) -> Result<(usize, Changes), EditError> {
+        if clip.is_audio() {
+            return Err(EditError::Invalid("that clip is audio, not notes".into()));
+        }
+        if !crate::synth::BUILTINS
+            .iter()
+            .any(|(id, _)| *id == instrument)
+        {
+            return Err(EditError::Invalid(format!(
+                "unknown instrument \"{instrument}\""
+            )));
+        }
+        for note in &clip.notes {
+            check_note(note, clip.length)?;
+        }
+        self.insert_below(
+            after,
+            vec![Track {
+                name: name.to_string(),
+                instrument: Some(Device::builtin(instrument)),
+                clips: vec![clip],
+                ..Default::default()
+            }],
+        )
+    }
+
+    /// Points audio clips at new files (their reversed audio). Each clip then plays its new file
+    /// from the start, and its name gains or loses " (reversed)". With `mirror` the clips' places
+    /// on the timeline are flipped too, so a whole track plays backwards in time. One undo step.
+    pub fn reverse_clips(
+        &mut self,
+        items: Vec<(ClipRef, String)>,
+        mirror: bool,
+    ) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            let mut span: Option<(f64, f64)> = None;
+            for (at, _) in &items {
+                check_clip(p, *at)?;
+                let clip = &p.tracks[at.track].clips[at.clip];
+                if !clip.is_audio() {
+                    return Err(EditError::Invalid(
+                        "only audio clips can be reversed".into(),
+                    ));
+                }
+                span = Some(span.map_or((clip.start, clip.end()), |(s, e)| {
+                    (s.min(clip.start), e.max(clip.end()))
+                }));
+            }
+            for (at, file) in items {
+                let clip = &mut p.tracks[at.track].clips[at.clip];
+                if let Some(audio) = &mut clip.audio {
+                    audio.file = file;
+                    audio.offset = 0.0;
+                }
+                clip.name = match clip.name.strip_suffix(" (reversed)") {
+                    Some(plain) => plain.to_string(),
+                    None => format!("{} (reversed)", clip.name),
+                };
+                if let (true, Some((first, last))) = (mirror, span) {
+                    clip.start = (first + last - clip.end()).max(0.0);
+                }
+            }
+            Ok(())
+        })
+        .map(|((), changes)| changes)
+    }
+
     pub fn paste_tracks(
         &mut self,
         mut tracks: Vec<Track>,
@@ -2067,5 +2213,133 @@ mod tests {
         s.undo().unwrap();
         s.undo().unwrap();
         assert_eq!(s.clip(at).unwrap().fade_out, 0.0);
+    }
+
+    #[test]
+    fn new_tracks_go_below_and_undo_as_one_step() {
+        let mut s = Session::new(demo::project()).unwrap();
+        let before = s.project().clone();
+        let n = before.tracks.len();
+        let (at, _) = s
+            .add_audio_tracks_below(
+                0,
+                vec![
+                    NewAudio {
+                        name: "A".into(),
+                        file: "a.wav".into(),
+                        start: 2.0,
+                        length: 4.0,
+                    },
+                    NewAudio {
+                        name: "B".into(),
+                        file: "b.wav".into(),
+                        start: 2.0,
+                        length: 4.0,
+                    },
+                ],
+            )
+            .unwrap();
+        let p = s.project();
+        assert_eq!((at, p.tracks.len()), (1, n + 2));
+        assert_eq!(
+            (p.tracks[1].name.as_str(), p.tracks[2].name.as_str()),
+            ("A", "B")
+        );
+        assert_eq!(
+            p.tracks[3].name, before.tracks[1].name,
+            "the old tracks follow"
+        );
+        assert!(p.tracks[1].instrument.is_none() && p.tracks[1].volume == 1.0);
+        let ids: std::collections::HashSet<_> = p.tracks.iter().map(|t| t.id).collect();
+        assert_eq!(ids.len(), p.tracks.len(), "every track has its own id");
+        s.undo().unwrap();
+        assert_eq!(s.project(), &before, "one undo removes both");
+
+        let notes = vec![Note {
+            pitch: 60,
+            start: 0.0,
+            length: 1.0,
+            velocity: 0.8,
+        }];
+        let clip = Clip {
+            start: 4.0,
+            length: 8.0,
+            notes,
+            ..Default::default()
+        };
+        let (at, _) = s
+            .add_midi_track_below(1, "Melody", "soundgineer", clip.clone())
+            .unwrap();
+        assert_eq!(at, 2);
+        assert_eq!(
+            s.project().tracks[2]
+                .instrument
+                .as_ref()
+                .and_then(Device::builtin_id),
+            Some("soundgineer")
+        );
+        assert!(
+            s.add_midi_track_below(1, "x", "nope", clip.clone())
+                .is_err()
+        );
+        let late = Clip {
+            notes: vec![Note {
+                pitch: 60,
+                start: 9.0,
+                length: 1.0,
+                velocity: 0.8,
+            }],
+            ..clip
+        };
+        assert!(
+            s.add_midi_track_below(1, "x", "sine", late).is_err(),
+            "a note outside the clip"
+        );
+    }
+
+    #[test]
+    fn reversing_clips_swaps_the_file_and_can_mirror_the_track() {
+        let mut p = Project::default();
+        let audio = |start: f64, length: f64| Clip {
+            name: "Take".into(),
+            start,
+            length,
+            audio: Some(AudioRegion {
+                file: "t.wav".into(),
+                offset: 1.5,
+                gain: 1.0,
+            }),
+            ..Default::default()
+        };
+        p.tracks.push(Track {
+            clips: vec![audio(0.0, 4.0), audio(6.0, 2.0)],
+            ..Default::default()
+        });
+        let mut s = Session::new(p).unwrap();
+        let (a, b) = (ClipRef { track: 0, clip: 0 }, ClipRef { track: 0, clip: 1 });
+        s.reverse_clips(vec![(a, "r0.wav".into()), (b, "r1.wav".into())], true)
+            .unwrap();
+        let clips = &s.project().tracks[0].clips;
+        assert_eq!(
+            (clips[0].start, clips[1].start),
+            (4.0, 0.0),
+            "the order of the track is flipped"
+        );
+        assert_eq!(clips[0].name, "Take (reversed)");
+        let region = clips[0].audio.as_ref().unwrap();
+        assert_eq!((region.file.as_str(), region.offset), ("r0.wav", 0.0));
+        // Reversing again undoes the name.
+        s.reverse_clips(vec![(a, "t2.wav".into())], false).unwrap();
+        assert_eq!(s.project().tracks[0].clips[0].name, "Take");
+        s.undo().unwrap();
+        s.undo().unwrap();
+        assert_eq!(s.project().tracks[0].clips[0].start, 0.0, "and both undo");
+        // MIDI clips can't be reversed.
+        s.add_midi_track_below(0, "m", "sine", Clip::default())
+            .unwrap();
+        assert!(
+            s.reverse_clips(vec![(ClipRef { track: 1, clip: 0 }, "x.wav".into())], false)
+                .is_err()
+        );
     }
 }

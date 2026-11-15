@@ -85,6 +85,23 @@ impl Sample {
         &self.peaks
     }
 
+    /// The part of the audio from `offset` seconds, `seconds` long (cut short at the end).
+    pub fn region(&self, offset: f64, seconds: f64) -> Self {
+        let first = ((offset.max(0.0) * self.rate).round() as usize).min(self.frames());
+        let count = ((seconds.max(0.0) * self.rate).round() as usize).min(self.frames() - first);
+        Self::new(
+            self.left[first..first + count].to_vec(),
+            self.right[first..first + count].to_vec(),
+            self.rate,
+        )
+    }
+
+    /// The audio played backwards.
+    pub fn reversed(&self) -> Self {
+        let flip = |v: &[f32]| v.iter().rev().copied().collect::<Vec<f32>>();
+        Self::new(flip(&self.left), flip(&self.right), self.rate)
+    }
+
     /// The same audio at `rate`, by cubic (Catmull-Rom) interpolation.
     pub fn resampled(&self, rate: f64) -> Self {
         if (rate - self.rate).abs() < 1e-6 || self.frames() == 0 {
