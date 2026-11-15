@@ -514,6 +514,8 @@ impl Engine {
             track.audio_r[..n].fill(0.0);
         }
 
+        // Effects that follow the beat are told where the block starts.
+        let (bpm, playing, block_start) = (self.project.bpm, self.playing, self.position);
         if self.playing {
             self.schedule(n);
         }
@@ -557,6 +559,7 @@ impl Engine {
                 r[i] += state.audio_r[i];
             }
             for effect in state.effects.iter_mut().flatten() {
+                effect.sync(bpm, block_start, playing);
                 effect.process(l, r);
             }
 

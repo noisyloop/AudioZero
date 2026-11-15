@@ -97,7 +97,8 @@ const COMPRESSOR_PARAMS: [Param; 3] = [
 ];
 
 /// Built-in effects: project id and display name.
-pub const EFFECTS: [(&str, &str); 8] = [
+pub const EFFECTS: [(&str, &str); 9] = [
+    ("glitch", "Glitch"),
     ("eq", "EQ"),
     ("compressor", "Compressor"),
     ("delay", "Delay"),
@@ -114,6 +115,7 @@ pub fn params_for(id: &str) -> Option<&'static [Param]> {
         "delay" => Some(&DELAY_PARAMS),
         "reverb" => Some(&REVERB_PARAMS),
         "compressor" => Some(&COMPRESSOR_PARAMS),
+        "glitch" => Some(&crate::glitch::PARAMS),
         "eq" => Some(&crate::fx::EQ_PARAMS),
         "chorus" => Some(&crate::fx::CHORUS_PARAMS),
         "phaser" => Some(&crate::fx::PHASER_PARAMS),
@@ -141,6 +143,7 @@ pub fn create_effect(id: &str) -> Option<Box<dyn Effect>> {
         "delay" => Box::new(Delay::default()),
         "reverb" => Box::new(Reverb::default()),
         "compressor" => Box::new(Compressor::default()),
+        "glitch" => Box::new(crate::glitch::Glitch::default()),
         "eq" => Box::new(crate::fx::Eq::default()),
         "chorus" => Box::new(crate::fx::Chorus::default()),
         "phaser" => Box::new(crate::fx::Phaser::default()),

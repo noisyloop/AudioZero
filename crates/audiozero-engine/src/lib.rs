@@ -9,6 +9,7 @@
 //! - [`effects`]: built-in track effects (delay, reverb, compressor).
 //! - [`engine`]: renders a project to audio, sample-accurately, without allocating on the audio thread.
 //! - [`fx`]: more track effects: EQ, chorus, phaser, bit crusher and distortion.
+//! - [`glitch`]: a tempo-synced glitch effect (stutter, reverse, tape stop, gate, crush).
 //! - [`export`]: rendering a song to a WAV or MP3 file.
 //! - [`soundgineer`]: Soundgineer, the built-in wavetable synth.
 //! - [`sample`]: audio files for audio clips: path checks, bounded decoding and a pool of
@@ -28,6 +29,7 @@ pub mod effects;
 pub mod engine;
 pub mod export;
 pub mod fx;
+pub mod glitch;
 pub mod music;
 pub mod operator;
 pub mod project;
