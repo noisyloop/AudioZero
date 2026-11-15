@@ -130,6 +130,14 @@ pub fn import(dir: &Path, path: &Path) -> Result<Stored, String> {
     Ok(Stored { path, preset })
 }
 
+/// Writes `preset` to a file the user chose in a save dialog (which has already asked about
+/// replacing it). The extension is forced to `.json`.
+pub fn export(path: &Path, preset: &UserPreset) -> Result<PathBuf, String> {
+    let path = path.with_extension("json");
+    fs::write(&path, preset.to_json()).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(path)
+}
+
 /// Deletes a preset's file, if it's a regular `.json` file directly inside `dir`.
 pub fn delete(dir: &Path, path: &Path) -> Result<(), String> {
     let inside = path.parent() == Some(dir);
