@@ -35,12 +35,12 @@ It's early but working. [Download a build](#download-a-build) or [build it yours
   - Not ported yet: the algorithm diagram and the sustain pedal.
 - **Soundgineer** is the wavetable synth from [noisyloop/soundgineer](https://github.com/noisyloop/soundgineer), ported to Rust:
   - Three wavetable oscillators (six built-in tables, generated at start-up, matching the original sample for sample), each with up to 16 unison voices, morph, detune, blend, stereo spread, start phase and hard sync; a sub and a noise oscillator.
-  - Two filters in series or parallel (12/24 dB low, high, band pass, notch, comb and vowel formant), a distortion section, six envelopes, eight LFOs, four macros, and a rack of eight effects (chorus, phaser, flanger, delay, reverb, EQ, compressor, distortion). The LFOs and the delay can follow the song's tempo.
+  - Two filters in series or parallel (12/24 dB low, high, band pass, notch, comb and vowel formant), a distortion section, six envelopes, eight LFOs, four macros, and a rack of eight effects (chorus, phaser, flanger, delay, reverb, EQ, compressor, distortion). The LFOs and the delay can follow the song's tempo. Each LFO has a drawable curve (click to add points, drag to move or bend, right-click a point to delete, or start from a template), and you can right-click any modulatable control to send an envelope, LFO or macro to it.
   - A modulation matrix with 16 slots: any of 24 sources to any of 112 targets.
   - The 59 factory presets, by category (**Presets** in the device panel, or in its own window).
   - **Open editor** in the device panel opens Soundgineer in **its own window**: every control on five pages, the preset browser, and a four-octave keyboard you can play with the mouse or the computer keyboard (A–K). **Record** puts what you play into a clip, and **Add clip** makes an empty one and opens it in the piano roll.
   - The parameters and presets are generated from the original's source (`scripts/soundgineer`), so the two stay in step.
-  - Not ported: drawing your own LFO curves (every LFO is a triangle), importing your own wavetables and the noise sample slot, reordering the effects, the sustain pedal and the visualisers.
+  - Not ported: importing your own wavetables and the noise sample slot, reordering the effects, the sustain pedal and the visualisers.
 
   ![Soundgineer's window](docs/screenshots/rust-soundgineer.png)
 - **Drum rack** (**Drum rack** in the instrument list): 16 synthesized pads on the General MIDI drum notes 36–51 (kick, rim, snare, clap, toms, hats, shaker, perc, 808, crash, FX, ride), with six kits: **techno, house, dubstep, hip hop, lo-fi and trap**. Nothing is sampled, so it adds almost nothing to the download. Kit, volume, tune, decay, tone and a level per pad are in the device panel, which also has a 4×4 pad grid to play with the mouse (the computer keyboard plays the pads too). The closed and open hi-hats choke each other.

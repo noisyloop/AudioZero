@@ -33,10 +33,28 @@ use std::f32::consts::PI;
 use wavetable::Table;
 
 pub use data::{
-    FIRST_MATRIX_PARAM, MOD_DEST_LABELS, MOD_SLOTS, MOD_SOURCE_IDS, MOD_SOURCES, PARAM_COUNT,
-    PARAMS, PRESET_NAMES, SECTIONS, preset,
+    FIRST_MATRIX_PARAM, FIRST_SHAPE_PARAM, MOD_DEST_LABELS, MOD_SLOTS, MOD_SOURCE_IDS, MOD_SOURCES,
+    PARAM_COUNT, PARAMS, PRESET_NAMES, SECTIONS, preset,
 };
-pub use dsp::FILTER_TYPES;
+pub use dsp::{FILTER_TYPES, SHAPE_POINTS, Shape};
+
+/// The value of a modulation slot's "Target" setting that modulates parameter `param`, if
+/// that parameter can be modulated.
+pub fn mod_dest_for(param: usize) -> Option<usize> {
+    data::MOD_DESTS
+        .iter()
+        .position(|&d| d == param)
+        .map(|i| i + 1)
+}
+
+// The generated data and the DSP agree on how many points a curve has.
+const _: () = assert!(data::SHAPE_POINTS == SHAPE_POINTS);
+
+/// Where LFO `lfo` (0 to 7)'s curve starts in [`PARAMS`]: its point count, then (x, y, bend)
+/// for each of its [`SHAPE_POINTS`] points.
+pub const fn shape_param(lfo: usize) -> usize {
+    FIRST_SHAPE_PARAM + lfo * (1 + 3 * SHAPE_POINTS)
+}
 
 /// Builds Soundgineer's wavetables on a background thread, so the first synth made later
 /// doesn't have to wait for them. Safe to call any number of times.
@@ -342,6 +360,8 @@ struct Shared {
     idx: Idx,
     tables: &'static [Table; 6],
     slots: [Slot; MOD_SLOTS],
+    /// The LFOs' drawn curves.
+    shapes: [Shape; 8],
     lfo_freq: [f32; 8],
     lfo_global: [f32; 8],
     lfo_beat: [f32; 8],
@@ -390,6 +410,23 @@ impl Shared {
                 Slot::default()
             };
         }
+    }
+
+    /// Reads LFO `lfo`'s curve from the settings.
+    fn rebuild_shape(&mut self, lfo: usize) {
+        let base = shape_param(lfo);
+        let mut shape = Shape {
+            count: self.values[base].round().clamp(2.0, SHAPE_POINTS as f32) as usize,
+            ..Shape::default()
+        };
+        for i in 0..SHAPE_POINTS {
+            let at = base + 1 + i * 3;
+            shape.x[i] = self.values[at];
+            shape.y[i] = self.values[at + 1];
+            shape.bend[i] = self.values[at + 2];
+        }
+        shape.sort();
+        self.shapes[lfo] = shape;
     }
 
     /// Sums the matrix's routes into `offsets`, from `sources`.
@@ -547,6 +584,7 @@ impl Voice {
                 _ => LfoMode::Trigger,
             };
             self.sources[SRC_LFO + l] = self.lfos[l].process(
+                &sh.shapes[l],
                 sh.lfo_freq[l],
                 mode,
                 sh.lfo_global[l],
@@ -859,12 +897,14 @@ impl Soundgineer {
             // the engine is) and shared by every instance after that.
             tables: wavetable::tables(),
             slots: [Slot::default(); MOD_SLOTS],
+            shapes: [Shape::default(); 8],
             lfo_freq: [0.0; 8],
             lfo_global: [0.0; 8],
             lfo_beat: [0.0; 8],
             bend_range: 2.0,
         };
         sh.rebuild_slots();
+        (0..8).for_each(|l| sh.rebuild_shape(l));
         Self {
             sh,
             voices: (0..VOICES)
@@ -1095,6 +1135,7 @@ impl Instrument for Soundgineer {
         *self = Self::with_rate(sr);
         *self.sh.values = *values;
         self.sh.rebuild_slots();
+        (0..8).for_each(|l| self.sh.rebuild_shape(l));
         self.tempo = tempo;
     }
 
@@ -1103,7 +1144,10 @@ impl Instrument for Soundgineer {
             && value.is_finite()
         {
             self.sh.values[index] = param.fit(value);
-            if index >= FIRST_MATRIX_PARAM {
+            if index >= FIRST_SHAPE_PARAM {
+                let lfo = (index - FIRST_SHAPE_PARAM) / (1 + 3 * SHAPE_POINTS);
+                self.sh.rebuild_shape(lfo.min(7));
+            } else if index >= FIRST_MATRIX_PARAM {
                 self.sh.rebuild_slots();
             }
         }
@@ -1375,6 +1419,76 @@ mod tests {
         assert_eq!(s.sh.slots[0].source, 3);
         set(&mut s, "mod1.depth", 0.0);
         assert_eq!(s.sh.slots[0].source, 0, "zero depth is no route");
+    }
+
+    #[test]
+    fn an_lfos_drawn_curve_shapes_the_modulation() {
+        // LFO 1 free-running at 4 Hz, drawn as a square (up for the first half of each cycle),
+        // sent to oscillator 1's level: the sound switches on and off.
+        let tremolo = |square: bool| {
+            let mut s = synth();
+            set(&mut s, "osc1.level", 1.0);
+            set(&mut s, "lfo1.sync", 0.0);
+            set(&mut s, "lfo1.rate", 4.0);
+            set(&mut s, "lfo1.mode", 1.0); // free
+            let dest = MOD_DEST_LABELS
+                .iter()
+                .position(|l| *l == "Osc 1 Level")
+                .unwrap();
+            set(&mut s, "mod1.source", 8.0); // LFO 1
+            set(&mut s, "mod1.dest", dest as f32);
+            set(&mut s, "mod1.depth", -1.0);
+            if square {
+                for (i, (x, y)) in [(0.0, 1.0), (0.499, 1.0), (0.5, 0.0), (1.0, 0.0)]
+                    .into_iter()
+                    .enumerate()
+                {
+                    set(&mut s, &format!("lfo1.p{i}x"), x);
+                    set(&mut s, &format!("lfo1.p{i}y"), y);
+                }
+                set(&mut s, "lfo1.count", 4.0);
+            }
+            s.note_on(60, 1.0);
+            let (l, _) = render(&mut s, 1.0);
+            // The level in 10 ms slices, over the second half (past the envelope's attack).
+            let slices: Vec<f32> = l[24_000..].chunks(480).map(peak).collect();
+            let (lo, hi) = slices
+                .iter()
+                .fold((f32::MAX, 0.0f32), |(lo, hi), &x| (lo.min(x), hi.max(x)));
+            (lo, hi)
+        };
+        let (square_lo, square_hi) = tremolo(true);
+        assert!(square_hi > 0.2, "on for half the cycle ({square_hi})");
+        assert!(square_lo < 0.02, "and silent for the rest ({square_lo})");
+        let (_, _) = tremolo(false);
+
+        // Moving a point changes the curve the DSP uses.
+        let mut s = synth();
+        let before = s.sh.shapes[1].eval(0.5);
+        set(&mut s, "lfo2.p1y", 0.25);
+        assert_ne!(s.sh.shapes[1].eval(0.5), before);
+        assert_eq!(s.sh.shapes[0], Shape::default(), "LFO 1 is untouched");
+        // Points typed out of order are sorted, and the count is kept in range.
+        set(&mut s, "lfo3.p0x", 0.9);
+        set(&mut s, "lfo3.count", 99.0);
+        assert_eq!(s.sh.shapes[2].count, SHAPE_POINTS);
+        assert!(s.sh.shapes[2].x.windows(2).all(|w| w[0] <= w[1]));
+        // The curve survives a change of sample rate.
+        set(&mut s, "lfo2.p1y", 0.25);
+        s.prepare(44_100.0);
+        assert_eq!(s.sh.shapes[1].eval(0.5), 0.25);
+        // Where each LFO's curve lives in the parameter table.
+        for lfo in 0..8 {
+            assert_eq!(
+                PARAMS[shape_param(lfo)].name,
+                format!("lfo{}.count", lfo + 1)
+            );
+            assert_eq!(
+                PARAMS[shape_param(lfo) + 1 + 3 * 15 + 2].name,
+                format!("lfo{}.p15pow", lfo + 1)
+            );
+        }
+        assert_eq!(shape_param(8), PARAM_COUNT);
     }
 
     #[test]

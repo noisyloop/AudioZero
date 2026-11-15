@@ -12,6 +12,7 @@ import json, sys
 
 data = json.load(open(sys.argv[1]))
 MOD_SLOTS = 16
+SHAPE_POINTS = 16   # points in each LFO's drawn curve
 OSC_TABLES = ["Basic Shapes", "Harmonic Sweep", "PWM", "Vocal", "FM Bell", "Digital"]
 
 TITLES = {
@@ -22,6 +23,8 @@ TITLES = {
 }
 def title(group):
     if group in TITLES: return TITLES[group]
+    if group.startswith("lfoshape") and group[8:].isdigit():
+        return f"LFO {group[8:]} curve"
     for prefix, name in (("osc", "Osc "), ("filter", "Filter "), ("env", "Env "), ("lfo", "LFO ")):
         if group.startswith(prefix) and group[len(prefix):].isdigit():
             return name + group[len(prefix):]
@@ -61,6 +64,19 @@ for n in range(1, MOD_SLOTS + 1):
     params.append(mk(f"mod{n}.dest", "Target", "matrix", 0, len(dest_labels) - 1, 0, 1, "DESTS"))
     params.append(mk(f"mod{n}.depth", "Depth", "matrix", -1, 1, 0))
 
+# Each LFO's drawn curve: how many points it has, then (x, y, bend) for each. The default is
+# the triangle every LFO had in the original. Bend is -1 to 1 (0 is a straight line).
+first_shape = len(params)
+for l in range(1, 9):
+    g = f"lfoshape{l}"
+    params.append(mk(f"lfo{l}.count", "Points", g, 2, SHAPE_POINTS, 3, 1))
+    for i in range(SHAPE_POINTS):
+        x = {0: 0.0, 1: 0.5}.get(i, 1.0)
+        y = 1.0 if i == 1 else 0.0
+        params.append(mk(f"lfo{l}.p{i}x", f"Point {i + 1} x", g, 0, 1, x))
+        params.append(mk(f"lfo{l}.p{i}y", f"Point {i + 1} y", g, 0, 1, y))
+        params.append(mk(f"lfo{l}.p{i}pow", f"Point {i + 1} bend", g, -1, 1, 0))
+
 def f(x):
     x = float(x)
     s = repr(x)
@@ -84,7 +100,10 @@ w("/// Soundgineer's parameters, then the mod matrix's.")
 w(f"pub const PARAM_COUNT: usize = {len(params)};")
 w(f"pub const MOD_SLOTS: usize = {MOD_SLOTS};")
 w(f"/// Where the mod matrix's parameters start: three per slot (source, target, depth).")
-w(f"pub const FIRST_MATRIX_PARAM: usize = {first_matrix};\n")
+w(f"pub const FIRST_MATRIX_PARAM: usize = {first_matrix};")
+w("/// Where the LFO curves' parameters start: for each LFO, a point count then (x, y, bend) for each point.")
+w(f"pub const FIRST_SHAPE_PARAM: usize = {first_shape};")
+w(f"pub const SHAPE_POINTS: usize = {SHAPE_POINTS};\n")
 w("/// What can drive a modulation target, with \"None\" first.")
 w(f"pub static MOD_SOURCES: [&str; {len(sources)}] = [" + ", ".join(lit(s) for s in sources) + "];\n")
 w("/// The ids of the sources, in `MOD_SOURCES` order after \"None\".")

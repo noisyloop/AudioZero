@@ -673,7 +673,7 @@ fn soundgineer_through_mcp() {
         .find(|i| i["id"] == "soundgineer")
         .unwrap()
         .clone();
-    assert_eq!(sg["params"].as_array().unwrap().len(), 273);
+    assert_eq!(sg["params"].as_array().unwrap().len(), 665);
     assert_eq!(sg["presets"].as_array().unwrap().len(), 59);
     assert!(
         sg["presets"]

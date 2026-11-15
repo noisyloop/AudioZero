@@ -157,7 +157,77 @@ pub enum LfoMode {
     Sync,
 }
 
-/// A triangle LFO from 0 to 1, with optional smoothing of its output.
+/// The most points an LFO's curve has.
+pub const SHAPE_POINTS: usize = 16;
+
+/// An LFO's drawn curve: up to 16 points from left to right, each with a height (0 to 1) and a
+/// bend for the segment after it (-1 to 1; 0 is a straight line).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Shape {
+    pub x: [f32; SHAPE_POINTS],
+    pub y: [f32; SHAPE_POINTS],
+    pub bend: [f32; SHAPE_POINTS],
+    pub count: usize,
+}
+
+impl Default for Shape {
+    /// A triangle, rising to the middle and falling back.
+    fn default() -> Self {
+        let mut shape = Self {
+            x: [1.0; SHAPE_POINTS],
+            y: [0.0; SHAPE_POINTS],
+            bend: [0.0; SHAPE_POINTS],
+            count: 3,
+        };
+        shape.x[..3].copy_from_slice(&[0.0, 0.5, 1.0]);
+        shape.y[..3].copy_from_slice(&[0.0, 1.0, 0.0]);
+        shape
+    }
+}
+
+impl Shape {
+    /// Puts the points in order from left to right (the editor and old projects may not).
+    pub fn sort(&mut self) {
+        let n = self.count.clamp(2, SHAPE_POINTS);
+        self.count = n;
+        // Insertion sort on three parallel arrays: no allocation.
+        for i in 1..n {
+            let (x, y, b) = (self.x[i], self.y[i], self.bend[i]);
+            let mut j = i;
+            while j > 0 && self.x[j - 1] > x {
+                self.x[j] = self.x[j - 1];
+                self.y[j] = self.y[j - 1];
+                self.bend[j] = self.bend[j - 1];
+                j -= 1;
+            }
+            (self.x[j], self.y[j], self.bend[j]) = (x, y, b);
+        }
+    }
+
+    /// The curve's height at `phase` (0 to 1). This is the original's `evalLfoShape`.
+    pub fn eval(&self, phase: f32) -> f32 {
+        let n = self.count.min(SHAPE_POINTS);
+        if n == 0 {
+            return 0.0;
+        }
+        if phase <= self.x[0] {
+            return self.y[0];
+        }
+        for i in 0..n - 1 {
+            if phase <= self.x[i + 1] {
+                let span = self.x[i + 1] - self.x[i];
+                if span <= 1e-9 {
+                    return self.y[i + 1];
+                }
+                let t = ((phase - self.x[i]) / span).powf(2f32.powf(self.bend[i] * 4.0));
+                return self.y[i] + (self.y[i + 1] - self.y[i]) * t;
+            }
+        }
+        self.y[n - 1]
+    }
+}
+
+/// An LFO with a drawn curve, from 0 to 1, with optional smoothing of its output.
 #[derive(Clone, Copy, Default)]
 pub struct Lfo {
     phase: f32,
@@ -170,8 +240,10 @@ impl Lfo {
         self.smoothed = 0.0;
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn process(
         &mut self,
+        shape: &Shape,
         freq: f32,
         mode: LfoMode,
         global_phase: f32,
@@ -187,11 +259,7 @@ impl Lfo {
                 self.phase
             }
         };
-        let raw = if phase < 0.5 {
-            phase * 2.0
-        } else {
-            2.0 - phase * 2.0
-        };
+        let raw = shape.eval(phase);
         if smooth <= 0.001 {
             self.smoothed = raw;
             return raw;
@@ -469,7 +537,8 @@ mod tests {
     fn the_lfo_is_a_triangle_in_each_mode() {
         let mut lfo = Lfo::default();
         lfo.trigger(0.0);
-        let at = |lfo: &mut Lfo, mode, g, b| lfo.process(1.0, mode, g, b, 0.0, 0.25);
+        let at =
+            |lfo: &mut Lfo, mode, g, b| lfo.process(&Shape::default(), 1.0, mode, g, b, 0.0, 0.25);
         assert_eq!(
             at(&mut lfo, LfoMode::Trigger, 0.0, 0.0),
             0.5,
@@ -488,8 +557,43 @@ mod tests {
         );
         // Smoothing lags behind.
         let mut slow = Lfo::default();
-        let jumpy = slow.process(1.0, LfoMode::Free, 0.5, 0.0, 1.0, 0.01);
+        let jumpy = slow.process(&Shape::default(), 1.0, LfoMode::Free, 0.5, 0.0, 1.0, 0.01);
         assert!(jumpy > 0.0 && jumpy < 0.1, "got {jumpy}");
+    }
+
+    #[test]
+    fn a_drawn_curve_is_followed_and_bends() {
+        let mut shape = Shape::default();
+        // The default is a triangle.
+        let triangle = [0.0, 0.25, 0.5, 0.75].map(|p| shape.eval(p));
+        assert_eq!(triangle, [0.0, 0.5, 1.0, 0.5]);
+        // A square: up at the start, down in the middle.
+        shape.count = 4;
+        shape.x[..4].copy_from_slice(&[0.0, 0.01, 0.5, 0.51]);
+        shape.y[..4].copy_from_slice(&[0.0, 1.0, 1.0, 0.0]);
+        assert!(shape.eval(0.3) > 0.99 && shape.eval(0.8) < 0.01);
+        // A bend makes a segment slow to leave its start (positive) or quick (negative).
+        let mut ramp = Shape {
+            count: 2,
+            ..Shape::default()
+        };
+        ramp.x[..2].copy_from_slice(&[0.0, 1.0]);
+        ramp.y[..2].copy_from_slice(&[0.0, 1.0]);
+        let mid = |bend: f32| {
+            let mut r = ramp;
+            r.bend[0] = bend;
+            r.eval(0.5)
+        };
+        assert!(mid(0.5) < 0.3 && mid(0.0) == 0.5 && mid(-0.5) > 0.7);
+        // Out-of-order points are sorted, with their heights.
+        let mut messy = Shape::default();
+        messy.x[..3].copy_from_slice(&[0.5, 1.0, 0.0]);
+        messy.y[..3].copy_from_slice(&[0.9, 0.2, 0.4]);
+        messy.sort();
+        assert_eq!(messy.x[..3], [0.0, 0.5, 1.0]);
+        assert_eq!(messy.y[..3], [0.4, 0.9, 0.2]);
+        // Before the first point and after the last it holds their heights.
+        assert_eq!((messy.eval(-0.2), messy.eval(1.5)), (0.4, 0.2));
     }
 
     fn tone(freq: f32, n: usize) -> Vec<f32> {
