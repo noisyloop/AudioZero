@@ -1,12 +1,14 @@
 //! AudioZero's audio engine and project format, with no UI or platform code.
 //!
 //! - [`project`]: the project model, its JSON format, and the limits every project is held to.
+//! - [`arp`]: the arpeggiator, a MIDI effect that turns held notes into patterns.
 //! - [`control`]: drives an engine on the audio thread from the UI thread, without locks.
 //! - [`session`]: every edit to a project, with undo. The window and the MCP server both edit
 //!   through it.
 //! - [`drums`]: the drum rack: synthesized drum kits for several genres, and ready-made beats.
 //! - [`effects`]: built-in track effects (delay, reverb, compressor).
 //! - [`engine`]: renders a project to audio, sample-accurately, without allocating on the audio thread.
+//! - [`fx`]: more track effects: EQ, chorus, phaser, bit crusher and distortion.
 //! - [`export`]: rendering a song to a WAV or MP3 file.
 //! - [`soundgineer`]: Soundgineer, the built-in wavetable synth.
 //! - [`sample`]: audio files for audio clips: path checks, bounded decoding and a pool of
@@ -18,12 +20,14 @@
 //! - [`demo`]: a short built-in song.
 //! - [`wav`]: a minimal WAV writer for export.
 
+pub mod arp;
 pub mod control;
 pub mod demo;
 pub mod drums;
 pub mod effects;
 pub mod engine;
 pub mod export;
+pub mod fx;
 pub mod music;
 pub mod operator;
 pub mod project;

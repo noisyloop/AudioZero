@@ -83,6 +83,8 @@ pub struct Track {
     pub mute: bool,
     pub solo: bool,
     pub instrument: Option<Device>,
+    /// The arpeggiator, a MIDI effect in front of the instrument.
+    pub arp: crate::arp::ArpSettings,
     pub effects: Vec<Device>,
     pub clips: Vec<Clip>,
 }
@@ -96,6 +98,7 @@ impl Default for Track {
             mute: false,
             solo: false,
             instrument: None,
+            arp: crate::arp::ArpSettings::default(),
             effects: Vec::new(),
             clips: Vec::new(),
         }
@@ -441,6 +444,7 @@ impl Project {
 
         for track in &mut self.tracks {
             truncate_name(&mut track.name);
+            track.arp.sanitize();
             track.volume = finite32(track.volume, 0.0, 2.0, 0.8);
             track.pan = finite32(track.pan, -1.0, 1.0, 0.0);
             if let Some(instrument) = &mut track.instrument {

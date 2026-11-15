@@ -7,7 +7,7 @@
 //! clamps them to these ranges.
 
 /// Most parameters one effect has.
-pub const MAX_PARAMS: usize = 4;
+pub const MAX_PARAMS: usize = 12;
 
 /// One of an effect's parameters.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -97,10 +97,15 @@ const COMPRESSOR_PARAMS: [Param; 3] = [
 ];
 
 /// Built-in effects: project id and display name.
-pub const EFFECTS: [(&str, &str); 3] = [
+pub const EFFECTS: [(&str, &str); 8] = [
+    ("eq", "EQ"),
+    ("compressor", "Compressor"),
     ("delay", "Delay"),
     ("reverb", "Reverb"),
-    ("compressor", "Compressor"),
+    ("chorus", "Chorus"),
+    ("phaser", "Phaser"),
+    ("bitcrusher", "Bit crusher"),
+    ("distortion", "Distortion"),
 ];
 
 /// The parameters of a built-in effect, or `None` if `id` isn't one.
@@ -109,6 +114,11 @@ pub fn params_for(id: &str) -> Option<&'static [Param]> {
         "delay" => Some(&DELAY_PARAMS),
         "reverb" => Some(&REVERB_PARAMS),
         "compressor" => Some(&COMPRESSOR_PARAMS),
+        "eq" => Some(&crate::fx::EQ_PARAMS),
+        "chorus" => Some(&crate::fx::CHORUS_PARAMS),
+        "phaser" => Some(&crate::fx::PHASER_PARAMS),
+        "bitcrusher" => Some(&crate::fx::BITCRUSHER_PARAMS),
+        "distortion" => Some(&crate::fx::DISTORTION_PARAMS),
         _ => None,
     }
 }
@@ -120,6 +130,9 @@ pub trait Effect: Send {
     fn set_param(&mut self, index: usize, value: f32);
     /// Processes `left` and `right` (the same length) in place.
     fn process(&mut self, left: &mut [f32], right: &mut [f32]);
+    /// Called before each block with the song's tempo and the playhead (in beats) at the start
+    /// of the block, for effects that follow the beat. `playing` is false when stopped.
+    fn sync(&mut self, _bpm: f64, _beat: f64, _playing: bool) {}
 }
 
 /// Creates a built-in effect by its project id, with its default settings.
@@ -128,6 +141,11 @@ pub fn create_effect(id: &str) -> Option<Box<dyn Effect>> {
         "delay" => Box::new(Delay::default()),
         "reverb" => Box::new(Reverb::default()),
         "compressor" => Box::new(Compressor::default()),
+        "eq" => Box::new(crate::fx::Eq::default()),
+        "chorus" => Box::new(crate::fx::Chorus::default()),
+        "phaser" => Box::new(crate::fx::Phaser::default()),
+        "bitcrusher" => Box::new(crate::fx::BitCrusher::default()),
+        "distortion" => Box::new(crate::fx::Distortion::default()),
         _ => return None,
     };
     for (i, p) in params_for(id)?.iter().enumerate() {

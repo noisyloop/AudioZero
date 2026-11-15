@@ -73,12 +73,15 @@ It's early but working. [Download a build](#download-a-build) or [build it yours
   - right-click or Delete to remove, Up/Down to transpose (Shift moves an octave);
   - Ctrl/Cmd + D duplicates the selected notes to straight after them (and selects the copies, so pressing it again carries on);
   - **Key and scale:** the song's key is chosen in the top bar or the piano roll (twelve keys; major, minor, the church modes, harmonic and melodic minor, pentatonics, blues or chromatic). The roll dims notes outside the scale, **In key** keeps new and moved notes on it, and **Randomize** writes a new melody in key (or new pitches for the selected notes), a different one each press. Undo brings the old notes back.
+- **Track names:** click a track's name to select it (its header is tinted, and the device panel opens). **Ctrl/Cmd + R**, double-clicking the name, or right-click > **Rename** renames it.
+- **Effects:** **EQ** (four bands, with a curve you can drag: each node sets a band's frequency and gain, and scrolling over a bell changes its width), compressor, delay, reverb, **chorus**, **phaser**, **bit crusher** and **distortion** (soft clip, hard clip, wavefold). Add them from **+ Add effect**.
+- **Arpeggiator:** every track with an instrument has one in the device panel. It turns the notes the track plays, from clips or live, into a pattern: up, down, up and down, random, as played or chord, at 1/4 to 1/32 (with triplets), over one to four octaves, with gate and swing. It's sample-accurate and follows the tempo.
 - **Grid:** snap to bars, 1/4, 1/8, 1/16 or 1/32, or turn it off. Holding Alt ignores the grid.
 - **Undo:** every clip, note, track and instrument edit can be undone and redone (Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z or Ctrl + Y). A whole drag is one step. Mixer and tempo changes aren't undo steps, and undoing an edit leaves them as they are. All edits go through one `Session` (in the engine crate), which the MCP server uses too.
 - **Editing while playing:** an edit swaps in just that track's clips, so playback carries on. Adding or removing a track rebuilds the engine and keeps the playhead where it was. Every edit gets the same validation as a project file.
 - **Navigation:** click or drag the ruler to move the playhead; Ctrl/Cmd + wheel or pinch zooms; the wheel scrolls (Shift for sideways).
 - **Shortcuts:** Space plays and stops, Home goes back to the start, Ctrl/Cmd + S saves, Ctrl/Cmd + O opens, Ctrl/Cmd + D duplicates the selected clip (or, in the piano roll, the selected notes). A copied clip goes after any clips in the way, never on top of them.
-- **Projects:** open, save and save-as (`.json`), drag a project onto the window to open it, and AudioZero asks before throwing away unsaved changes.
+- **Projects:** open, save and save-as. Projects are saved as **`.azproj`** (JSON inside, so they're easy to read and diff), and `.json` projects still open. Drag a project onto the window to open it, and AudioZero asks before throwing away unsaved changes.
 - **No sound card:** the app still runs, and the playhead moves without sound.
 
 ![Editing the Chords clip in the piano roll](docs/screenshots/rust-piano-roll.png)
@@ -128,7 +131,7 @@ Builds from any run (without a release) are under that run's **Artifacts**:
 | `audiozero-windows-x64` | Windows 10/11, x86-64 | Double-click `audiozero.exe`. SmartScreen warns because it's unsigned: choose **More info > Run anyway**. |
 | `audiozero-macos-arm64` | macOS on Apple silicon | `chmod +x audiozero && xattr -d com.apple.quarantine audiozero && ./audiozero` in Terminal. It's unsigned, and the first recording asks for microphone access. |
 
-Each download is a zip containing the program. The command-line options below work with it too, for example `./audiozero --mcp song.json`.
+Each download is a zip containing the program. The command-line options below work with it too, for example `./audiozero --mcp song.azproj`.
 
 To make a new build, open the workflow, click **Run workflow** and pick a branch. Tick **Also build on macOS** only when you need it: macOS minutes count 10x against the Actions allowance.
 
@@ -136,14 +139,14 @@ To make a new build, open the workflow, click **Run workflow** and pick a branch
 
 ```sh
 cargo run --release -p audiozero-app                          # open the window with the demo song
-cargo run --release -p audiozero-app -- song.json             # open a project
+cargo run --release -p audiozero-app -- song.azproj           # open a project
 cargo run --release -p audiozero-app -- --play                # play from the command line, no window
 cargo run --release -p audiozero-app -- --render demo.wav     # render to WAV
-cargo run --release -p audiozero-app -- --save demo.json      # write the demo as a project file
+cargo run --release -p audiozero-app -- --save demo.azproj    # write the demo as a project file
 cargo run --release -p audiozero-app -- --scan                # list installed CLAP/VST3 plugins
 cargo run --release -p audiozero-app -- --devices             # list sound cards and what they support
 cargo run --release -p audiozero-app -- --play --output-device scarlett --rate 48000 --buffer 256
-cargo run --release -p audiozero-app -- --mcp song.json       # MCP server for an AI assistant (see below)
+cargo run --release -p audiozero-app -- --mcp song.azproj     # MCP server for an AI assistant (see below)
 cargo test --workspace                                        # all tests
 ```
 
@@ -160,11 +163,11 @@ The visuals react to the audio (loudness, bass/mid/treble, a 32-band spectrum, k
 From the command line:
 
 ```sh
-audiozero song.json --video song.mp4                                  # whole song, 1920x1080, 30 fps
-audiozero song.json --video short.mp4 --format shorts --look rings    # 9:16 for Shorts, Reels, TikTok
-audiozero song.json --video frames/ --format square --fps 60          # PNG frames + audio.wav
-audiozero song.json --video loop.webm --loop --look particles         # just the loop range
-audiozero song.json --still preview.png --at 12                       # one frame, to try a look
+audiozero song.azproj --video song.mp4                                  # whole song, 1920x1080, 30 fps
+audiozero song.azproj --video short.mp4 --format shorts --look rings    # 9:16 for Shorts, Reels, TikTok
+audiozero song.azproj --video frames/ --format square --fps 60          # PNG frames + audio.wav
+audiozero song.azproj --video loop.webm --loop --look particles         # just the loop range
+audiozero song.azproj --still preview.png --at 12                       # one frame, to try a look
 ```
 
 - **Looks:** `spectrum` (mirrored bars over a bass glow), `rings` (one ring per track, pulsing with its notes, hue from the pitch) and `particles` (a burst for every note: across by pitch, up and down by track).
@@ -175,12 +178,12 @@ Export renders offline, frame by frame, so the video is always in sync and the s
 
 ## AI control (MCP)
 
-`audiozero --mcp [PROJECT]` runs an [MCP](https://modelcontextprotocol.io) server on stdin/stdout, so an assistant such as Claude can build and edit a song while you listen. It edits `PROJECT` (an existing `.json` project, or a new one that's created on the first save), or an empty song if none is given, and plays through your speakers.
+`audiozero --mcp [PROJECT]` runs an [MCP](https://modelcontextprotocol.io) server on stdin/stdout, so an assistant such as Claude can build and edit a song while you listen. It edits `PROJECT` (an existing `.azproj` or `.json` project, or a new one that's created on the first save), or an empty song if none is given, and plays through your speakers.
 
 To use it from Claude Code (build with `cargo build --release` first):
 
 ```sh
-claude mcp add audiozero -- /path/to/AudioZero/target/release/audiozero --mcp ~/Music/AudioZero/my-song.json
+claude mcp add audiozero -- /path/to/AudioZero/target/release/audiozero --mcp ~/Music/AudioZero/my-song.azproj
 ```
 
 Other MCP clients take the same command and arguments in their server configuration.

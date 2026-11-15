@@ -395,8 +395,8 @@ fn save_creates_new_files_only_in_the_folder() {
         json!({ "track": 0, "name": "Saved" }),
     );
     let r = ok(&mut s, "save", json!({ "name": "My song" }));
-    assert_eq!(r["saved"], "My song.json");
-    let path = folder.join("My song.json");
+    assert_eq!(r["saved"], "My song.azproj");
+    let path = folder.join("My song.azproj");
     assert_eq!(Project::load(&path).unwrap().tracks[0].name, "Saved");
     assert!(!s.session().is_dirty());
 
@@ -606,6 +606,45 @@ fn effects_through_mcp() {
     ok(&mut s, "remove_effect", json!({ "track": 0, "effect": 0 }));
     ok(&mut s, "undo", json!({}));
     assert_eq!(s.session().project().tracks[0].effects.len(), 1);
+}
+
+#[test]
+fn the_arpeggiator_through_mcp() {
+    let mut s = server();
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][0]["arp"]["on"], false);
+    ok(
+        &mut s,
+        "set_arp",
+        json!({ "track": 0, "on": true, "mode": "up_down", "rate": "1/8T", "octaves": 2 }),
+    );
+    let changes = s.audio().applied.last().unwrap().clone();
+    assert!(!changes.reload && changes.arp == vec![0], "heard live");
+    let arp = ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"].clone();
+    assert_eq!(
+        (
+            arp["on"].clone(),
+            arp["mode"].clone(),
+            arp["rate"].clone(),
+            arp["octaves"].clone()
+        ),
+        (json!(true), json!("up_down"), json!("1/8T"), json!(2))
+    );
+    // Only what's given changes.
+    ok(&mut s, "set_arp", json!({ "track": 0, "gate": 0.3 }));
+    let arp = ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"].clone();
+    assert_eq!(
+        (arp["on"].clone(), arp["octaves"].clone()),
+        (json!(true), json!(2))
+    );
+    refused(&mut s, "set_arp", json!({ "track": 0, "octaves": 9 }));
+    refused(&mut s, "set_arp", json!({ "track": 0, "mode": "sideways" }));
+    refused(&mut s, "set_arp", json!({ "track": 99, "on": true }));
+    ok(&mut s, "undo", json!({}));
+    assert_eq!(
+        ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"]["gate"],
+        0.5
+    );
 }
 
 #[test]

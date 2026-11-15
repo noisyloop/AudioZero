@@ -20,7 +20,7 @@
 //! the sustain pedal and the visualisers.
 
 mod dsp;
-mod effects;
+pub(crate) mod effects;
 #[rustfmt::skip]
 mod data;
 pub mod wavetable;

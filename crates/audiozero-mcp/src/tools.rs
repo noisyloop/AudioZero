@@ -388,6 +388,23 @@ const TOOLS: &[Tool] = &[
         destructive: true,
     },
     Tool {
+        name: "set_arp",
+        title: "Set arpeggiator",
+        description: "Turns a track's arpeggiator on or off and sets it. The arpeggiator turns the notes the track plays (from clips or live) into a pattern before they reach the instrument. Only the values given change. An undo step; heard straight away.",
+        properties: props!(
+            track!(),
+            r#""on": { "type": "boolean" }"#,
+            r#""mode": { "type": "string", "enum": ["up", "down", "up_down", "random", "as_played", "chord"] }"#,
+            r#""rate": { "type": "string", "enum": ["1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "description": "How long a step lasts" }"#,
+            r#""octaves": { "type": "integer", "minimum": 1, "maximum": 4 }"#,
+            r#""gate": { "type": "number", "minimum": 0.05, "maximum": 1, "description": "How much of a step each note lasts" }"#,
+            r#""swing": { "type": "number", "minimum": 0, "maximum": 0.5, "description": "How far off-beat steps are pushed late" }"#
+        ),
+        required: &["track"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
         name: "set_key",
         title: "Set key",
         description: "Sets the song's key and scale. The piano roll marks the notes of the scale. Existing notes aren't changed. Not an undo step. Scales: major, minor, dorian, phrygian, lydian, mixolydian, harmonic_minor, melodic_minor, major_pentatonic, minor_pentatonic, blues, chromatic.",
@@ -429,7 +446,7 @@ const TOOLS: &[Tool] = &[
     Tool {
         name: "save",
         title: "Save",
-        description: "Saves the song: to the project file this server was started with, or, if there isn't one, to a new file `name`.json in the AudioZero folder (never replacing an existing file).",
+        description: "Saves the song: to the project file this server was started with, or, if there isn't one, to a new file `name`.azproj in the AudioZero folder (never replacing an existing file).",
         properties: props!(
             r#""name": { "type": "string", "description": "File name without extension (letters, digits, spaces, - and _). Only used when there's no project file yet." }"#
         ),
@@ -1185,6 +1202,43 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 "look": settings.look,
             }))
         }
+        "set_arp" => {
+            use audiozero_engine::arp::{ArpSettings, Mode, Rate};
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                on: Option<bool>,
+                mode: Option<Mode>,
+                rate: Option<Rate>,
+                octaves: Option<u8>,
+                gate: Option<f32>,
+                swing: Option<f32>,
+            }
+            let a: Args = parse(arguments)?;
+            let mut settings: ArpSettings = s
+                .session
+                .project()
+                .tracks
+                .get(a.track)
+                .map(|t| t.arp)
+                .ok_or_else(|| format!("there's no track {}", a.track))?;
+            settings.on = a.on.unwrap_or(settings.on);
+            settings.mode = a.mode.unwrap_or(settings.mode);
+            settings.rate = a.rate.unwrap_or(settings.rate);
+            settings.octaves = a.octaves.unwrap_or(settings.octaves);
+            settings.gate = a.gate.unwrap_or(settings.gate);
+            settings.swing = a.swing.unwrap_or(settings.swing);
+            let changes = s
+                .session
+                .set_arp(a.track, settings)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "arp": serde_json::to_value(settings).unwrap_or_default() }),
+            ))
+        }
         "set_key" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -1368,6 +1422,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
                 .collect();
             json!({
                 "track": i, "name": t.name, "instrument": describe(t.instrument.as_ref()),
+                "arp": serde_json::to_value(t.arp).unwrap_or_default(),
                 "instrument_params": instrument_params_of(t),
                 "effects": effects_of(t), "volume": f32_out(t.volume), "pan": f32_out(t.pan), "mute": t.mute, "solo": t.solo, "clips": clips,
             })
@@ -1399,7 +1454,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
 /// A file name the assistant may create: plain characters only, so it can't name another folder
 /// or a hidden file.
 fn file_name(name: &str) -> Result<String, String> {
-    plain_name(name).map(|n| format!("{n}.json"))
+    plain_name(name).map(|n| format!("{n}.azproj"))
 }
 
 fn plain_name(name: &str) -> Result<String, String> {

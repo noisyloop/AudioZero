@@ -85,6 +85,8 @@ pub struct Changes {
     pub effect_params: Vec<(usize, usize)>,
     /// Instrument parameters that changed: (track, parameter index, new value).
     pub instrument_params: Vec<(usize, usize, f32)>,
+    /// Tracks whose arpeggiator settings changed.
+    pub arp: Vec<usize>,
     pub bpm: bool,
     pub master: bool,
     pub looping: bool,
@@ -132,6 +134,10 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
                     .filter(|(_, (x, y))| x != y)
                     .map(move |(e, _)| (t, e))
             })
+            .collect(),
+        arp: pairs()
+            .filter(|(_, (a, b))| a.arp != b.arp)
+            .map(|(i, _)| i)
             .collect(),
         instrument_params: pairs()
             .filter(|(_, (a, b))| a.instrument != b.instrument)
@@ -544,6 +550,29 @@ impl Session {
                 f64::from(info.max),
             )?;
             params.insert(name.to_owned(), value);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Sets a track's arpeggiator (out-of-range values are refused, not clamped). An undo step,
+    /// heard without rebuilding the engine.
+    pub fn set_arp(
+        &mut self,
+        track: usize,
+        settings: crate::arp::ArpSettings,
+    ) -> Result<Changes, EditError> {
+        check_range("gate", f64::from(settings.gate), 0.05, 1.0)?;
+        check_range("swing", f64::from(settings.swing), 0.0, 0.5)?;
+        if !(1..=4).contains(&settings.octaves) {
+            return Err(EditError::Invalid(format!(
+                "octaves has to be 1 to 4, got {}",
+                settings.octaves
+            )));
+        }
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            p.tracks[track].arp = settings;
             Ok(())
         })
         .map(|((), c)| c)

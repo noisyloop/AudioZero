@@ -60,6 +60,13 @@ enum PathMode {
     SaveAs,
 }
 
+/// The "Rename track" box.
+struct RenamePrompt {
+    track: usize,
+    text: String,
+    focused: bool,
+}
+
 struct PathPrompt {
     mode: PathMode,
     text: String,
@@ -161,6 +168,10 @@ struct App {
     arrangement_drag: Option<arrangement::Drag>,
     roll: Option<piano_roll::Roll>,
     prompt: Option<PathPrompt>,
+    rename: Option<RenamePrompt>,
+    /// The track last clicked (its header, or one of its clips): highlighted, and the one
+    /// Ctrl+R renames.
+    selected_track: Option<usize>,
     pending: Option<Pending>,
     allow_close: bool,
     title: String,
@@ -218,6 +229,8 @@ impl App {
             arrangement_drag: None,
             roll: None,
             prompt: None,
+            rename: None,
+            selected_track: None,
             pending: None,
             allow_close: false,
             title: String::new(),
@@ -343,7 +356,7 @@ impl App {
     fn ask_path(&mut self, mode: PathMode) {
         let suggestion = match (&self.file, mode) {
             (Some(path), _) => path.clone(),
-            (None, PathMode::SaveAs) => default_folder().join("Untitled.json"),
+            (None, PathMode::SaveAs) => default_folder().join("Untitled.azproj"),
             (None, PathMode::Open) => default_folder(),
         };
         self.prompt = Some(PathPrompt {
@@ -438,6 +451,10 @@ impl App {
 
     /// Drops selections that no longer point at anything.
     fn validate_selection(&mut self) {
+        let tracks = self.session.project().tracks.len();
+        if self.selected_track.is_some_and(|t| t >= tracks) {
+            self.selected_track = None;
+        }
         if self.selected_clip.is_some_and(|c| self.clip(c).is_none()) {
             self.selected_clip = None;
         }
@@ -481,6 +498,11 @@ impl App {
     }
 
     fn delete_track(&mut self, index: usize) {
+        self.selected_track = match self.selected_track {
+            Some(t) if t == index => None,
+            Some(t) if t > index => Some(t - 1),
+            other => other,
+        };
         let result = self.session.remove_track(index);
         self.finish(result);
         self.selected_clip = None;
@@ -862,7 +884,61 @@ impl App {
         });
     }
 
+    /// Opens the box for renaming `track`.
+    fn ask_rename(&mut self, track: usize) {
+        if let Some(t) = self.session.project().tracks.get(track) {
+            self.rename = Some(RenamePrompt {
+                track,
+                text: t.name.clone(),
+                focused: false,
+            });
+        }
+    }
+
     fn dialogs(&mut self, ctx: &egui::Context) {
+        if let Some(prompt) = &mut self.rename {
+            let (mut submit, mut cancel) = (false, false);
+            egui::Modal::new(egui::Id::unique("rename-track")).show(ctx, |ui| {
+                ui.set_width(360.0);
+                ui.heading("Rename track");
+                let (enter, escape) =
+                    ui.input(|i| (i.key_pressed(Key::Enter), i.key_pressed(Key::Escape)));
+                let edit = ui
+                    .add(egui::TextEdit::singleline(&mut prompt.text).desired_width(f32::INFINITY));
+                if !prompt.focused {
+                    edit.request_focus();
+                    // Select the old name, so typing replaces it.
+                    if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), edit.id) {
+                        state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::two(
+                                egui::text::CCursor::new(0),
+                                egui::text::CCursor::new(prompt.text.chars().count()),
+                            )));
+                        state.store(ui.ctx(), edit.id);
+                    }
+                    prompt.focused = true;
+                }
+                submit = enter;
+                cancel = escape;
+                ui.horizontal(|ui| {
+                    submit |= ui.button("Rename").clicked();
+                    cancel |= ui.button("Cancel").clicked();
+                });
+            });
+            if submit {
+                let (track, name) = (prompt.track, prompt.text.trim().to_owned());
+                self.rename = None;
+                if !name.is_empty() {
+                    let result = self.session.rename_track(track, &name);
+                    self.finish(result);
+                    self.status = format!("Renamed the track to \"{name}\".");
+                }
+            } else if cancel {
+                self.rename = None;
+            }
+        }
+
         if let Some(prompt) = &mut self.prompt {
             let mut submit = false;
             let mut cancel = false;
@@ -873,7 +949,7 @@ impl App {
                 } else {
                     "Save project as"
                 });
-                ui.label("Path to an AudioZero .json project:");
+                ui.label("Path to an AudioZero project (.azproj, or .json):");
                 // Read the keys before the text box, which consumes Enter and Escape.
                 let (enter, escape) =
                     ui.input(|i| (i.key_pressed(Key::Enter), i.key_pressed(Key::Escape)));
@@ -904,7 +980,7 @@ impl App {
                     PathMode::Open => self.open_path(&path),
                     PathMode::SaveAs => {
                         if path.extension().is_none() {
-                            path.set_extension("json");
+                            path.set_extension("azproj");
                         }
                         self.save_to(path);
                     }
@@ -941,7 +1017,11 @@ impl App {
     }
 
     fn shortcuts(&mut self, ctx: &egui::Context) {
-        if self.prompt.is_some() || self.pending.is_some() || ctx.egui_wants_keyboard_input() {
+        if self.prompt.is_some()
+            || self.pending.is_some()
+            || self.rename.is_some()
+            || ctx.egui_wants_keyboard_input()
+        {
             self.release_keys();
             return;
         }
@@ -956,6 +1036,11 @@ impl App {
             }
             if pressed(Key::Z) {
                 if shift { self.redo() } else { self.undo() }
+            }
+            if pressed(Key::R)
+                && let Some(track) = self.selected_track
+            {
+                self.ask_rename(track);
             }
             if pressed(Key::Y) {
                 self.redo();
@@ -1046,7 +1131,7 @@ impl App {
             }
         } else if let Some(path) = dropped
             .iter()
-            .find(|p| p.extension().is_some_and(|e| e == "json"))
+            .find(|p| p.extension().is_some_and(|e| e == "azproj" || e == "json"))
         {
             self.open_path(path);
         }

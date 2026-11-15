@@ -43,6 +43,7 @@ enum ClipAction {
 
 enum TrackAction {
     Devices(usize),
+    Rename(usize),
     Delete(usize),
     Add,
     SetInstrument(usize, &'static str),
@@ -235,9 +236,23 @@ impl App {
 
             // Header: right-click menu (registered first, so the widgets on top keep their clicks),
             // then name, mute/solo, volume and meter.
-            rows_painter.rect_filled(header, 0.0, theme::panel());
+            // The selected track's header is tinted a little, with a wider colour bar, so it's
+            // clear which one Ctrl+R and the device panel mean.
+            let selected = self.selected_track == Some(index);
             rows_painter.rect_filled(
-                Rect::from_min_size(header.left_top(), Vec2::new(4.0, header.height())),
+                header,
+                0.0,
+                if selected {
+                    theme::panel().lerp_to_gamma(colour, 0.16)
+                } else {
+                    theme::panel()
+                },
+            );
+            rows_painter.rect_filled(
+                Rect::from_min_size(
+                    header.left_top(),
+                    Vec2::new(if selected { 7.0 } else { 4.0 }, header.height()),
+                ),
                 0.0,
                 colour,
             );
@@ -256,6 +271,10 @@ impl App {
                     track_action = Some(TrackAction::Devices(index));
                 }
                 header_response.context_menu(|ui| {
+                    if ui.button("Rename…  (Ctrl+R)").clicked() {
+                        track_action = Some(TrackAction::Rename(index));
+                        ui.close();
+                    }
                     if ui.button("Devices and effects…").clicked() {
                         track_action = Some(TrackAction::Devices(index));
                     }
@@ -296,7 +315,14 @@ impl App {
             }
         }
         match track_action {
-            Some(TrackAction::Devices(index)) => self.device_track = Some(index),
+            Some(TrackAction::Devices(index)) => {
+                self.device_track = Some(index);
+                self.selected_track = Some(index);
+            }
+            Some(TrackAction::Rename(index)) => {
+                self.selected_track = Some(index);
+                self.ask_rename(index);
+            }
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
             Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
@@ -449,21 +475,25 @@ impl App {
         let mut changed = false;
         let mut arm_clicked = false;
         let mut devices_clicked = false;
+        let mut rename_clicked = false;
         ui.scope_builder(
             egui::UiBuilder::new()
                 .max_rect(inner)
                 .id_salt(("track", index)),
             |ui| {
                 ui.horizontal(|ui| {
-                    devices_clicked |= ui
+                    let name = ui
                         .add(
                             egui::Label::new(egui::RichText::new(&track.name).strong())
                                 .selectable(false)
                                 .sense(Sense::click()),
                         )
-                        .on_hover_text("Devices and effects")
-                        .on_hover_cursor(CursorIcon::PointingHand)
-                        .clicked();
+                        .on_hover_text(
+                            "Click: select and open devices. Double-click or Ctrl+R: rename",
+                        )
+                        .on_hover_cursor(CursorIcon::PointingHand);
+                    devices_clicked |= name.clicked();
+                    rename_clicked |= name.double_clicked();
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         changed |= ui
                             .toggle_value(&mut track.solo, "S")
@@ -500,6 +530,10 @@ impl App {
         }
         if devices_clicked {
             self.device_track = Some(index);
+            self.selected_track = Some(index);
+        }
+        if rename_clicked {
+            self.ask_rename(index);
         }
     }
 
@@ -527,6 +561,7 @@ impl App {
         };
         if self.clip(at).is_some() {
             self.selected_clip = Some(at);
+            self.selected_track = Some(at.track);
             self.status = "Clip added. Double-click it to edit its notes.".into();
         }
     }
@@ -567,16 +602,19 @@ impl App {
                 };
                 self.begin_gesture();
                 self.selected_clip = Some(at);
+                self.selected_track = Some(at.track);
                 self.arrangement_drag = Some(Drag { kind, at, grab });
             }
             if response.clicked() {
                 self.selected_clip = Some(at);
+                self.selected_track = Some(at.track);
             }
             if response.double_clicked() {
                 action = Some(ClipAction::Edit(at));
             }
             response.context_menu(|ui| {
                 self.selected_clip = Some(at);
+                self.selected_track = Some(at.track);
                 let is_audio = self.clip(at).is_some_and(Clip::is_audio);
                 if !is_audio && ui.button("Edit notes").clicked() {
                     action = Some(ClipAction::Edit(at));

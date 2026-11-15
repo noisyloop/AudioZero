@@ -57,6 +57,11 @@ pub enum Command {
         effect: usize,
         values: [f32; crate::effects::MAX_PARAMS],
     },
+    /// Change a track's arpeggiator.
+    SetArp {
+        track: usize,
+        settings: crate::arp::ArpSettings,
+    },
     /// Change one parameter of a track's instrument, by its index in
     /// [`crate::synth::instrument_params`].
     SetInstrumentParam {
@@ -247,6 +252,7 @@ impl Player {
                 effect,
                 values,
             } => engine.set_effect_params(track, effect, values),
+            Command::SetArp { track, settings } => engine.set_arp(track, settings),
             Command::SetInstrumentParam {
                 track,
                 index,
@@ -431,6 +437,14 @@ impl Controller {
                     track,
                     effect,
                     values: crate::engine::param_values(device),
+                });
+            }
+        }
+        for &track in &changes.arp {
+            if let Some(t) = project.tracks.get(track) {
+                ok &= self.send(Command::SetArp {
+                    track,
+                    settings: t.arp,
                 });
             }
         }
