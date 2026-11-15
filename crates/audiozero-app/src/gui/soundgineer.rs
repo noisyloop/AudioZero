@@ -173,6 +173,7 @@ impl App {
         egui::Panel::top("sg-top").show(ui, |ui| {
             ui.add_space(4.0);
             self.sg_top_bar(ui, track);
+            self.sg_source_strip(ui);
             ui.add_space(2.0);
         });
         egui::Panel::bottom("sg-keys")
@@ -191,6 +192,44 @@ impl App {
                     }
                 });
         });
+    }
+
+    /// The modulation sources as chips to drag onto the controls (Ableton-style): drop one on
+    /// a control and it starts moving it. Right-click a control for the depth.
+    fn sg_source_strip(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("Drag onto a control to modulate it:").color(theme::text_dim()),
+            );
+            for (source, name) in MOD_SOURCES.iter().enumerate().skip(1) {
+                let chip = ui
+                    .add(
+                        egui::Button::new(egui::RichText::new(*name).small())
+                            .sense(egui::Sense::click_and_drag()),
+                    )
+                    .on_hover_text(format!(
+                        "Drag {name} onto any control with a ~ marker or a highlight"
+                    ))
+                    .on_hover_cursor(egui::CursorIcon::Grab);
+                if chip.dragged() {
+                    chip.dnd_set_drag_payload(ModDrag(source));
+                }
+            }
+        });
+        // The name follows the pointer while dragging.
+        if let Some(drag) = egui::DragAndDrop::payload::<ModDrag>(ui.ctx())
+            && let Some(pos) = ui.ctx().pointer_hover_pos()
+        {
+            egui::Area::new(ui.scope_id().with("sg-drag-label"))
+                .order(egui::Order::Tooltip)
+                .fixed_pos(pos + egui::vec2(14.0, 14.0))
+                .interactable(false)
+                .show(ui.ctx(), |ui| {
+                    egui::Frame::popup(ui.style()).show(ui, |ui| {
+                        ui.label(egui::RichText::new(MOD_SOURCES[drag.0]).strong());
+                    });
+                });
+        }
     }
 
     /// The presets, the pages, and the buttons for playing and recording.
@@ -694,6 +733,26 @@ impl App {
                 ));
         }
         let mut action: Option<ModAction> = None;
+        // A source dragged from the strip at the top of the window lands on this control.
+        if egui::DragAndDrop::has_payload_of_type::<ModDrag>(ui.ctx()) {
+            let hovered = response.contains_pointer();
+            ui.painter().rect_stroke(
+                response.rect.expand(2.0),
+                3.0,
+                egui::Stroke::new(
+                    if hovered { 2.5 } else { 1.0 },
+                    if hovered {
+                        theme::accent()
+                    } else {
+                        theme::accent().gamma_multiply(0.5)
+                    },
+                ),
+                egui::StrokeKind::Outside,
+            );
+            if let Some(drag) = response.dnd_release_payload::<ModDrag>() {
+                action = Some(ModAction::Add(drag.0));
+            }
+        }
         response.context_menu(|ui| {
             ui.label(egui::RichText::new(p.label).color(theme::text_dim()));
             ui.menu_button("Modulate with", |ui| {
@@ -981,6 +1040,10 @@ impl App {
         }
     }
 }
+
+/// A modulation source being dragged from the strip at the top of the window, by its index in
+/// `MOD_SOURCES`.
+struct ModDrag(usize);
 
 /// What the right-click menu on a control asked for.
 enum ModAction {

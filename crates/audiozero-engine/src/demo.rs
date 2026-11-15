@@ -66,6 +66,7 @@ pub fn project() -> Project {
                     muted: false,
                     notes: chord_notes,
                     audio: None,
+                    ..Default::default()
                 }],
                 ..Default::default()
             },
@@ -81,6 +82,7 @@ pub fn project() -> Project {
                     muted: false,
                     notes: bass_notes,
                     audio: None,
+                    ..Default::default()
                 }],
                 ..Default::default()
             },
@@ -96,6 +98,7 @@ pub fn project() -> Project {
                     muted: false,
                     notes: kick_notes,
                     audio: None,
+                    ..Default::default()
                 }],
                 ..Default::default()
             },

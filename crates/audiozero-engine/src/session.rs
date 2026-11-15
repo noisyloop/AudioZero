@@ -105,7 +105,8 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
     let reload = before.tracks.len() != after.tracks.len()
         || before.beats_per_bar != after.beats_per_bar
         || before.tracks.iter().zip(&after.tracks).any(|(a, b)| {
-            !same_instrument(&a.instrument, &b.instrument)
+            (a.id, a.group, a.parent) != (b.id, b.group, b.parent)
+                || !same_instrument(&a.instrument, &b.instrument)
                 || a.effects.len() != b.effects.len()
                 || a.effects
                     .iter()
@@ -195,8 +196,10 @@ fn keep_unrecorded(current: &Project, restored: &mut Project) {
     restored.loop_enabled = current.loop_enabled;
     restored.loop_start = current.loop_start;
     restored.loop_end = current.loop_end;
-    for (to, from) in restored.tracks.iter_mut().zip(&current.tracks) {
-        (to.volume, to.pan, to.mute, to.solo) = (from.volume, from.pan, from.mute, from.solo);
+    for to in &mut restored.tracks {
+        if let Some(from) = current.tracks.iter().find(|t| t.id == to.id) {
+            (to.volume, to.pan, to.mute, to.solo) = (from.volume, from.pan, from.mute, from.solo);
+        }
     }
 }
 
@@ -467,7 +470,141 @@ impl Session {
     pub fn remove_track(&mut self, index: usize) -> Result<Changes, EditError> {
         self.try_edit(|p| {
             check_track(p, index)?;
+            // What was inside a removed group goes up a level rather than disappearing.
+            let (id, parent) = (p.tracks[index].id, p.tracks[index].parent);
+            for t in &mut p.tracks {
+                if t.parent == Some(id) {
+                    t.parent = parent;
+                }
+            }
             p.tracks.remove(index);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Puts `track` and everything inside it into a new group named `name`, in its place. The
+    /// group is in whatever group the track was in. Returns the group's index.
+    pub fn group_track(&mut self, track: usize, name: &str) -> Result<(usize, Changes), EditError> {
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            let group = Track {
+                group: true,
+                name: name.trim().to_owned(),
+                parent: p.tracks[track].parent,
+                ..Track::default()
+            };
+            p.tracks.insert(track, group);
+            // Ids are given out by sanitize, so the new group has none yet.
+            let id = p.tracks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+            p.tracks[track].id = id;
+            // The track itself moves in; what was inside it stays inside it.
+            p.tracks[track + 1].parent = Some(id);
+            Ok(track)
+        })
+    }
+
+    /// Moves `track` (with what's inside it) into `group`, after the group's last track, or out
+    /// of its group to the top level when `group` is `None`. Returns the track's new index.
+    pub fn move_to_group(
+        &mut self,
+        track: usize,
+        group: Option<usize>,
+    ) -> Result<(usize, Changes), EditError> {
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            if let Some(g) = group {
+                check_track(p, g)?;
+                if !p.tracks[g].group {
+                    return Err(EditError::Invalid(format!("track {g} is not a group")));
+                }
+                if p.is_inside(g, track) {
+                    return Err(EditError::Invalid(
+                        "a group can't be moved into itself".into(),
+                    ));
+                }
+            }
+            let new_parent = group.map(|g| p.tracks[g].id);
+            if p.tracks[track].parent == new_parent {
+                return Ok(track);
+            }
+            let block = p.block(track);
+            let moved: Vec<Track> = p.tracks.drain(block).collect();
+            // Where it goes now: after the target group's last track, or at the very end.
+            let at = match new_parent.and_then(|id| p.index_of(id)) {
+                Some(g) => p.block(g).end,
+                None => p.tracks.len(),
+            };
+            for (k, t) in moved.into_iter().enumerate() {
+                p.tracks.insert(at + k, t);
+            }
+            p.tracks[at].parent = new_parent;
+            Ok(at)
+        })
+    }
+
+    /// Inserts copies of `tracks` (a track and anything inside it, as copied from a project)
+    /// after the track `after` and what it holds, in its group, or at the end. They get new ids
+    /// and the first is renamed "... copy". Returns the index of the first.
+    pub fn paste_tracks(
+        &mut self,
+        mut tracks: Vec<Track>,
+        after: Option<usize>,
+    ) -> Result<(usize, Changes), EditError> {
+        if tracks.is_empty() {
+            return Err(EditError::Invalid("nothing to paste".into()));
+        }
+        self.try_edit(|p| {
+            let (at, parent) = match after {
+                Some(i) => {
+                    check_track(p, i)?;
+                    (p.block(i).end, p.tracks[i].parent)
+                }
+                None => (p.tracks.len(), None),
+            };
+            let mut next = p.tracks.iter().map(|t| t.id).max().unwrap_or(0);
+            let old: Vec<u32> = tracks.iter().map(|t| t.id).collect();
+            let new: Vec<u32> = tracks
+                .iter()
+                .map(|_| {
+                    next += 1;
+                    next
+                })
+                .collect();
+            for t in &mut tracks {
+                // Inside the copy a track stays in its (copied) group; the first goes where
+                // it's pasted.
+                t.parent = t
+                    .parent
+                    .and_then(|id| old.iter().position(|&o| o == id))
+                    .map(|k| new[k]);
+            }
+            for (t, id) in tracks.iter_mut().zip(&new) {
+                t.id = *id;
+            }
+            tracks[0].parent = parent;
+            tracks[0].name = format!("{} copy", tracks[0].name);
+            for (k, t) in tracks.into_iter().enumerate() {
+                p.tracks.insert(at + k, t);
+            }
+            Ok(at)
+        })
+    }
+
+    /// Takes the tracks out of a group and removes the group (and its effects).
+    pub fn ungroup(&mut self, group: usize) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_track(p, group)?;
+            if !p.tracks[group].group {
+                return Err(EditError::Invalid(format!("track {group} is not a group")));
+            }
+            let (id, parent) = (p.tracks[group].id, p.tracks[group].parent);
+            for t in &mut p.tracks {
+                if t.parent == Some(id) {
+                    t.parent = parent;
+                }
+            }
+            p.tracks.remove(group);
             Ok(())
         })
         .map(|((), c)| c)
@@ -792,6 +929,31 @@ impl Session {
             let clip = &mut p.tracks[at.track].clips[at.clip];
             change(clip);
             check_clip_shape(clip)?;
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Sets a clip's fades, in beats (0 for none). Together they can't be longer than the clip.
+    pub fn set_clip_fades(
+        &mut self,
+        at: ClipRef,
+        fade_in: f64,
+        fade_out: f64,
+    ) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_clip(p, at)?;
+            let clip = &mut p.tracks[at.track].clips[at.clip];
+            check_range("fade in", fade_in, 0.0, clip.length)?;
+            check_range("fade out", fade_out, 0.0, clip.length)?;
+            if fade_in + fade_out > clip.length + 1e-9 {
+                return Err(EditError::Invalid(format!(
+                    "the fades add up to {} beats, but the clip is {} beats long",
+                    fade_in + fade_out,
+                    clip.length
+                )));
+            }
+            (clip.fade_in, clip.fade_out) = (fade_in, fade_out);
             Ok(())
         })
         .map(|((), c)| c)
@@ -1733,5 +1895,166 @@ mod tests {
         assert!(s.is_dirty());
         s.mark_saved();
         assert!(!s.is_dirty());
+    }
+
+    fn names(s: &Session) -> Vec<String> {
+        let p = s.project();
+        (0..p.tracks.len())
+            .map(|i| format!("{}{}", "-".repeat(p.depth(i)), p.tracks[i].name))
+            .collect()
+    }
+
+    #[test]
+    fn tracks_can_be_grouped_moved_between_groups_and_ungrouped() {
+        let mut s = session(); // Chords, Bass, Kick
+        assert_eq!(names(&s), ["Chords", "Bass", "Kick"]);
+
+        let (g, changes) = s.group_track(1, "Low").unwrap();
+        assert!(changes.reload);
+        assert_eq!(g, 1);
+        assert!(s.project().tracks[1].group);
+        assert_eq!(names(&s), ["Chords", "Low", "-Bass", "Kick"]);
+
+        // Drag Kick into the group, and Chords into a second group inside it.
+        let (at, _) = s.move_to_group(3, Some(1)).unwrap();
+        assert_eq!(at, 3);
+        assert_eq!(names(&s), ["Chords", "Low", "-Bass", "-Kick"]);
+        let (inner, _) = s.group_track(0, "High").unwrap();
+        let (at, _) = s.move_to_group(inner, Some(2)).unwrap();
+        assert_eq!(
+            names(&s),
+            ["Low", "-Bass", "-Kick", "-High", "--Chords"],
+            "moved to {at}"
+        );
+
+        // A group can't go inside itself or what it holds.
+        let low = 0;
+        let high = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "High")
+            .unwrap();
+        assert!(s.move_to_group(low, Some(high)).is_err());
+
+        // Out of the group again, to the top level.
+        let kick = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "Kick")
+            .unwrap();
+        s.move_to_group(kick, None).unwrap();
+        assert_eq!(names(&s), ["Low", "-Bass", "-High", "--Chords", "Kick"]);
+
+        // Removing a group keeps what was in it.
+        s.ungroup(0).unwrap();
+        assert_eq!(names(&s), ["Bass", "High", "-Chords", "Kick"]);
+
+        // Every step undoes.
+        s.undo().unwrap();
+        assert_eq!(names(&s), ["Low", "-Bass", "-High", "--Chords", "Kick"]);
+    }
+
+    #[test]
+    fn mix_settings_survive_undoing_a_regrouping() {
+        let mut s = session();
+        s.group_track(0, "G").unwrap();
+        let bass = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "Bass")
+            .unwrap();
+        s.set_track_mix(
+            bass,
+            TrackMix {
+                volume: 0.3,
+                pan: 0.0,
+                mute: false,
+                solo: false,
+            },
+        )
+        .unwrap();
+        s.undo().unwrap();
+        let bass = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "Bass")
+            .unwrap();
+        assert!((s.project().tracks[bass].volume - 0.3).abs() < 1e-6);
+    }
+
+    #[test]
+    fn deleting_a_group_keeps_its_tracks_and_bad_parents_are_dropped() {
+        let mut s = session();
+        s.group_track(0, "G").unwrap();
+        s.remove_track(0).unwrap();
+        assert_eq!(names(&s), ["Chords", "Bass", "Kick"]);
+
+        let mut p = demo::project();
+        p.tracks[0].parent = Some(999);
+        p.tracks[1].group = true;
+        p.tracks[1].parent = Some(p.tracks[1].id.max(1));
+        let s = Session::new(p).unwrap();
+        assert!(s.project().tracks.iter().all(|t| t.parent.is_none()));
+        assert!(s.project().tracks.iter().all(|t| t.id != 0));
+    }
+
+    #[test]
+    fn pasted_tracks_are_independent_copies() {
+        let mut s = session(); // Chords, Bass, Kick
+        s.group_track(1, "Low").unwrap(); // Chords, Low, -Bass, Kick
+        let copied: Vec<Track> = {
+            let p = s.project();
+            p.tracks[p.block(1)].to_vec()
+        };
+        assert_eq!(copied.len(), 2);
+        let (at, changes) = s.paste_tracks(copied, Some(1)).unwrap();
+        assert!(changes.reload);
+        assert_eq!(at, 3);
+        assert_eq!(
+            names(&s),
+            ["Chords", "Low", "-Bass", "Low copy", "-Bass", "Kick"]
+        );
+        let p = s.project();
+        let ids: std::collections::HashSet<u32> = p.tracks.iter().map(|t| t.id).collect();
+        assert_eq!(ids.len(), 6, "every track has its own id");
+        assert_eq!(
+            p.parent_of(4),
+            Some(3),
+            "the copied Bass is in the copied group"
+        );
+        assert_eq!(p.parent_of(2), Some(1), "the original is untouched");
+
+        // Editing the copy leaves the original alone.
+        s.rename_track(4, "Edited").unwrap();
+        assert_eq!(s.project().tracks[2].name, "Bass");
+        s.undo().unwrap();
+        s.undo().unwrap();
+        assert_eq!(names(&s), ["Chords", "Low", "-Bass", "Kick"]);
+        assert!(s.paste_tracks(Vec::new(), None).is_err());
+    }
+
+    #[test]
+    fn clip_fades_are_checked_and_heard_live() {
+        let mut s = session();
+        let at = ClipRef { track: 0, clip: 0 };
+        let length = s.clip(at).unwrap().length;
+        let changes = s.set_clip_fades(at, 2.0, 4.0).unwrap();
+        assert!(!changes.reload && changes.clips == vec![0]);
+        let clip = s.clip(at).unwrap();
+        assert_eq!((clip.fade_in, clip.fade_out), (2.0, 4.0));
+        assert!(s.set_clip_fades(at, -1.0, 0.0).is_err());
+        assert!(s.set_clip_fades(at, length, 1.0).is_err());
+        assert!(s.set_clip_fades(at, f64::NAN, 0.0).is_err());
+        // Shortening the clip shortens the fades with it.
+        s.update_clip(at, |c| c.length = 4.0).unwrap();
+        let clip = s.clip(at).unwrap();
+        assert!(clip.fade_in + clip.fade_out <= clip.length);
+        s.undo().unwrap();
+        s.undo().unwrap();
+        assert_eq!(s.clip(at).unwrap().fade_out, 0.0);
     }
 }

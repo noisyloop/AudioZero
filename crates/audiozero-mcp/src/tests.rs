@@ -735,7 +735,7 @@ fn drum_beats_through_mcp() {
             .unwrap()
             .contains(&json!("Trap"))
     );
-    assert_eq!(list["drum_beats"].as_array().unwrap().len(), 18);
+    assert_eq!(list["drum_beats"].as_array().unwrap().len(), 53);
 
     let r = ok(&mut s, "add_drum_beat", json!({ "beat": "lofi-chill" }));
     assert_eq!(
@@ -839,4 +839,78 @@ fn export_video_writes_new_files_only_in_the_folder() {
     );
     assert!(m.contains("already exists"), "{m}");
     std::fs::remove_dir_all(&folder).unwrap();
+}
+
+#[test]
+fn groups_through_mcp() {
+    let mut s = server();
+    let group = ok(&mut s, "group_track", json!({ "track": 1, "name": "Low" }));
+    assert_eq!(group["group"], 1);
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][1]["group"], true);
+    assert_eq!(project["tracks"][2]["in_group"], 1);
+    assert!(s.audio().applied.last().unwrap().reload);
+
+    // The group takes effects like any track.
+    ok(
+        &mut s,
+        "add_effect",
+        json!({ "track": 1, "effect": "compressor" }),
+    );
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][1]["effects"][0]["id"], "compressor");
+
+    // Kick joins the group, then leaves it.
+    let moved = ok(&mut s, "move_to_group", json!({ "track": 3, "group": 1 }));
+    assert_eq!(moved["track"], 3);
+    assert_eq!(
+        ok(&mut s, "get_project", json!({}))["tracks"][3]["in_group"],
+        1
+    );
+    ok(&mut s, "move_to_group", json!({ "track": 3 }));
+    assert!(ok(&mut s, "get_project", json!({}))["tracks"][3]["in_group"].is_null());
+
+    refused(&mut s, "move_to_group", json!({ "track": 0, "group": 0 }));
+    ok(&mut s, "ungroup", json!({ "group": 1 }));
+    assert_eq!(
+        ok(&mut s, "get_project", json!({}))["tracks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+}
+
+#[test]
+fn clip_fades_and_the_new_drum_styles_through_mcp() {
+    let mut s = server();
+    let set = ok(
+        &mut s,
+        "set_clip_fades",
+        json!({ "track": 0, "clip": 0, "fade_in": 4 }),
+    );
+    assert_eq!(
+        (set["fade_in"].clone(), set["fade_out"].clone()),
+        (json!(4.0), json!(0.0))
+    );
+    ok(
+        &mut s,
+        "set_clip_fades",
+        json!({ "track": 0, "clip": 0, "fade_out": 8 }),
+    );
+    let clip = ok(&mut s, "get_project", json!({}))["tracks"][0]["clips"][0].clone();
+    assert_eq!(
+        (clip["fade_in"].clone(), clip["fade_out"].clone()),
+        (json!(4.0), json!(8.0))
+    );
+    refused(
+        &mut s,
+        "set_clip_fades",
+        json!({ "track": 0, "clip": 0, "fade_in": 1e9 }),
+    );
+    refused(&mut s, "set_clip_fades", json!({ "track": 0, "clip": 9 }));
+
+    for beat in ["dnb-amen", "halftime-stomp", "jazz-swing"] {
+        ok(&mut s, "add_drum_beat", json!({ "beat": beat }));
+    }
 }
