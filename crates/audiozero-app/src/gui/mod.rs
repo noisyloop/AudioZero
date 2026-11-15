@@ -172,6 +172,8 @@ struct App {
     /// The track last clicked (its header, or one of its clips): highlighted, and the one
     /// Ctrl+R renames.
     selected_track: Option<usize>,
+    /// Tracks copied with Ctrl+C (a track and what's inside it), for Ctrl+V.
+    track_clipboard: Vec<Track>,
     pending: Option<Pending>,
     allow_close: bool,
     title: String,
@@ -231,6 +233,7 @@ impl App {
             prompt: None,
             rename: None,
             selected_track: None,
+            track_clipboard: Vec::new(),
             pending: None,
             allow_close: false,
             title: String::new(),
@@ -535,6 +538,39 @@ impl App {
 
     fn delete_track(&mut self, index: usize) {
         self.restructure(|s| s.remove_track(index).map(|c| ((), c)));
+    }
+
+    /// Ctrl+C: copies the selected track (with its instrument, settings, effects and clips, and
+    /// anything inside it if it's a group).
+    fn copy_track(&mut self, ctx: &egui::Context) {
+        let Some(track) = self.selected_track else {
+            self.status = "Select a track to copy it.".into();
+            return;
+        };
+        let p = self.session.project();
+        let block = p.block(track);
+        self.track_clipboard = p.tracks[block].to_vec();
+        // egui only reports Ctrl+V when the system clipboard holds some text, so put a label there.
+        ctx.copy_text(format!("AudioZero track: {}", p.tracks[track].name));
+        self.status = format!(
+            "Copied \"{}\". Select a track and press Ctrl+V to paste a copy after it.",
+            p.tracks[track].name
+        );
+    }
+
+    /// Ctrl+V: pastes the copied track after the selected one, as a new track to edit.
+    fn paste_track(&mut self) {
+        if self.track_clipboard.is_empty() {
+            self.status = "Nothing copied. Select a track and press Ctrl+C first.".into();
+            return;
+        }
+        let copy = self.track_clipboard.clone();
+        let after = self.selected_track;
+        if let Some(at) = self.restructure(|s| s.paste_tracks(copy, after)) {
+            self.selected_track = Some(at);
+            self.device_track = Some(at);
+            self.status = "Pasted a copy. Ctrl+R renames it.".into();
+        }
     }
 
     /// Ctrl+G: puts the selected track in a new group and asks for the group's name.
@@ -1082,7 +1118,11 @@ impl App {
         let editing = ctx.egui_wants_keyboard_input()
             && !ctx.input(|i| {
                 i.modifiers.command
-                    && (i.key_pressed(Key::D) || i.key_pressed(Key::G) || i.key_pressed(Key::R))
+                    && (i.key_pressed(Key::D)
+                        || i.key_pressed(Key::G)
+                        || i.key_pressed(Key::R)
+                        || i.key_pressed(Key::C)
+                        || i.key_pressed(Key::V))
             });
         if self.prompt.is_some() || self.pending.is_some() || self.rename.is_some() || editing {
             self.release_keys();
@@ -1107,6 +1147,21 @@ impl App {
             }
             if pressed(Key::Y) {
                 self.redo();
+            }
+            // egui turns Ctrl+C and Ctrl+V into these events (and may drop the key press).
+            let (copy, paste) = ctx.input(|i| {
+                (
+                    i.key_pressed(Key::C)
+                        || i.events.iter().any(|e| matches!(e, egui::Event::Copy)),
+                    i.key_pressed(Key::V)
+                        || i.events.iter().any(|e| matches!(e, egui::Event::Paste(_))),
+                )
+            });
+            if copy {
+                self.copy_track(ctx);
+            }
+            if paste {
+                self.paste_track();
             }
             if pressed(Key::G) {
                 match self.selected_track {

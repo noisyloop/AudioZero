@@ -49,6 +49,8 @@ enum TrackAction {
     SetInstrument(usize, &'static str),
     /// Put the track in a new group.
     Group(usize),
+    Copy(usize),
+    Paste(usize),
     /// Take a group apart.
     Ungroup(usize),
     /// Move a track into a group, or out to the top level.
@@ -323,6 +325,7 @@ impl App {
                         egui::StrokeKind::Inside,
                     );
                 }
+                let has_copy = !self.track_clipboard.is_empty();
                 let groups: Vec<(usize, String)> = {
                     let p = self.session.project();
                     (0..p.tracks.len())
@@ -339,6 +342,17 @@ impl App {
                         track_action = Some(TrackAction::Devices(index));
                     }
                     ui.separator();
+                    if ui.button("Copy  (Ctrl+C)").clicked() {
+                        track_action = Some(TrackAction::Copy(index));
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(has_copy, egui::Button::new("Paste a copy after  (Ctrl+V)"))
+                        .clicked()
+                    {
+                        track_action = Some(TrackAction::Paste(index));
+                        ui.close();
+                    }
                     if ui.button("Group  (Ctrl+G)").clicked() {
                         track_action = Some(TrackAction::Group(index));
                         ui.close();
@@ -442,6 +456,14 @@ impl App {
             Some(TrackAction::Group(index)) => {
                 self.selected_track = Some(index);
                 self.group_selected();
+            }
+            Some(TrackAction::Copy(index)) => {
+                self.selected_track = Some(index);
+                self.copy_track(&ctx);
+            }
+            Some(TrackAction::Paste(index)) => {
+                self.selected_track = Some(index);
+                self.paste_track();
             }
             Some(TrackAction::Ungroup(index)) => self.ungroup_track(index),
             Some(TrackAction::MoveTo(track, group)) => self.move_to_group(track, group),

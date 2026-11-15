@@ -543,6 +543,54 @@ impl Session {
         })
     }
 
+    /// Inserts copies of `tracks` (a track and anything inside it, as copied from a project)
+    /// after the track `after` and what it holds, in its group, or at the end. They get new ids
+    /// and the first is renamed "... copy". Returns the index of the first.
+    pub fn paste_tracks(
+        &mut self,
+        mut tracks: Vec<Track>,
+        after: Option<usize>,
+    ) -> Result<(usize, Changes), EditError> {
+        if tracks.is_empty() {
+            return Err(EditError::Invalid("nothing to paste".into()));
+        }
+        self.try_edit(|p| {
+            let (at, parent) = match after {
+                Some(i) => {
+                    check_track(p, i)?;
+                    (p.block(i).end, p.tracks[i].parent)
+                }
+                None => (p.tracks.len(), None),
+            };
+            let mut next = p.tracks.iter().map(|t| t.id).max().unwrap_or(0);
+            let old: Vec<u32> = tracks.iter().map(|t| t.id).collect();
+            let new: Vec<u32> = tracks
+                .iter()
+                .map(|_| {
+                    next += 1;
+                    next
+                })
+                .collect();
+            for t in &mut tracks {
+                // Inside the copy a track stays in its (copied) group; the first goes where
+                // it's pasted.
+                t.parent = t
+                    .parent
+                    .and_then(|id| old.iter().position(|&o| o == id))
+                    .map(|k| new[k]);
+            }
+            for (t, id) in tracks.iter_mut().zip(&new) {
+                t.id = *id;
+            }
+            tracks[0].parent = parent;
+            tracks[0].name = format!("{} copy", tracks[0].name);
+            for (k, t) in tracks.into_iter().enumerate() {
+                p.tracks.insert(at + k, t);
+            }
+            Ok(at)
+        })
+    }
+
     /// Takes the tracks out of a group and removes the group (and its effects).
     pub fn ungroup(&mut self, group: usize) -> Result<Changes, EditError> {
         self.try_edit(|p| {
@@ -1890,5 +1938,40 @@ mod tests {
         let s = Session::new(p).unwrap();
         assert!(s.project().tracks.iter().all(|t| t.parent.is_none()));
         assert!(s.project().tracks.iter().all(|t| t.id != 0));
+    }
+
+    #[test]
+    fn pasted_tracks_are_independent_copies() {
+        let mut s = session(); // Chords, Bass, Kick
+        s.group_track(1, "Low").unwrap(); // Chords, Low, -Bass, Kick
+        let copied: Vec<Track> = {
+            let p = s.project();
+            p.tracks[p.block(1)].to_vec()
+        };
+        assert_eq!(copied.len(), 2);
+        let (at, changes) = s.paste_tracks(copied, Some(1)).unwrap();
+        assert!(changes.reload);
+        assert_eq!(at, 3);
+        assert_eq!(
+            names(&s),
+            ["Chords", "Low", "-Bass", "Low copy", "-Bass", "Kick"]
+        );
+        let p = s.project();
+        let ids: std::collections::HashSet<u32> = p.tracks.iter().map(|t| t.id).collect();
+        assert_eq!(ids.len(), 6, "every track has its own id");
+        assert_eq!(
+            p.parent_of(4),
+            Some(3),
+            "the copied Bass is in the copied group"
+        );
+        assert_eq!(p.parent_of(2), Some(1), "the original is untouched");
+
+        // Editing the copy leaves the original alone.
+        s.rename_track(4, "Edited").unwrap();
+        assert_eq!(s.project().tracks[2].name, "Bass");
+        s.undo().unwrap();
+        s.undo().unwrap();
+        assert_eq!(names(&s), ["Chords", "Low", "-Bass", "Kick"]);
+        assert!(s.paste_tracks(Vec::new(), None).is_err());
     }
 }
