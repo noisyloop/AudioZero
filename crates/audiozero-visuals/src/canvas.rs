@@ -97,6 +97,40 @@ impl Canvas {
         self.pixels[i + 2] += c.2 * a;
     }
 
+    /// Replaces the whole canvas with an image (`w` by `h`, three floats per pixel), scaled up
+    /// to fit with bilinear filtering. For looks that render at a lower resolution.
+    pub fn set_image(&mut self, rgb: &[f32], w: usize, h: usize) {
+        if w == 0 || h == 0 || rgb.len() < w * h * 3 {
+            return;
+        }
+        let (cw, ch) = (self.width, self.height);
+        let per_row = cw * 3;
+        let rows = ch.div_ceil(threads()).max(1);
+        std::thread::scope(|scope| {
+            for (part, band) in self.pixels.chunks_mut(rows * per_row).enumerate() {
+                scope.spawn(move || {
+                    for (r, row) in band.chunks_mut(per_row).enumerate() {
+                        let y = part * rows + r;
+                        let fy = ((y as f32 + 0.5) * h as f32 / ch as f32 - 0.5).max(0.0);
+                        let (y0, ty) = (fy as usize, fy.fract());
+                        let y1 = (y0 + 1).min(h - 1);
+                        for x in 0..cw {
+                            let fx = ((x as f32 + 0.5) * w as f32 / cw as f32 - 0.5).max(0.0);
+                            let (x0, tx) = (fx as usize, fx.fract());
+                            let x1 = (x0 + 1).min(w - 1);
+                            for c in 0..3 {
+                                let at = |xx: usize, yy: usize| rgb[(yy * w + xx) * 3 + c];
+                                let top = at(x0, y0) * (1.0 - tx) + at(x1, y0) * tx;
+                                let bottom = at(x0, y1) * (1.0 - tx) + at(x1, y1) * tx;
+                                row[x * 3 + c] = top * (1.0 - ty) + bottom * ty;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
     /// Adds `c` over the rectangle (clipped to the canvas).
     pub fn rect(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, c: Rgb, a: f32) {
         let (xa, xb) = self.span(x0.min(x1), x0.max(x1), self.width);

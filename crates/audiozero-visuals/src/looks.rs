@@ -3,6 +3,7 @@
 
 use crate::analysis::{Features, SPECTRUM_BANDS};
 use crate::canvas::{Canvas, Rgb};
+use crate::fractals::Fractal;
 
 /// A look: draws one frame from the features.
 pub trait Look: Send {
@@ -10,10 +11,16 @@ pub trait Look: Send {
 }
 
 /// Built-in looks: id and display name.
-pub const LOOKS: [(&str, &str); 3] = [
+pub const LOOKS: [(&str, &str); 9] = [
     ("spectrum", "Spectrum"),
     ("rings", "Track rings"),
     ("particles", "Note particles"),
+    ("fractal-mandelbulb", "Fractal: Mandelbulb"),
+    ("fractal-menger", "Fractal: Menger sponge"),
+    ("fractal-sierpinski", "Fractal: Sierpinski"),
+    ("fractal-apollonian", "Fractal: Apollonian"),
+    ("fractal-kali", "Fractal: Kali"),
+    ("fractal-tetra", "Fractal: Tetra"),
 ];
 
 pub fn create_look(id: &str) -> Option<Box<dyn Look>> {
@@ -21,7 +28,7 @@ pub fn create_look(id: &str) -> Option<Box<dyn Look>> {
         "spectrum" => Some(Box::new(Spectrum)),
         "rings" => Some(Box::new(Rings::default())),
         "particles" => Some(Box::new(Particles::default())),
-        _ => None,
+        _ => Fractal::new(id.strip_prefix("fractal-")?).map(|f| Box::new(f) as Box<dyn Look>),
     }
 }
 
