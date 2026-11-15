@@ -347,6 +347,12 @@ impl Table {
         Self { mips }
     }
 
+    /// One frame's full-bandwidth cycle ([`FRAME_SIZE`] samples), for drawing. `frame` is
+    /// clamped to the table.
+    pub fn frame(&self, frame: usize) -> &[f32] {
+        self.cycle(frame.min(FRAMES - 1), 0)
+    }
+
     fn cycle(&self, frame: usize, mip: usize) -> &[f32] {
         let at = (frame * MIPS + mip) * FRAME_SIZE;
         &self.mips[at..at + FRAME_SIZE]

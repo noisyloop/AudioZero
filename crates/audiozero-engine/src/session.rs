@@ -16,7 +16,7 @@
 
 use crate::engine::TrackMix;
 use crate::project::{Clip, Device, Note, Project, ProjectError, Track};
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 
 /// How many steps can be undone. Each step is a whole-project snapshot.
@@ -639,6 +639,43 @@ impl Session {
                 .iter()
                 .map(|&(name, value)| (name.to_owned(), value))
                 .collect();
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Replaces every setting of a track's built-in instrument with `settings` (a preset the
+    /// caller has already read and checked). Names the instrument doesn't have are refused;
+    /// values are fitted to their range. One undo step.
+    pub fn set_instrument_settings(
+        &mut self,
+        track: usize,
+        instrument: &str,
+        settings: &BTreeMap<String, f32>,
+    ) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            let Some(device) = p.tracks[track].instrument.as_mut() else {
+                return Err(EditError::Invalid(format!(
+                    "track {track} has no instrument"
+                )));
+            };
+            if device.builtin_id() != Some(instrument) {
+                return Err(EditError::Invalid(format!(
+                    "track {track} isn't a {instrument}"
+                )));
+            }
+            let info = device.params_info().unwrap_or_default();
+            let mut fitted = BTreeMap::new();
+            for (name, &value) in settings {
+                let param = info.iter().find(|p| p.name == name).ok_or_else(|| {
+                    EditError::Invalid(format!("the instrument has no parameter \"{name}\""))
+                })?;
+                fitted.insert(name.clone(), param.fit(value));
+            }
+            if let Device::Builtin { params, .. } = device {
+                *params = fitted;
+            }
             Ok(())
         })
         .map(|((), c)| c)

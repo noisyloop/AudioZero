@@ -12,6 +12,7 @@ mod devices;
 mod export_audio;
 mod live;
 mod piano_roll;
+mod sg_presets;
 mod soundgineer;
 mod theme;
 mod visuals;
