@@ -2,7 +2,7 @@
 
 # AudioZero
 
-**NOISYLOOP's digital audio workstation, written in Rust.** One small program for Windows, macOS and Linux, with no sample libraries to download:
+**A digital audio workstation written in Rust.** One small program for Windows, macOS and Linux, with no sample libraries to download:
 
 - an arrangement view and a piano roll that knows the song's key (with **Randomize** for instant in-key melodies);
 - built-in instruments: **Soundgineer** (a wavetable synth with 59 presets, in its own window), **Operator** (FM), a **drum rack** with techno, house, dubstep, hip hop, lo-fi and trap kits and ready-made beats, and **Kick Me**;
@@ -12,6 +12,13 @@
 - three colour schemes: Dark, Darker and Light.
 
 It's early but working. [Download a build](#download-a-build) or [build it yourself](#build-it-yourself).
+
+<p align="center">
+  <a href="https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-windows-x64.zip"><img src="https://img.shields.io/badge/Download-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows"></a>
+  <a href="https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS-555555?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS"></a>
+  <a href="https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-linux-x64.zip"><img src="https://img.shields.io/badge/Download-Linux-E95420?style=for-the-badge&logo=linux&logoColor=white" alt="Download for Linux"></a>
+  <br><sub>Latest release: <a href="https://github.com/noisyloop/AudioZero/releases/latest">notes and checksums</a></sub>
+</p>
 
 ![A trap beat in the drum rack, with its piano roll](docs/screenshots/rust-drums.png)
 
