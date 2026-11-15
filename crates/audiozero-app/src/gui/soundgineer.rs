@@ -428,6 +428,8 @@ impl App {
         ui.label(egui::RichText::new("Save this sound").strong());
         let mut save = false;
         let mut import = false;
+        let mut pick = false;
+        let mut export = false;
         if let Some(w) = &mut self.sg_window {
             ui.horizontal(|ui| {
                 let edit = ui.add(
@@ -441,6 +443,10 @@ impl App {
             });
             ui.separator();
             ui.label(egui::RichText::new("Import a preset file").strong());
+            ui.horizontal(|ui| {
+                pick = ui.button("Choose file…").clicked();
+                export = ui.button("Export current sound…").clicked();
+            });
             ui.horizontal(|ui| {
                 let edit = ui.add(
                     egui::TextEdit::singleline(&mut w.import_path)
@@ -461,6 +467,20 @@ impl App {
                 .small()
                 .color(theme::text_dim()),
         );
+        if pick {
+            ui.close();
+            let file = rfd::FileDialog::new()
+                .set_title("Import a Soundgineer preset")
+                .add_filter("Preset (.json)", &["json"])
+                .pick_file();
+            if let Some(file) = file {
+                self.sg_import(track, &file);
+            }
+        }
+        if export {
+            ui.close();
+            self.sg_export(track);
+        }
         if save {
             self.sg_save_user(track, &dir);
         }
@@ -473,6 +493,32 @@ impl App {
             if !path.is_empty() {
                 self.sg_import(track, std::path::Path::new(&path));
             }
+        }
+    }
+
+    /// Saves the current sound to a file anywhere, chosen in a save dialog.
+    fn sg_export(&mut self, track: usize) {
+        let Some(Device::Builtin { params, .. }) =
+            self.session.project().tracks[track].instrument.clone()
+        else {
+            return;
+        };
+        let name = self
+            .sg_window
+            .as_ref()
+            .map(|w| w.save_name.clone())
+            .unwrap_or_default();
+        let preset = UserPreset::capture(&name, &params);
+        let file = rfd::FileDialog::new()
+            .set_title("Export this sound as a preset")
+            .set_file_name(format!("{}.json", userpreset::file_stem(&preset.name)))
+            .add_filter("Preset (.json)", &["json"])
+            .save_file();
+        if let Some(file) = file {
+            self.status = match sg_presets::export(&file, &preset) {
+                Ok(path) => format!("Exported \"{}\" to {}.", preset.name, path.display()),
+                Err(e) => format!("Can't export the preset: {e}"),
+            };
         }
     }
 
