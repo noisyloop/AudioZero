@@ -6,6 +6,7 @@
 //!   through it.
 //! - [`effects`]: built-in track effects (delay, reverb, compressor).
 //! - [`engine`]: renders a project to audio, sample-accurately, without allocating on the audio thread.
+//! - [`export`]: rendering a song to a WAV or MP3 file.
 //! - [`sample`]: audio files for audio clips: path checks, bounded decoding and a pool of
 //!   decoded audio.
 //! - [`synth`]: the [`Instrument`](synth::Instrument) trait and built-in instruments, including
@@ -19,6 +20,7 @@ pub mod control;
 pub mod demo;
 pub mod effects;
 pub mod engine;
+pub mod export;
 pub mod music;
 pub mod operator;
 pub mod project;

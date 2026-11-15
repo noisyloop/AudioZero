@@ -388,6 +388,19 @@ const TOOLS: &[Tool] = &[
         destructive: true,
     },
     Tool {
+        name: "export_audio",
+        title: "Export audio",
+        description: "Renders the song (or the loop) to a new audio file `name`.wav or `name`.mp3 in the AudioZero folder. Never replaces a file. Faster than real time.",
+        properties: props!(
+            r#""name": { "type": "string", "description": "File name without extension (letters, digits, spaces, - and _)" }"#,
+            r#""format": { "type": "string", "enum": ["wav", "wav24", "mp3"], "description": "Defaults to wav (16-bit). mp3 is 256 kbps and needs FFmpeg." }"#,
+            r#""loop": { "type": "boolean", "description": "Only the loop range, once" }"#
+        ),
+        required: &["name"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
         name: "save",
         title: "Save",
         description: "Saves the song: to the project file this server was started with, or, if there isn't one, to a new file `name`.json in the AudioZero folder (never replacing an existing file).",
@@ -1134,6 +1147,53 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 "height": settings.height,
                 "look": settings.look,
             }))
+        }
+        "export_audio" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                name: String,
+                format: Option<String>,
+                #[serde(rename = "loop", default)]
+                loop_only: bool,
+            }
+            use audiozero_engine::export;
+            let a: Args = parse(arguments)?;
+            let format = match a.format.as_deref().unwrap_or("wav") {
+                "wav" => export::Format::Wav16,
+                "wav24" => export::Format::Wav24,
+                "mp3" => export::Format::Mp3(256),
+                other => return Err(format!("unknown format \"{other}\"; use wav, wav24 or mp3")),
+            };
+            let settings = export::Settings {
+                format,
+                range: if a.loop_only {
+                    export::Range::Loop
+                } else {
+                    export::Range::Song
+                },
+                ..Default::default()
+            };
+            let target = format!("{}.{}", plain_name(&a.name)?, format.extension());
+            let path = s.save.folder.join(&target);
+            let mut pool =
+                audiozero_engine::sample::SamplePool::new(f64::from(settings.sample_rate));
+            pool.set_base(
+                s.save
+                    .file
+                    .as_deref()
+                    .and_then(Path::parent)
+                    .map(Path::to_path_buf),
+            );
+            let done = export::export(
+                s.session.project(),
+                &mut pool,
+                &settings,
+                &path,
+                false,
+                |_, _| true,
+            )?;
+            Ok(json!({ "exported": target, "seconds": done.seconds, "bytes": done.bytes }))
         }
         "save" => {
             #[derive(Deserialize)]

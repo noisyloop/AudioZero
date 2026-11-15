@@ -9,6 +9,7 @@
 mod arrangement;
 mod audio_settings;
 mod devices;
+mod export_audio;
 mod live;
 mod piano_roll;
 mod theme;
@@ -177,6 +178,8 @@ struct App {
     tap_buffer: Vec<f32>,
     visuals: Option<visuals::LiveVisuals>,
     export_dialog: Option<visuals::ExportDialog>,
+    audio_export: Option<export_audio::AudioExportDialog>,
+    audio_job: Option<export_audio::AudioExportJob>,
     export_job: Option<visuals::ExportJob>,
 }
 
@@ -220,6 +223,8 @@ impl App {
             tap_buffer: Vec::new(),
             visuals: None,
             export_dialog: None,
+            audio_export: None,
+            audio_job: None,
             export_job: None,
         };
         match start {
@@ -639,6 +644,13 @@ impl App {
                     self.ask_path(PathMode::SaveAs);
                 }
                 ui.separator();
+                if ui
+                    .add_enabled(self.can_export_audio(), egui::Button::new("Export audio (WAV / MP3)…"))
+                    .clicked()
+                {
+                    self.open_audio_export();
+                }
+                ui.separator();
                 if ui.button("Quit").clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
@@ -697,6 +709,13 @@ impl App {
                     self.open_audio_dialog();
                 }
             });
+            if ui
+                .add_enabled(self.can_export_audio(), egui::Button::new("Export"))
+                .on_hover_text("Export the song as a WAV or MP3 file")
+                .clicked()
+            {
+                self.open_audio_export();
+            }
             ui.menu_button("Visuals", |ui| {
                 let open = self.visuals.is_some();
                 if ui
@@ -1129,6 +1148,7 @@ impl eframe::App for App {
         self.dialogs(&ctx);
         self.audio_dialog(&ctx);
         self.export_ui(&ctx);
+        self.audio_export_ui(&ctx);
         self.update_title(&ctx);
 
         // Keep the playhead and meters moving.

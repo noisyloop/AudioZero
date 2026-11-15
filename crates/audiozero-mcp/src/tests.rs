@@ -609,6 +609,34 @@ fn effects_through_mcp() {
 }
 
 #[test]
+fn export_audio_writes_new_files_only_in_the_folder() {
+    let folder = temp_folder("export-audio");
+    let mut s = server_with(demo::project(), None, folder.clone());
+    let r = ok(&mut s, "export_audio", json!({ "name": "mix" }));
+    assert_eq!(r["exported"], "mix.wav");
+    assert!(r["seconds"].as_f64().unwrap() > 10.0);
+    assert!(folder.join("mix.wav").metadata().unwrap().len() > 100_000);
+    let m = refused(&mut s, "export_audio", json!({ "name": "mix" }));
+    assert!(m.contains("already exists"), "{m}");
+    refused(&mut s, "export_audio", json!({ "name": "../escape" }));
+    refused(
+        &mut s,
+        "export_audio",
+        json!({ "name": "x", "format": "ogg" }),
+    );
+    let r = ok(
+        &mut s,
+        "export_audio",
+        json!({ "name": "loop", "format": "wav24", "loop": true }),
+    );
+    assert_eq!(r["exported"], "loop.wav");
+    let mut empty = server_with(Project::default(), None, folder.clone());
+    let m = refused(&mut empty, "export_audio", json!({ "name": "none" }));
+    assert!(m.contains("nothing to export"), "{m}");
+    assert!(!folder.join("none.wav").exists());
+}
+
+#[test]
 fn export_video_writes_new_files_only_in_the_folder() {
     let folder = temp_folder("video");
     let mut project = demo::project();
