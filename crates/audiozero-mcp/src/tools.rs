@@ -388,9 +388,65 @@ const TOOLS: &[Tool] = &[
         destructive: true,
     },
     Tool {
+        name: "set_arp",
+        title: "Set arpeggiator",
+        description: "Turns a track's arpeggiator on or off and sets it. The arpeggiator turns the notes the track plays (from clips or live) into a pattern before they reach the instrument. Only the values given change. An undo step; heard straight away.",
+        properties: props!(
+            track!(),
+            r#""on": { "type": "boolean" }"#,
+            r#""mode": { "type": "string", "enum": ["up", "down", "up_down", "random", "as_played", "chord"] }"#,
+            r#""rate": { "type": "string", "enum": ["1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"], "description": "How long a step lasts" }"#,
+            r#""octaves": { "type": "integer", "minimum": 1, "maximum": 4 }"#,
+            r#""gate": { "type": "number", "minimum": 0.05, "maximum": 1, "description": "How much of a step each note lasts" }"#,
+            r#""swing": { "type": "number", "minimum": 0, "maximum": 0.5, "description": "How far off-beat steps are pushed late" }"#
+        ),
+        required: &["track"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "set_key",
+        title: "Set key",
+        description: "Sets the song's key and scale. The piano roll marks the notes of the scale. Existing notes aren't changed. Not an undo step. Scales: major, minor, dorian, phrygian, lydian, mixolydian, harmonic_minor, melodic_minor, major_pentatonic, minor_pentatonic, blues, chromatic.",
+        properties: props!(
+            r#""key": { "type": "integer", "minimum": 0, "maximum": 11, "description": "The root note: 0 is C, 1 is C#, ... 11 is B" }"#,
+            r#""scale": { "type": "string", "description": "A scale id, for example minor" }"#
+        ),
+        required: &["key", "scale"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "add_drum_beat",
+        title: "Add drum beat",
+        description: "Adds a ready-made drum beat (ids and tempos are in list_instruments under drum_beats) as a clip. With no `track` it makes a new \"Drums\" track with the beat's kit; with a track (which needs the \"drums\" instrument) it goes after that track's last clip. In a song with no clips yet the tempo is set to the beat's. One undo step. Edit the notes afterwards with the note tools: drum pads are notes 36 (kick) to 51.",
+        properties: props!(
+            r#""beat": { "type": "string", "description": "A beat id, for example techno-basic or trap-rolls" }"#,
+            r#""track": { "type": "integer", "minimum": 0, "description": "A track with the drum rack. Omit to make a new drums track." }"#,
+            r#""repeats": { "type": "integer", "minimum": 1, "maximum": 64, "description": "How many times the pattern repeats. Defaults to 4." }"#,
+            r#""start": { "type": "number", "minimum": 0, "description": "Where it starts, in beats. Defaults to the end of the track's clips." }"#
+        ),
+        required: &["beat"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "export_audio",
+        title: "Export audio",
+        description: "Renders the song (or the loop) to a new audio file `name`.wav or `name`.mp3 in the AudioZero folder. Never replaces a file. Faster than real time.",
+        properties: props!(
+            r#""name": { "type": "string", "description": "File name without extension (letters, digits, spaces, - and _)" }"#,
+            r#""format": { "type": "string", "enum": ["wav", "wav24", "mp3"], "description": "Defaults to wav (16-bit). mp3 is 256 kbps and needs FFmpeg." }"#,
+            r#""loop": { "type": "boolean", "description": "Only the loop range, once" }"#
+        ),
+        required: &["name"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
         name: "save",
         title: "Save",
-        description: "Saves the song: to the project file this server was started with, or, if there isn't one, to a new file `name`.json in the AudioZero folder (never replacing an existing file).",
+        description: "Saves the song: to the project file this server was started with, or, if there isn't one, to a new file `name`.azproj in the AudioZero folder (never replacing an existing file).",
         properties: props!(
             r#""name": { "type": "string", "description": "File name without extension (letters, digits, spaces, - and _). Only used when there's no project file yet." }"#
         ),
@@ -591,6 +647,13 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 .iter()
                 .map(|(id, name)| {
                     let mut entry = json!({ "id": id, "name": name });
+                    if *id == "drums" {
+                        entry["pads"] = audiozero_engine::drums::PAD_NAMES
+                            .iter()
+                            .enumerate()
+                            .map(|(i, n)| json!({ "note": audiozero_engine::drums::FIRST_PAD as usize + i, "name": n }))
+                            .collect();
+                    }
                     if let Some(params) = audiozero_engine::synth::instrument_params(id) {
                         entry["params"] = params.iter().map(param_info).collect();
                         entry["presets"] = json!(audiozero_engine::synth::instrument_presets(id));
@@ -609,8 +672,12 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                     json!({ "id": id, "name": name, "params": params })
                 })
                 .collect();
+            let drum_beats: Vec<Value> = audiozero_engine::drums::BEATS
+                .iter()
+                .map(|b| json!({ "id": b.id, "name": b.name, "genre": b.genre, "bpm": b.bpm, "bars": b.bars() }))
+                .collect();
             Ok(
-                json!({ "instruments": list, "effects": effects, "note": "Third-party plugins aren't available to the assistant yet." }),
+                json!({ "instruments": list, "effects": effects, "drum_beats": drum_beats, "note": "Third-party plugins aren't available to the assistant yet." }),
             )
         }
         "add_track" => {
@@ -1135,6 +1202,124 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 "look": settings.look,
             }))
         }
+        "set_arp" => {
+            use audiozero_engine::arp::{ArpSettings, Mode, Rate};
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                on: Option<bool>,
+                mode: Option<Mode>,
+                rate: Option<Rate>,
+                octaves: Option<u8>,
+                gate: Option<f32>,
+                swing: Option<f32>,
+            }
+            let a: Args = parse(arguments)?;
+            let mut settings: ArpSettings = s
+                .session
+                .project()
+                .tracks
+                .get(a.track)
+                .map(|t| t.arp)
+                .ok_or_else(|| format!("there's no track {}", a.track))?;
+            settings.on = a.on.unwrap_or(settings.on);
+            settings.mode = a.mode.unwrap_or(settings.mode);
+            settings.rate = a.rate.unwrap_or(settings.rate);
+            settings.octaves = a.octaves.unwrap_or(settings.octaves);
+            settings.gate = a.gate.unwrap_or(settings.gate);
+            settings.swing = a.swing.unwrap_or(settings.swing);
+            let changes = s
+                .session
+                .set_arp(a.track, settings)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "arp": serde_json::to_value(settings).unwrap_or_default() }),
+            ))
+        }
+        "set_key" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                key: u8,
+                scale: String,
+            }
+            let a: Args = parse(arguments)?;
+            let changes = s
+                .session
+                .set_key(a.key, &a.scale)
+                .map_err(|e| e.to_string())?;
+            Ok(done(s, &changes, json!({ "key": a.key, "scale": a.scale })))
+        }
+        "add_drum_beat" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                beat: String,
+                track: Option<usize>,
+                repeats: Option<usize>,
+                start: Option<f64>,
+            }
+            let a: Args = parse(arguments)?;
+            let ((at, tempo_set), changes) = s
+                .session
+                .add_drum_beat(a.track, &a.beat, a.repeats.unwrap_or(4), a.start)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": at.track, "clip": at.clip, "beat": a.beat, "tempo_set": tempo_set }),
+            ))
+        }
+        "export_audio" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                name: String,
+                format: Option<String>,
+                #[serde(rename = "loop", default)]
+                loop_only: bool,
+            }
+            use audiozero_engine::export;
+            let a: Args = parse(arguments)?;
+            let format = match a.format.as_deref().unwrap_or("wav") {
+                "wav" => export::Format::Wav16,
+                "wav24" => export::Format::Wav24,
+                "mp3" => export::Format::Mp3(256),
+                other => return Err(format!("unknown format \"{other}\"; use wav, wav24 or mp3")),
+            };
+            let settings = export::Settings {
+                format,
+                range: if a.loop_only {
+                    export::Range::Loop
+                } else {
+                    export::Range::Song
+                },
+                ..Default::default()
+            };
+            let target = format!("{}.{}", plain_name(&a.name)?, format.extension());
+            let path = s.save.folder.join(&target);
+            let mut pool =
+                audiozero_engine::sample::SamplePool::new(f64::from(settings.sample_rate));
+            pool.set_base(
+                s.save
+                    .file
+                    .as_deref()
+                    .and_then(Path::parent)
+                    .map(Path::to_path_buf),
+            );
+            let done = export::export(
+                s.session.project(),
+                &mut pool,
+                &settings,
+                &path,
+                false,
+                |_, _| true,
+            )?;
+            Ok(json!({ "exported": target, "seconds": done.seconds, "bytes": done.bytes }))
+        }
         "save" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -1237,6 +1422,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
                 .collect();
             json!({
                 "track": i, "name": t.name, "instrument": describe(t.instrument.as_ref()),
+                "arp": serde_json::to_value(t.arp).unwrap_or_default(),
                 "instrument_params": instrument_params_of(t),
                 "effects": effects_of(t), "volume": f32_out(t.volume), "pan": f32_out(t.pan), "mute": t.mute, "solo": t.solo, "clips": clips,
             })
@@ -1252,6 +1438,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
         "file": file,
         "unsaved_changes": s.session.is_dirty(),
         "bpm": p.bpm,
+        "key": audiozero_engine::music::key_name(p.key, &p.scale),
         "beats_per_bar": p.beats_per_bar,
         "loop": { "enabled": p.loop_enabled, "start": p.loop_start, "end": p.loop_end },
         "master_volume": f32_out(p.master_volume),
@@ -1267,7 +1454,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
 /// A file name the assistant may create: plain characters only, so it can't name another folder
 /// or a hidden file.
 fn file_name(name: &str) -> Result<String, String> {
-    plain_name(name).map(|n| format!("{n}.json"))
+    plain_name(name).map(|n| format!("{n}.azproj"))
 }
 
 fn plain_name(name: &str) -> Result<String, String> {

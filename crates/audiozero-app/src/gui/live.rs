@@ -39,6 +39,13 @@ pub(super) struct Keys {
     held: Vec<(Key, u8)>,
 }
 
+impl Keys {
+    /// The pitches the computer keyboard is holding down now.
+    pub(super) fn held_pitches(&self) -> impl Iterator<Item = u8> + '_ {
+        self.held.iter().map(|&(_, pitch)| pitch)
+    }
+}
+
 impl Default for Keys {
     fn default() -> Self {
         Self {
@@ -54,7 +61,11 @@ impl App {
     /// has an instrument.
     pub(super) fn live_target(&self) -> Option<usize> {
         let tracks = &self.session.project().tracks;
-        self.armed
+        // While Soundgineer's window is open, the keyboard plays its track.
+        self.sg_window
+            .as_ref()
+            .map(|w| w.track)
+            .or(self.armed)
             .or(self.roll.as_ref().map(|r| r.clip.track))
             .or(self.selected_clip.map(|c| c.track))
             .filter(|&t| tracks.get(t).is_some_and(|t| t.instrument.is_some()))
@@ -311,7 +322,19 @@ impl App {
                 continue;
             };
             if pressed {
-                let pitch = (self.keys.octave + 1) * 12 + i32::from(semitone);
+                // On a drum rack the keys are the pads, from the kick up, whatever the octave.
+                let drums = self.session.project().tracks.get(track).is_some_and(|t| {
+                    t.instrument
+                        .as_ref()
+                        .and_then(audiozero_engine::Device::builtin_id)
+                        == Some("drums")
+                });
+                let pitch = if drums {
+                    i32::from(audiozero_engine::drums::FIRST_PAD)
+                        + NOTE_KEYS.iter().position(|(k, _)| *k == key).unwrap_or(0) as i32
+                } else {
+                    (self.keys.octave + 1) * 12 + i32::from(semitone)
+                };
                 let Ok(pitch) = u8::try_from(pitch) else {
                     continue;
                 };
@@ -327,7 +350,7 @@ impl App {
         }
     }
 
-    fn play_note(&mut self, track: usize, pitch: u8, velocity: f32, on: bool) {
+    pub(super) fn play_note(&mut self, track: usize, pitch: u8, velocity: f32, on: bool) {
         self.send(Command::LiveNote(LiveNote {
             track,
             pitch,

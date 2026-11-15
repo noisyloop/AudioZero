@@ -43,6 +43,7 @@ enum ClipAction {
 
 enum TrackAction {
     Devices(usize),
+    Rename(usize),
     Delete(usize),
     Add,
     SetInstrument(usize, &'static str),
@@ -71,7 +72,7 @@ impl App {
         let area = ui.available_rect_before_wrap();
         let background = ui.allocate_rect(area, Sense::click_and_drag());
         let painter = ui.painter_at(area);
-        painter.rect_filled(area, 0.0, theme::BG);
+        painter.rect_filled(area, 0.0, theme::bg());
 
         let lanes_left = area.left() + HEADER_WIDTH;
         let ruler = Rect::from_min_max(
@@ -145,7 +146,7 @@ impl App {
                 Pos2::new(area.right(), top + TRACK_HEIGHT),
             )
             .intersect(lanes_rect);
-            painter.rect_filled(lane, 0.0, theme::ACCENT.gamma_multiply(0.15));
+            painter.rect_filled(lane, 0.0, theme::accent().gamma_multiply(0.15));
             let label = if track == tracks {
                 "Drop to add on a new track"
             } else {
@@ -156,7 +157,7 @@ impl App {
                 Align2::LEFT_CENTER,
                 label,
                 FontId::proportional(13.0),
-                Color32::WHITE,
+                theme::selection(),
             );
         }
 
@@ -181,9 +182,9 @@ impl App {
             let header = Rect::from_min_max(row.left_top(), Pos2::new(lanes_left, row.bottom()));
             let colour = theme::track(index);
             let lane_fill = if index % 2 == 0 {
-                theme::LANE
+                theme::lane()
             } else {
-                theme::LANE_ALT
+                theme::lane_alt()
             };
             rows_painter.rect_filled(
                 lane.intersect(lanes_rect),
@@ -235,15 +236,29 @@ impl App {
 
             // Header: right-click menu (registered first, so the widgets on top keep their clicks),
             // then name, mute/solo, volume and meter.
-            rows_painter.rect_filled(header, 0.0, theme::PANEL);
+            // The selected track's header is tinted a little, with a wider colour bar, so it's
+            // clear which one Ctrl+R and the device panel mean.
+            let selected = self.selected_track == Some(index);
             rows_painter.rect_filled(
-                Rect::from_min_size(header.left_top(), Vec2::new(4.0, header.height())),
+                header,
+                0.0,
+                if selected {
+                    theme::panel().lerp_to_gamma(colour, 0.16)
+                } else {
+                    theme::panel()
+                },
+            );
+            rows_painter.rect_filled(
+                Rect::from_min_size(
+                    header.left_top(),
+                    Vec2::new(if selected { 7.0 } else { 4.0 }, header.height()),
+                ),
                 0.0,
                 colour,
             );
             rows_painter.line_segment(
                 [row.left_bottom(), row.right_bottom()],
-                Stroke::new(1.0, theme::BG),
+                Stroke::new(1.0, theme::bg()),
             );
             let header_visible = header.intersect(lanes_rect.with_min_x(area.left()));
             if header_visible.height() > 0.0 {
@@ -256,6 +271,10 @@ impl App {
                     track_action = Some(TrackAction::Devices(index));
                 }
                 header_response.context_menu(|ui| {
+                    if ui.button("Rename…  (Ctrl+R)").clicked() {
+                        track_action = Some(TrackAction::Rename(index));
+                        ui.close();
+                    }
                     if ui.button("Devices and effects…").clicked() {
                         track_action = Some(TrackAction::Devices(index));
                     }
@@ -296,7 +315,14 @@ impl App {
             }
         }
         match track_action {
-            Some(TrackAction::Devices(index)) => self.device_track = Some(index),
+            Some(TrackAction::Devices(index)) => {
+                self.device_track = Some(index);
+                self.selected_track = Some(index);
+            }
+            Some(TrackAction::Rename(index)) => {
+                self.selected_track = Some(index);
+                self.ask_rename(index);
+            }
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
             Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
@@ -309,7 +335,7 @@ impl App {
                 Align2::CENTER_CENTER,
                 "Empty project. Add a track to start.",
                 FontId::proportional(14.0),
-                theme::TEXT_DIM,
+                theme::text_dim(),
             );
         }
 
@@ -326,7 +352,7 @@ impl App {
                 ))
                 .line_segment(
                     [Pos2::new(x, area.top()), Pos2::new(x, area.bottom())],
-                    Stroke::new(1.5, theme::PLAYHEAD),
+                    Stroke::new(1.5, theme::playhead()),
                 );
         }
         painter.line_segment(
@@ -334,7 +360,7 @@ impl App {
                 Pos2::new(lanes_left, area.top()),
                 Pos2::new(lanes_left, area.bottom()),
             ],
-            Stroke::new(1.0, theme::BG),
+            Stroke::new(1.0, theme::bg()),
         );
     }
 
@@ -402,19 +428,19 @@ impl App {
             lane_painter.rect_filled(
                 Rect::from_min_max(Pos2::new(x0, ruler.top()), Pos2::new(x1, area.bottom())),
                 0.0,
-                theme::LOOP,
+                theme::loop_fill(),
             );
             lane_painter.rect_filled(
                 Rect::from_min_max(Pos2::new(x0, ruler.top()), Pos2::new(x1, ruler.top() + 4.0)),
                 0.0,
-                theme::ACCENT,
+                theme::accent(),
             );
         }
         for beat in first_beat.max(0)..=last_beat {
             let x = time.x(beat as f64);
             let is_bar = beat as f32 % per_bar == 0.0;
             if ppb >= 8.0 || is_bar {
-                let colour = if is_bar { theme::BAR } else { theme::GRID };
+                let colour = if is_bar { theme::bar() } else { theme::grid() };
                 lane_painter.line_segment(
                     [Pos2::new(x, tracks_top), Pos2::new(x, area.bottom())],
                     Stroke::new(1.0, colour),
@@ -427,20 +453,20 @@ impl App {
                         Pos2::new(x, ruler.bottom() - 8.0),
                         Pos2::new(x, ruler.bottom()),
                     ],
-                    Stroke::new(1.0, theme::TEXT_DIM),
+                    Stroke::new(1.0, theme::text_dim()),
                 );
                 lane_painter.text(
                     Pos2::new(x + 3.0, ruler.center().y),
                     Align2::LEFT_CENTER,
                     bar_index + 1,
                     FontId::proportional(11.0),
-                    theme::TEXT_DIM,
+                    theme::text_dim(),
                 );
             }
         }
         painter.line_segment(
             [ruler.left_bottom(), ruler.right_bottom()],
-            Stroke::new(1.0, theme::BAR),
+            Stroke::new(1.0, theme::bar()),
         );
     }
 
@@ -449,21 +475,25 @@ impl App {
         let mut changed = false;
         let mut arm_clicked = false;
         let mut devices_clicked = false;
+        let mut rename_clicked = false;
         ui.scope_builder(
             egui::UiBuilder::new()
                 .max_rect(inner)
                 .id_salt(("track", index)),
             |ui| {
                 ui.horizontal(|ui| {
-                    devices_clicked |= ui
+                    let name = ui
                         .add(
                             egui::Label::new(egui::RichText::new(&track.name).strong())
                                 .selectable(false)
                                 .sense(Sense::click()),
                         )
-                        .on_hover_text("Devices and effects")
-                        .on_hover_cursor(CursorIcon::PointingHand)
-                        .clicked();
+                        .on_hover_text(
+                            "Click: select and open devices. Double-click or Ctrl+R: rename",
+                        )
+                        .on_hover_cursor(CursorIcon::PointingHand);
+                    devices_clicked |= name.clicked();
+                    rename_clicked |= name.double_clicked();
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         changed |= ui
                             .toggle_value(&mut track.solo, "S")
@@ -500,6 +530,10 @@ impl App {
         }
         if devices_clicked {
             self.device_track = Some(index);
+            self.selected_track = Some(index);
+        }
+        if rename_clicked {
+            self.ask_rename(index);
         }
     }
 
@@ -527,6 +561,7 @@ impl App {
         };
         if self.clip(at).is_some() {
             self.selected_clip = Some(at);
+            self.selected_track = Some(at.track);
             self.status = "Clip added. Double-click it to edit its notes.".into();
         }
     }
@@ -567,16 +602,19 @@ impl App {
                 };
                 self.begin_gesture();
                 self.selected_clip = Some(at);
+                self.selected_track = Some(at.track);
                 self.arrangement_drag = Some(Drag { kind, at, grab });
             }
             if response.clicked() {
                 self.selected_clip = Some(at);
+                self.selected_track = Some(at.track);
             }
             if response.double_clicked() {
                 action = Some(ClipAction::Edit(at));
             }
             response.context_menu(|ui| {
                 self.selected_clip = Some(at);
+                self.selected_track = Some(at.track);
                 let is_audio = self.clip(at).is_some_and(Clip::is_audio);
                 if !is_audio && ui.button("Edit notes").clicked() {
                     action = Some(ClipAction::Edit(at));
@@ -746,7 +784,7 @@ fn draw_clip(
     };
     painter.rect_filled(body, CornerRadius::same(4), fill);
     let outline = if selected {
-        Stroke::new(2.0, theme::SELECTION)
+        Stroke::new(2.0, theme::selection())
     } else {
         Stroke::new(1.0, colour)
     };

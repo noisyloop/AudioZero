@@ -192,7 +192,7 @@ impl App {
                         }
                         ui.label(
                             egui::RichText::new("F11 or double-click: full screen")
-                                .color(super::theme::TEXT_DIM),
+                                .color(super::theme::text_dim()),
                         );
                     });
                 });
@@ -346,7 +346,7 @@ impl App {
                 "FFmpeg isn't installed, so this saves PNG frames and audio.wav in a folder. \
                  Install FFmpeg to export .mp4, .mov, .mkv or .webm directly."
             };
-            ui.label(egui::RichText::new(note).color(super::theme::TEXT_DIM));
+            ui.label(egui::RichText::new(note).color(super::theme::text_dim()));
             ui.horizontal(|ui| {
                 if running {
                     ui.add(egui::Spinner::new());

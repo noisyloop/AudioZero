@@ -20,6 +20,7 @@ fn meter_decay(frames: usize, sample_rate: f64) -> f32 {
 fn block_peak(buf: &[f32]) -> f32 {
     buf.iter().fold(0.0f32, |m, x| m.max(x.abs()))
 }
+use crate::arp::{Arp, ArpSettings};
 use crate::effects::{Effect, MAX_PARAMS, create_effect, params_for};
 use crate::sample::{Sample, SamplePool};
 use crate::synth::{Instrument, create_builtin};
@@ -32,11 +33,11 @@ const MAX_EVENTS_PER_BLOCK: usize = 4096;
 const MAX_LIVE_EVENTS: usize = 256;
 
 #[derive(Clone, Copy)]
-struct Event {
-    offset: usize,
-    on: bool,
-    pitch: u8,
-    velocity: f32,
+pub(crate) struct Event {
+    pub(crate) offset: usize,
+    pub(crate) on: bool,
+    pub(crate) pitch: u8,
+    pub(crate) velocity: f32,
 }
 
 struct TrackState {
@@ -45,6 +46,9 @@ struct TrackState {
     effects: Vec<Option<Box<dyn Effect>>>,
     notes_on: [bool; 128],
     events: Vec<Event>,
+    /// The arpeggiator in front of the instrument, and its output for the current block.
+    arp: Arp,
+    arp_events: Vec<Event>,
     peak: (f32, f32),
     /// The decoded audio for each of the track's clips, in the same order (`None` for MIDI
     /// clips and audio that couldn't be loaded).
@@ -218,6 +222,7 @@ impl Engine {
                 let mut instrument = instrument;
                 if let Some(i) = instrument.as_mut() {
                     i.prepare(sample_rate);
+                    i.set_tempo(project.bpm);
                     let device = track.instrument.as_ref();
                     let info = device.and_then(Device::params_info).unwrap_or_default();
                     for (index, p) in info.iter().enumerate() {
@@ -233,6 +238,12 @@ impl Engine {
                     effects,
                     notes_on: [false; 128],
                     events: Vec::with_capacity(MAX_EVENTS_PER_BLOCK),
+                    arp: {
+                        let mut arp = Arp::default();
+                        arp.set_settings(track.arp);
+                        arp
+                    },
+                    arp_events: Vec::with_capacity(MAX_EVENTS_PER_BLOCK),
                     peak: (0.0, 0.0),
                     samples,
                     audio_l: vec![0.0; max_block],
@@ -289,6 +300,10 @@ impl Engine {
 
     pub fn set_bpm(&mut self, bpm: f64) {
         self.project.bpm = finite(bpm, 20.0, 999.0, self.project.bpm);
+        let bpm = self.project.bpm;
+        for instrument in self.tracks.iter_mut().filter_map(|t| t.instrument.as_mut()) {
+            instrument.set_tempo(bpm);
+        }
     }
 
     pub fn set_master_volume(&mut self, volume: f32) {
@@ -355,6 +370,25 @@ impl Engine {
             .and_then(|t| t.effects.get_mut(effect))
         {
             set_params(effect.as_mut(), &values);
+        }
+    }
+
+    /// Changes a track's arpeggiator while playing. Turning it off releases what it was playing.
+    pub fn set_arp(&mut self, track: usize, settings: ArpSettings) {
+        if let Some(t) = self.project.tracks.get_mut(track) {
+            t.arp = settings;
+        }
+        if let Some(state) = self.tracks.get_mut(track) {
+            let was_on = state.arp.is_on();
+            state.arp.set_settings(settings);
+            if was_on && !state.arp.is_on() {
+                let sounding = state.arp.reset();
+                if let Some(i) = state.instrument.as_mut() {
+                    for &pitch in sounding {
+                        i.note_off(pitch);
+                    }
+                }
+            }
         }
     }
 
@@ -427,6 +461,14 @@ impl Engine {
 
     fn release_everything(&mut self) {
         for track in &mut self.tracks {
+            // Let go of what the arpeggiator is playing, and forget the notes it was holding.
+            // (The fields are borrowed separately, so nothing is allocated here.)
+            let sounding = track.arp.reset();
+            if let Some(i) = track.instrument.as_mut() {
+                for &pitch in sounding {
+                    i.note_off(pitch);
+                }
+            }
             for pitch in 0..128u8 {
                 if std::mem::take(&mut track.notes_on[usize::from(pitch)])
                     && let Some(i) = track.instrument.as_mut()
@@ -472,10 +514,13 @@ impl Engine {
             track.audio_r[..n].fill(0.0);
         }
 
+        // Effects that follow the beat are told where the block starts.
+        let (bpm, playing, block_start) = (self.project.bpm, self.playing, self.position);
         if self.playing {
             self.schedule(n);
         }
 
+        let samples_per_beat = self.sample_rate * 60.0 / self.project.bpm;
         let any_solo = self.project.tracks.iter().any(|t| t.solo);
         let decay = meter_decay(n, self.sample_rate);
         for (state, track) in self.tracks.iter_mut().zip(&self.project.tracks) {
@@ -483,6 +528,14 @@ impl Engine {
             l.fill(0.0);
             r.fill(0.0);
             state.events.sort_unstable_by_key(|e| (e.offset, e.on));
+            if state.arp.is_on() {
+                // The arpeggiator turns the notes played into its pattern.
+                state
+                    .arp
+                    .process(&state.events, &mut state.arp_events, n, samples_per_beat);
+                std::mem::swap(&mut state.events, &mut state.arp_events);
+                state.events.sort_unstable_by_key(|e| (e.offset, e.on));
+            }
             if let Some(instrument) = state.instrument.as_mut() {
                 let mut cursor = 0;
                 for event in &state.events {
@@ -506,6 +559,7 @@ impl Engine {
                 r[i] += state.audio_r[i];
             }
             for effect in state.effects.iter_mut().flatten() {
+                effect.sync(bpm, block_start, playing);
                 effect.process(l, r);
             }
 
@@ -1021,7 +1075,11 @@ mod tests {
         let (l, _) = engine.render(48_000);
         // The note lasts half a second at 120 BPM; the delay repeats it after that.
         assert!(l[30_000..40_000].iter().any(|x| x.abs() > 0.01), "an echo");
-        engine.set_effect_params(0, 0, [0.375, 0.0, 0.0, 0.0]);
+        engine.set_effect_params(0, 0, {
+            let mut v = [0.0; MAX_PARAMS];
+            v[0] = 0.375;
+            v
+        });
         engine.set_effect_params(0, 9, [0.0; MAX_PARAMS]); // no such effect: ignored
         engine.set_position(0.0);
         engine.render(48_000);
@@ -1029,6 +1087,74 @@ mod tests {
         assert!(
             l.iter().all(|x| x.abs() < 1e-3),
             "mix 0: no echo, and the note is over"
+        );
+    }
+
+    #[test]
+    fn the_arpeggiator_turns_a_held_chord_into_a_pattern() {
+        use crate::arp::{ArpSettings, Rate};
+        let chord_clip = Clip {
+            start: 0.0,
+            length: 4.0,
+            notes: [60, 64, 67]
+                .map(|pitch| Note {
+                    pitch,
+                    start: 0.0,
+                    length: 4.0,
+                    velocity: 0.9,
+                })
+                .to_vec(),
+            ..Default::default()
+        };
+        let project = |on: bool| Project {
+            bpm: 120.0,
+            tracks: vec![Track {
+                instrument: Some(Device::builtin("kick")),
+                arp: ArpSettings {
+                    on,
+                    rate: Rate::Eighth,
+                    gate: 0.3,
+                    ..Default::default()
+                },
+                clips: vec![chord_clip.clone()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let render = |on: bool| {
+            let mut engine = Engine::new(project(on), 48_000.0, 512).unwrap();
+            engine.play();
+            engine.render(96_000).0
+        };
+        let (plain, arped) = (render(false), render(true));
+        assert!(arped.iter().all(|x| x.is_finite()));
+        // The kick is triggered once for the held chord, and once every eighth with the arp:
+        // four times a second, so more hits (more times the level jumps up).
+        let hits = |b: &[f32]| {
+            b.chunks(240)
+                .map(|c| c.iter().fold(0.0f32, |m, x| m.max(x.abs())))
+                .collect::<Vec<_>>()
+                .windows(2)
+                .filter(|w| w[1] > w[0] * 3.0 && w[1] > 0.1)
+                .count()
+        };
+        assert!(
+            hits(&arped) >= 3 * hits(&plain).max(1),
+            "{} vs {}",
+            hits(&arped),
+            hits(&plain)
+        );
+
+        // Turning it off while it plays leaves nothing stuck, and stopping releases it.
+        let mut engine = Engine::new(project(true), 48_000.0, 512).unwrap();
+        engine.play();
+        engine.render(24_000);
+        engine.set_arp(0, ArpSettings::default());
+        engine.stop();
+        let (tail, _) = engine.render(48_000);
+        assert!(
+            tail[24_000..].iter().all(|x| x.abs() < 0.01),
+            "silent after stop"
         );
     }
 }

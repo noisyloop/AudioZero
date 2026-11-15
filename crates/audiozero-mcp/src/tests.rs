@@ -395,8 +395,8 @@ fn save_creates_new_files_only_in_the_folder() {
         json!({ "track": 0, "name": "Saved" }),
     );
     let r = ok(&mut s, "save", json!({ "name": "My song" }));
-    assert_eq!(r["saved"], "My song.json");
-    let path = folder.join("My song.json");
+    assert_eq!(r["saved"], "My song.azproj");
+    let path = folder.join("My song.azproj");
     assert_eq!(Project::load(&path).unwrap().tracks[0].name, "Saved");
     assert!(!s.session().is_dirty());
 
@@ -606,6 +606,198 @@ fn effects_through_mcp() {
     ok(&mut s, "remove_effect", json!({ "track": 0, "effect": 0 }));
     ok(&mut s, "undo", json!({}));
     assert_eq!(s.session().project().tracks[0].effects.len(), 1);
+}
+
+#[test]
+fn the_arpeggiator_through_mcp() {
+    let mut s = server();
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][0]["arp"]["on"], false);
+    ok(
+        &mut s,
+        "set_arp",
+        json!({ "track": 0, "on": true, "mode": "up_down", "rate": "1/8T", "octaves": 2 }),
+    );
+    let changes = s.audio().applied.last().unwrap().clone();
+    assert!(!changes.reload && changes.arp == vec![0], "heard live");
+    let arp = ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"].clone();
+    assert_eq!(
+        (
+            arp["on"].clone(),
+            arp["mode"].clone(),
+            arp["rate"].clone(),
+            arp["octaves"].clone()
+        ),
+        (json!(true), json!("up_down"), json!("1/8T"), json!(2))
+    );
+    // Only what's given changes.
+    ok(&mut s, "set_arp", json!({ "track": 0, "gate": 0.3 }));
+    let arp = ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"].clone();
+    assert_eq!(
+        (arp["on"].clone(), arp["octaves"].clone()),
+        (json!(true), json!(2))
+    );
+    refused(&mut s, "set_arp", json!({ "track": 0, "octaves": 9 }));
+    refused(&mut s, "set_arp", json!({ "track": 0, "mode": "sideways" }));
+    refused(&mut s, "set_arp", json!({ "track": 99, "on": true }));
+    ok(&mut s, "undo", json!({}));
+    let gate = ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"]["gate"]
+        .as_f64()
+        .unwrap();
+    assert!(
+        (gate - 0.6).abs() < 1e-6,
+        "back to the default gate, got {gate}"
+    );
+}
+
+#[test]
+fn the_key_through_mcp() {
+    let mut s = server();
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["key"], "C major");
+    ok(&mut s, "set_key", json!({ "key": 9, "scale": "minor" }));
+    assert_eq!(ok(&mut s, "get_project", json!({}))["key"], "A minor");
+    refused(&mut s, "set_key", json!({ "key": 12, "scale": "minor" }));
+    let m = refused(&mut s, "set_key", json!({ "key": 0, "scale": "wobbly" }));
+    assert!(m.contains("major"), "{m}");
+}
+
+#[test]
+fn soundgineer_through_mcp() {
+    let mut s = server();
+    let list = ok(&mut s, "list_instruments", json!({}));
+    let sg = list["instruments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["id"] == "soundgineer")
+        .unwrap()
+        .clone();
+    assert_eq!(sg["params"].as_array().unwrap().len(), 665);
+    assert_eq!(sg["presets"].as_array().unwrap().len(), 59);
+    assert!(
+        sg["presets"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("Reese Bass"))
+    );
+    ok(
+        &mut s,
+        "set_instrument",
+        json!({ "track": 0, "instrument": "soundgineer" }),
+    );
+    ok(
+        &mut s,
+        "set_instrument_preset",
+        json!({ "track": 0, "preset": "Sync Pluck" }),
+    );
+    assert!(
+        !s.audio().applied.last().unwrap().reload,
+        "a preset is heard live"
+    );
+    ok(
+        &mut s,
+        "set_instrument_param",
+        json!({ "track": 0, "param": "filter1.cutoff", "value": 1200 }),
+    );
+    let project = ok(&mut s, "get_project", json!({}));
+    let params = &project["tracks"][0]["instrument_params"];
+    assert_eq!(params["filter1.cutoff"], 1200.0);
+    assert_eq!(params["osc1.morph"], 0.55);
+    assert!(
+        params["mod1.depth"].as_f64().unwrap() > 0.0,
+        "the preset's routes came with it"
+    );
+    let m = refused(
+        &mut s,
+        "set_instrument_param",
+        json!({ "track": 0, "param": "mod1.dest", "value": 9999 }),
+    );
+    assert!(m.contains("between"), "{m}");
+}
+
+#[test]
+fn drum_beats_through_mcp() {
+    let mut s = server_with(Project::default(), None, temp_folder("drums"));
+    let list = ok(&mut s, "list_instruments", json!({}));
+    let drums = list["instruments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["id"] == "drums")
+        .unwrap()
+        .clone();
+    assert_eq!(drums["pads"].as_array().unwrap().len(), 16);
+    assert_eq!(drums["pads"][0], json!({ "note": 36, "name": "Kick" }));
+    assert!(
+        drums["presets"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("Trap"))
+    );
+    assert_eq!(list["drum_beats"].as_array().unwrap().len(), 18);
+
+    let r = ok(&mut s, "add_drum_beat", json!({ "beat": "lofi-chill" }));
+    assert_eq!(
+        (r["track"].clone(), r["tempo_set"].clone()),
+        (json!(0), json!(true))
+    );
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][0]["instrument"], "drums");
+    assert_eq!(project["tracks"][0]["instrument_params"]["kit"], 4.0);
+    assert_eq!(project["bpm"], 75.0);
+    let r = ok(
+        &mut s,
+        "add_drum_beat",
+        json!({ "beat": "lofi-rainy", "track": 0, "repeats": 2 }),
+    );
+    assert_eq!(r["clip"], 1);
+    assert_eq!(s.session().project().tracks[0].clips[1].start, 16.0);
+    refused(&mut s, "add_drum_beat", json!({ "beat": "nope" }));
+    refused(
+        &mut s,
+        "add_drum_beat",
+        json!({ "beat": "lofi-chill", "repeats": 0 }),
+    );
+    ok(
+        &mut s,
+        "set_instrument",
+        json!({ "track": 0, "instrument": "sine" }),
+    );
+    let m = refused(
+        &mut s,
+        "add_drum_beat",
+        json!({ "beat": "lofi-chill", "track": 0 }),
+    );
+    assert!(m.contains("drum rack"), "{m}");
+}
+
+#[test]
+fn export_audio_writes_new_files_only_in_the_folder() {
+    let folder = temp_folder("export-audio");
+    let mut s = server_with(demo::project(), None, folder.clone());
+    let r = ok(&mut s, "export_audio", json!({ "name": "mix" }));
+    assert_eq!(r["exported"], "mix.wav");
+    assert!(r["seconds"].as_f64().unwrap() > 10.0);
+    assert!(folder.join("mix.wav").metadata().unwrap().len() > 100_000);
+    let m = refused(&mut s, "export_audio", json!({ "name": "mix" }));
+    assert!(m.contains("already exists"), "{m}");
+    refused(&mut s, "export_audio", json!({ "name": "../escape" }));
+    refused(
+        &mut s,
+        "export_audio",
+        json!({ "name": "x", "format": "ogg" }),
+    );
+    let r = ok(
+        &mut s,
+        "export_audio",
+        json!({ "name": "loop", "format": "wav24", "loop": true }),
+    );
+    assert_eq!(r["exported"], "loop.wav");
+    let mut empty = server_with(Project::default(), None, folder.clone());
+    let m = refused(&mut empty, "export_audio", json!({ "name": "none" }));
+    assert!(m.contains("nothing to export"), "{m}");
+    assert!(!folder.join("none.wav").exists());
 }
 
 #[test]

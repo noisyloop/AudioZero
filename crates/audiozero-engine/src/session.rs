@@ -85,6 +85,8 @@ pub struct Changes {
     pub effect_params: Vec<(usize, usize)>,
     /// Instrument parameters that changed: (track, parameter index, new value).
     pub instrument_params: Vec<(usize, usize, f32)>,
+    /// Tracks whose arpeggiator settings changed.
+    pub arp: Vec<usize>,
     pub bpm: bool,
     pub master: bool,
     pub looping: bool,
@@ -132,6 +134,10 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
                     .filter(|(_, (x, y))| x != y)
                     .map(move |(e, _)| (t, e))
             })
+            .collect(),
+        arp: pairs()
+            .filter(|(_, (a, b))| a.arp != b.arp)
+            .map(|(i, _)| i)
             .collect(),
         instrument_params: pairs()
             .filter(|(_, (a, b))| a.instrument != b.instrument)
@@ -371,6 +377,93 @@ impl Session {
         })
     }
 
+    /// Adds a ready-made drum beat ([`crate::drums::BEATS`]) as a clip, repeated `repeats` times.
+    ///
+    /// With a `track` (which needs the drum rack) the clip goes at `start` beats, or after the
+    /// track's last clip, on a bar line. With none, a new "Drums" track with the beat's kit is
+    /// made and the clip goes at `start` (default 0). In a song with no clips yet, the tempo is
+    /// set to the beat's. All one undo step. Returns the clip, the track's index, and whether
+    /// the tempo was set.
+    pub fn add_drum_beat(
+        &mut self,
+        track: Option<usize>,
+        beat_id: &str,
+        repeats: usize,
+        start: Option<f64>,
+    ) -> Result<((ClipRef, bool), Changes), EditError> {
+        let beat = crate::drums::beat_by_id(beat_id).ok_or_else(|| {
+            let ids: Vec<_> = crate::drums::BEATS.iter().map(|b| b.id).collect();
+            EditError::Invalid(format!(
+                "unknown beat \"{beat_id}\"; use one of {}",
+                ids.join(", ")
+            ))
+        })?;
+        if !(1..=64).contains(&repeats) {
+            return Err(EditError::Invalid(format!(
+                "repeats has to be 1 to 64, got {repeats}"
+            )));
+        }
+        if let Some(start) = start {
+            check_beat("start", start)?;
+        }
+        self.try_edit(|p| {
+            let empty = p.tracks.iter().all(|t| t.clips.is_empty());
+            let index = match track {
+                Some(index) => {
+                    check_track(p, index)?;
+                    if p.tracks[index].instrument.as_ref().and_then(Device::builtin_id)
+                        != Some("drums")
+                    {
+                        return Err(EditError::Invalid(format!(
+                            "track {index} doesn't have the drum rack; set its instrument to \"drums\""
+                        )));
+                    }
+                    index
+                }
+                None => {
+                    let kit = crate::drums::KITS
+                        .iter()
+                        .position(|k| k.id == beat.genre)
+                        .unwrap_or(0);
+                    let mut device = Device::builtin("drums");
+                    if let Device::Builtin { params, .. } = &mut device {
+                        params.insert("kit".into(), kit as f32);
+                    }
+                    p.tracks.push(Track {
+                        name: "Drums".into(),
+                        instrument: Some(device),
+                        ..Default::default()
+                    });
+                    p.tracks.len() - 1
+                }
+            };
+            let bar = f64::from(p.beats_per_bar);
+            let start = start.unwrap_or_else(|| {
+                let end = p.tracks[index]
+                    .clips
+                    .iter()
+                    .map(Clip::end)
+                    .fold(0.0, f64::max);
+                (end / bar).ceil() * bar
+            });
+            let clip = beat.clip(repeats, start, p.beats_per_bar);
+            check_clip_shape(&clip)?;
+            for note in &clip.notes {
+                check_note(note, clip.length)?;
+            }
+            let clips = &mut p.tracks[index].clips;
+            clips.push(clip);
+            let at = ClipRef {
+                track: index,
+                clip: clips.len() - 1,
+            };
+            if empty {
+                p.bpm = beat.bpm;
+            }
+            Ok((at, empty))
+        })
+    }
+
     pub fn remove_track(&mut self, index: usize) -> Result<Changes, EditError> {
         self.try_edit(|p| {
             check_track(p, index)?;
@@ -457,6 +550,29 @@ impl Session {
                 f64::from(info.max),
             )?;
             params.insert(name.to_owned(), value);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Sets a track's arpeggiator (out-of-range values are refused, not clamped). An undo step,
+    /// heard without rebuilding the engine.
+    pub fn set_arp(
+        &mut self,
+        track: usize,
+        settings: crate::arp::ArpSettings,
+    ) -> Result<Changes, EditError> {
+        check_range("gate", f64::from(settings.gate), 0.05, 1.0)?;
+        check_range("swing", f64::from(settings.swing), 0.0, 0.5)?;
+        if !(1..=4).contains(&settings.octaves) {
+            return Err(EditError::Invalid(format!(
+                "octaves has to be 1 to 4, got {}",
+                settings.octaves
+            )));
+        }
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            p.tracks[track].arp = settings;
             Ok(())
         })
         .map(|((), c)| c)
@@ -574,7 +690,24 @@ impl Session {
             check_clip(p, at)?;
             let clips = &mut p.tracks[at.track].clips;
             let mut copy = clips[at.clip].clone();
+            // Straight after the clip if that's free, else after whatever is in the way, so
+            // copies never pile up on top of other clips.
             copy.start = copy.end();
+            loop {
+                let (start, end) = (copy.start, copy.end());
+                let blocker = clips
+                    .iter()
+                    .filter(|c| c.start < end - 1e-9 && c.end() > start + 1e-9)
+                    .map(Clip::end)
+                    .fold(None, |furthest: Option<f64>, e| {
+                        Some(furthest.map_or(e, |f| f.max(e)))
+                    });
+                match blocker {
+                    Some(end) => copy.start = end,
+                    None => break,
+                }
+            }
+            check_beat("start", copy.end())?;
             clips.push(copy);
             Ok(ClipRef {
                 track: at.track,
@@ -663,6 +796,66 @@ impl Session {
         .map(|((), c)| c)
     }
 
+    /// Copies notes to straight after the last of them, as Ctrl+D does, and returns the
+    /// copies' indices. With a `grid` (in beats, 0 for none) the copies keep the originals'
+    /// place on it: the distance is rounded up to whole grid steps. The clip grows by whole bars if the copies need the room and no later
+    /// clip on the track is in the way; copies that still don't fit are left out.
+    pub fn duplicate_notes(
+        &mut self,
+        at: ClipRef,
+        indices: &[usize],
+        grid: f64,
+    ) -> Result<(Vec<usize>, Changes), EditError> {
+        self.try_edit(|p| {
+            check_clip(p, at)?;
+            let bar = f64::from(p.beats_per_bar);
+            let clips = &p.tracks[at.track].clips;
+            let clip = &clips[at.clip];
+            no_audio(clip)?;
+            if let Some(&note) = indices.iter().find(|&&i| i >= clip.notes.len()) {
+                return Err(EditError::NoNote { clip: at, note });
+            }
+            let mut picked: Vec<usize> = indices.to_vec();
+            picked.sort_unstable();
+            picked.dedup();
+            let chosen: Vec<Note> = picked.iter().map(|&i| clip.notes[i]).collect();
+            let Some(first) = chosen.iter().map(|n| n.start).reduce(f64::min) else {
+                return Ok(Vec::new());
+            };
+            let last = chosen
+                .iter()
+                .map(|n| n.start + n.length)
+                .fold(first, f64::max);
+            let mut shift = last - first;
+            if grid.is_finite() && grid > 1e-6 {
+                shift = ((shift / grid) - 1e-6).ceil().max(1.0) * grid;
+            }
+            // How far the clip can grow: to the next clip on the track.
+            let room = clips
+                .iter()
+                .filter(|c| c.start >= clip.end() - 1e-9)
+                .map(|c| c.start - clip.start)
+                .fold(crate::project::limits::MAX_BEATS - clip.start, f64::min);
+            let wanted = ((last + shift) / bar).ceil() * bar;
+            let length = clip.length.max(wanted.min(room));
+
+            let clip = &mut p.tracks[at.track].clips[at.clip];
+            clip.length = length;
+            let mut copies = Vec::new();
+            for note in chosen {
+                let copy = Note {
+                    start: note.start + shift,
+                    ..note
+                };
+                if copy.start < length - 1e-9 {
+                    copies.push(clip.notes.len());
+                    clip.notes.push(copy);
+                }
+            }
+            Ok(copies)
+        })
+    }
+
     /// Removes notes by index. Every index has to exist; duplicates are ignored.
     pub fn remove_notes(&mut self, at: ClipRef, indices: &[usize]) -> Result<Changes, EditError> {
         self.try_edit(|p| {
@@ -720,6 +913,27 @@ impl Session {
     pub fn set_bpm(&mut self, bpm: f64) -> Result<Changes, EditError> {
         check_range("bpm", bpm, 20.0, 999.0)?;
         self.set(|p| p.bpm = bpm)
+    }
+
+    /// Sets the song's key (0 = C to 11 = B) and scale ([`crate::music::SCALES`]). Notes
+    /// already written stay as they are.
+    pub fn set_key(&mut self, key: u8, scale: &str) -> Result<Changes, EditError> {
+        if key > 11 {
+            return Err(EditError::Invalid(format!(
+                "the key has to be 0 (C) to 11 (B), got {key}"
+            )));
+        }
+        let Some(scale) = crate::music::SCALES.iter().find(|s| s.id == scale) else {
+            let ids: Vec<_> = crate::music::SCALES.iter().map(|s| s.id).collect();
+            return Err(EditError::Invalid(format!(
+                "unknown scale \"{scale}\"; use one of {}",
+                ids.join(", ")
+            )));
+        };
+        self.set(|p| {
+            p.key = key;
+            p.scale = scale.id.into();
+        })
     }
 
     pub fn set_master_volume(&mut self, volume: f32) -> Result<Changes, EditError> {
@@ -823,6 +1037,227 @@ fn check_note(note: &Note, clip_length: f64) -> Result<(), EditError> {
     }
     check_range("note length", note.length, 1.0 / 128.0, MAX_BEATS)?;
     check_range("velocity", f64::from(note.velocity), 0.0, 1.0)
+}
+
+#[cfg(test)]
+mod drum_tests {
+    use super::*;
+
+    #[test]
+    fn a_beat_makes_a_drum_track_with_its_kit_and_tempo() {
+        let mut s = Session::new(Project::default()).unwrap();
+        let ((at, tempo_set), changes) = s.add_drum_beat(None, "trap-classic", 2, None).unwrap();
+        assert!(
+            tempo_set && changes.reload,
+            "the rebuilt engine carries the tempo"
+        );
+        let p = s.project();
+        assert_eq!(p.bpm, 140.0);
+        assert_eq!(p.tracks[at.track].name, "Drums");
+        let device = p.tracks[at.track].instrument.as_ref().unwrap();
+        assert_eq!(device.builtin_id(), Some("drums"));
+        assert_eq!(device.param("kit"), Some(5.0), "the trap kit");
+        let clip = &p.tracks[at.track].clips[at.clip];
+        assert_eq!((clip.start, clip.length), (0.0, 8.0));
+        assert!(clip.notes.len() > 20);
+        // One undo step takes the track and its clip back. The tempo stays: it's never an
+        // undo step, like the other transport settings.
+        s.undo().unwrap();
+        assert!(s.project().tracks.is_empty());
+        assert_eq!(s.project().bpm, 140.0);
+    }
+
+    #[test]
+    fn beats_append_to_a_drum_track_and_leave_the_tempo_alone() {
+        let mut s = Session::new(Project::default()).unwrap();
+        let ((first, _), _) = s.add_drum_beat(None, "techno-basic", 1, None).unwrap();
+        let ((second, tempo_set), _) = s
+            .add_drum_beat(Some(first.track), "techno-driving", 2, None)
+            .unwrap();
+        assert!(!tempo_set);
+        assert_eq!(s.project().bpm, 130.0);
+        let clips = &s.project().tracks[0].clips;
+        assert_eq!(
+            (clips[0].start, clips[1].start, clips[1].length),
+            (0.0, 4.0, 8.0)
+        );
+        assert_eq!(second.clip, 1);
+        let ((third, _), _) = s
+            .add_drum_beat(Some(0), "techno-minimal", 1, Some(32.0))
+            .unwrap();
+        assert_eq!(s.project().tracks[0].clips[third.clip].start, 32.0);
+    }
+
+    #[test]
+    fn bad_beat_requests_are_refused() {
+        let mut project = Project::default();
+        project.tracks.push(Track::default());
+        project.tracks.push(Track {
+            instrument: Some(Device::builtin("sine")),
+            ..Default::default()
+        });
+        let mut s = Session::new(project).unwrap();
+        assert!(s.add_drum_beat(None, "nope", 1, None).is_err());
+        assert!(s.add_drum_beat(None, "techno-basic", 0, None).is_err());
+        assert!(s.add_drum_beat(None, "techno-basic", 65, None).is_err());
+        assert!(
+            s.add_drum_beat(None, "techno-basic", 1, Some(-1.0))
+                .is_err()
+        );
+        assert!(s.add_drum_beat(Some(9), "techno-basic", 1, None).is_err());
+        let m = s
+            .add_drum_beat(Some(1), "techno-basic", 1, None)
+            .unwrap_err();
+        assert!(m.to_string().contains("drum rack"), "{m}");
+        assert!(
+            s.add_drum_beat(Some(0), "techno-basic", 1, None).is_err(),
+            "no instrument"
+        );
+        assert_eq!(s.project().tracks.len(), 2, "nothing was added");
+        assert!(!s.can_undo());
+    }
+}
+
+#[cfg(test)]
+mod duplicate_tests {
+    use super::*;
+
+    fn clip(start: f64, length: f64) -> Clip {
+        Clip {
+            start,
+            length,
+            ..Default::default()
+        }
+    }
+
+    fn session(clips: Vec<Clip>) -> Session {
+        let mut project = Project::default();
+        project.tracks.push(Track {
+            clips,
+            ..Default::default()
+        });
+        Session::new(project).unwrap()
+    }
+
+    #[test]
+    fn duplicated_clips_never_land_on_other_clips() {
+        let mut s = session(vec![clip(0.0, 4.0), clip(4.0, 4.0), clip(10.0, 2.0)]);
+        let at = ClipRef { track: 0, clip: 0 };
+        let (copy, _) = s.duplicate_clip(at).unwrap();
+        let starts = |s: &Session| -> Vec<f64> {
+            s.project().tracks[0]
+                .clips
+                .iter()
+                .map(|c| c.start)
+                .collect()
+        };
+        assert_eq!(starts(&s)[copy.clip], 12.0, "after the clips in the way");
+        // Again from the original: it goes after the first copy, not on top of it.
+        let (again, _) = s.duplicate_clip(at).unwrap();
+        assert_eq!(starts(&s)[again.clip], 16.0);
+        let clips = &s.project().tracks[0].clips;
+        for (i, a) in clips.iter().enumerate() {
+            for b in &clips[i + 1..] {
+                assert!(a.end() <= b.start || b.end() <= a.start, "no overlap");
+            }
+        }
+        // With room straight after, that's where it goes.
+        let mut s = session(vec![clip(0.0, 4.0)]);
+        let (copy, _) = s.duplicate_clip(at).unwrap();
+        assert_eq!(s.project().tracks[0].clips[copy.clip].start, 4.0);
+    }
+
+    fn note(pitch: u8, start: f64, length: f64) -> Note {
+        Note {
+            pitch,
+            start,
+            length,
+            velocity: 0.8,
+        }
+    }
+
+    #[test]
+    fn duplicated_notes_follow_the_selection() {
+        let mut first = clip(0.0, 4.0);
+        first.notes = vec![note(60, 0.0, 0.5), note(64, 0.5, 0.5), note(67, 3.0, 1.0)];
+        let mut s = session(vec![first]);
+        let at = ClipRef { track: 0, clip: 0 };
+        let (copies, _) = s.duplicate_notes(at, &[1, 0, 0], 0.0).unwrap();
+        assert_eq!(copies, vec![3, 4]);
+        let notes = &s.project().tracks[0].clips[0].notes;
+        assert_eq!((notes[3].pitch, notes[3].start), (60, 1.0));
+        assert_eq!((notes[4].pitch, notes[4].start), (64, 1.5));
+        assert_eq!(s.project().tracks[0].clips[0].length, 4.0, "it fitted");
+
+        // Duplicating everything doubles the clip.
+        let all: Vec<usize> = (0..5).collect();
+        let (copies, _) = s.duplicate_notes(at, &all, 0.0).unwrap();
+        assert_eq!(copies.len(), 5);
+        assert_eq!(s.project().tracks[0].clips[0].length, 8.0);
+        s.undo().unwrap();
+        assert_eq!(s.project().tracks[0].clips[0].length, 4.0);
+        assert_eq!(s.project().tracks[0].clips[0].notes.len(), 5);
+
+        assert!(s.duplicate_notes(at, &[99], 0.0).is_err());
+        assert_eq!(
+            s.duplicate_notes(at, &[], 0.0).unwrap().0,
+            Vec::<usize>::new()
+        );
+    }
+
+    #[test]
+    fn duplicated_notes_stay_on_the_grid() {
+        let mut first = clip(0.0, 8.0);
+        // A little short of a beat each, as played or generated notes often are.
+        first.notes = vec![note(60, 0.5, 0.45), note(64, 1.0, 0.95)];
+        let mut s = session(vec![first]);
+        let at = ClipRef { track: 0, clip: 0 };
+        s.duplicate_notes(at, &[0, 1], 0.5).unwrap();
+        let notes = &s.project().tracks[0].clips[0].notes;
+        assert_eq!(
+            (notes[2].start, notes[3].start),
+            (2.0, 2.5),
+            "1.45 rounds up to 1.5"
+        );
+        // An exact fit isn't pushed a step further.
+        s.duplicate_notes(at, &[1], 1.0).unwrap();
+        let notes = &s.project().tracks[0].clips[0].notes;
+        assert_eq!(notes[4].start, 2.0);
+    }
+
+    #[test]
+    fn a_clip_only_grows_into_free_space() {
+        let mut first = clip(0.0, 4.0);
+        first.notes = vec![note(60, 0.0, 1.0), note(62, 3.0, 1.0)];
+        let mut s = session(vec![first, clip(6.0, 4.0)]);
+        let at = ClipRef { track: 0, clip: 0 };
+        let (copies, _) = s.duplicate_notes(at, &[0, 1], 0.0).unwrap();
+        let clip = &s.project().tracks[0].clips[0];
+        assert_eq!(clip.length, 6.0, "up to the next clip");
+        assert_eq!(
+            copies.len(),
+            1,
+            "the copy that would start past the end is left out"
+        );
+        assert_eq!(clip.notes[2].start, 4.0);
+    }
+
+    #[test]
+    fn the_key_is_a_setting_not_an_undo_step() {
+        let mut s = session(vec![]);
+        s.set_key(9, "minor").unwrap();
+        assert_eq!((s.project().key, s.project().scale.as_str()), (9, "minor"));
+        assert!(!s.can_undo());
+        assert!(s.set_key(12, "minor").is_err());
+        assert!(s.set_key(0, "wobbly").is_err());
+        let json = s
+            .project()
+            .to_json()
+            .replace("\"minor\"", "\"nope\"")
+            .replace("\"key\": 9", "\"key\": 250");
+        let p = Project::from_json(&json).unwrap();
+        assert_eq!((p.key, p.scale.as_str()), (250 % 12, "major"));
+    }
 }
 
 #[cfg(test)]

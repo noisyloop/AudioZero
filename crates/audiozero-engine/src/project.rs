@@ -45,6 +45,10 @@ pub struct Project {
     pub loop_start: f64,
     pub loop_end: f64,
     pub master_volume: f32,
+    /// The song's key: its root note, 0 = C to 11 = B.
+    pub key: u8,
+    /// The song's scale, by id ([`crate::music::SCALES`]).
+    pub scale: String,
     pub tracks: Vec<Track>,
 }
 
@@ -63,6 +67,8 @@ impl Default for Project {
             loop_start: 0.0,
             loop_end: 16.0,
             master_volume: 0.85,
+            key: 0,
+            scale: "major".into(),
             tracks: Vec::new(),
         }
     }
@@ -77,6 +83,8 @@ pub struct Track {
     pub mute: bool,
     pub solo: bool,
     pub instrument: Option<Device>,
+    /// The arpeggiator, a MIDI effect in front of the instrument.
+    pub arp: crate::arp::ArpSettings,
     pub effects: Vec<Device>,
     pub clips: Vec<Clip>,
 }
@@ -90,6 +98,7 @@ impl Default for Track {
             mute: false,
             solo: false,
             instrument: None,
+            arp: crate::arp::ArpSettings::default(),
             effects: Vec::new(),
             clips: Vec::new(),
         }
@@ -430,9 +439,12 @@ impl Project {
             self.loop_end = self.loop_start + 4.0;
         }
         self.master_volume = finite32(self.master_volume, 0.0, 1.5, 0.85);
+        self.key %= 12;
+        self.scale = crate::music::scale_by_id(&self.scale).id.into();
 
         for track in &mut self.tracks {
             truncate_name(&mut track.name);
+            track.arp.sanitize();
             track.volume = finite32(track.volume, 0.0, 2.0, 0.8);
             track.pan = finite32(track.pan, -1.0, 1.0, 0.0);
             if let Some(instrument) = &mut track.instrument {

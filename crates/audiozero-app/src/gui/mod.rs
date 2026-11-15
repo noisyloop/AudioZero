@@ -9,8 +9,10 @@
 mod arrangement;
 mod audio_settings;
 mod devices;
+mod export_audio;
 mod live;
 mod piano_roll;
+mod soundgineer;
 mod theme;
 mod visuals;
 
@@ -39,7 +41,7 @@ pub fn run(start: Option<PathBuf>, settings: AudioSettings) -> Result<(), String
         "AudioZero",
         options,
         Box::new(move |cc| {
-            theme::apply(&cc.egui_ctx);
+            theme::set_scheme(&cc.egui_ctx, &crate::settings::Preferences::load().theme);
             Ok(Box::new(App::new(start, settings, cc.egui_ctx.clone())))
         }),
     )
@@ -56,6 +58,13 @@ enum Pending {
 enum PathMode {
     Open,
     SaveAs,
+}
+
+/// The "Rename track" box.
+struct RenamePrompt {
+    track: usize,
+    text: String,
+    focused: bool,
 }
 
 struct PathPrompt {
@@ -159,6 +168,10 @@ struct App {
     arrangement_drag: Option<arrangement::Drag>,
     roll: Option<piano_roll::Roll>,
     prompt: Option<PathPrompt>,
+    rename: Option<RenamePrompt>,
+    /// The track last clicked (its header, or one of its clips): highlighted, and the one
+    /// Ctrl+R renames.
+    selected_track: Option<usize>,
     pending: Option<Pending>,
     allow_close: bool,
     title: String,
@@ -177,11 +190,20 @@ struct App {
     tap_buffer: Vec<f32>,
     visuals: Option<visuals::LiveVisuals>,
     export_dialog: Option<visuals::ExportDialog>,
+    /// How many times a ready-made drum beat repeats when it's added.
+    beat_repeats: usize,
+    /// The drum pad being held down with the mouse, by note.
+    pad_held: Option<u8>,
+    /// Soundgineer's own window, if it's open.
+    sg_window: Option<soundgineer::Window>,
+    audio_export: Option<export_audio::AudioExportDialog>,
+    audio_job: Option<export_audio::AudioExportJob>,
     export_job: Option<visuals::ExportJob>,
 }
 
 impl App {
     fn new(start: Option<PathBuf>, settings: AudioSettings, ctx: egui::Context) -> Self {
+        audiozero_engine::soundgineer::warm_up();
         let mut audio = Output::open(&settings);
         let (midi, midi_status) = connect_midi(&mut audio, &ctx);
         let audio_note = audio.note.clone();
@@ -207,6 +229,8 @@ impl App {
             arrangement_drag: None,
             roll: None,
             prompt: None,
+            rename: None,
+            selected_track: None,
             pending: None,
             allow_close: false,
             title: String::new(),
@@ -220,6 +244,11 @@ impl App {
             tap_buffer: Vec::new(),
             visuals: None,
             export_dialog: None,
+            beat_repeats: 4,
+            pad_held: None,
+            sg_window: None,
+            audio_export: None,
+            audio_job: None,
             export_job: None,
         };
         match start {
@@ -327,7 +356,7 @@ impl App {
     fn ask_path(&mut self, mode: PathMode) {
         let suggestion = match (&self.file, mode) {
             (Some(path), _) => path.clone(),
-            (None, PathMode::SaveAs) => default_folder().join("Untitled.json"),
+            (None, PathMode::SaveAs) => default_folder().join("Untitled.azproj"),
             (None, PathMode::Open) => default_folder(),
         };
         self.prompt = Some(PathPrompt {
@@ -422,6 +451,10 @@ impl App {
 
     /// Drops selections that no longer point at anything.
     fn validate_selection(&mut self) {
+        let tracks = self.session.project().tracks.len();
+        if self.selected_track.is_some_and(|t| t >= tracks) {
+            self.selected_track = None;
+        }
         if self.selected_clip.is_some_and(|c| self.clip(c).is_none()) {
             self.selected_clip = None;
         }
@@ -465,6 +498,11 @@ impl App {
     }
 
     fn delete_track(&mut self, index: usize) {
+        self.selected_track = match self.selected_track {
+            Some(t) if t == index => None,
+            Some(t) if t > index => Some(t - 1),
+            other => other,
+        };
         let result = self.session.remove_track(index);
         self.finish(result);
         self.selected_clip = None;
@@ -639,6 +677,13 @@ impl App {
                     self.ask_path(PathMode::SaveAs);
                 }
                 ui.separator();
+                if ui
+                    .add_enabled(self.can_export_audio(), egui::Button::new("Export audio (WAV / MP3)…"))
+                    .clicked()
+                {
+                    self.open_audio_export();
+                }
+                ui.separator();
                 if ui.button("Quit").clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
@@ -676,12 +721,40 @@ impl App {
                 if ui.button("Add track").clicked() {
                     self.add_track();
                 }
+                let mut beat = None;
+                self.beats_menu(ui, "Add drum track with beat", |id| beat = Some(id));
+                if let Some(id) = beat {
+                    self.insert_beat(None, id);
+                    ui.close();
+                }
+            });
+            ui.menu_button("View", |ui| {
+                ui.label(egui::RichText::new("Colours").color(theme::text_dim()));
+                let current = theme::scheme().id;
+                for scheme in theme::SCHEMES {
+                    if ui.radio(current == scheme.id, scheme.name).clicked() {
+                        theme::set_scheme(ui.ctx(), scheme.id);
+                        let preferences = crate::settings::Preferences {
+                            theme: scheme.id.into(),
+                        };
+                        if let Err(e) = preferences.save() {
+                            self.status = format!("Can't save the colour choice: {e}");
+                        }
+                    }
+                }
             });
             ui.menu_button("Audio", |ui| {
                 if ui.button("Audio settings…").clicked() {
                     self.open_audio_dialog();
                 }
             });
+            if ui
+                .add_enabled(self.can_export_audio(), egui::Button::new("Export"))
+                .on_hover_text("Export the song as a WAV or MP3 file")
+                .clicked()
+            {
+                self.open_audio_export();
+            }
             ui.menu_button("Visuals", |ui| {
                 let open = self.visuals.is_some();
                 if ui
@@ -751,8 +824,11 @@ impl App {
                 self.set_without_undo(|p| p.loop_enabled = looping);
             }
             ui.checkbox(&mut self.view.follow, "Follow");
-            ui.label(egui::RichText::new(self.keys_label()).color(theme::TEXT_DIM))
+            ui.label(egui::RichText::new(self.keys_label()).color(theme::text_dim()))
                 .on_hover_text("Computer keyboard: A–K play notes on the armed or selected track; Z/X change octave, C/V velocity");
+            ui.separator();
+
+            self.key_picker(ui, "top");
             ui.separator();
 
             ui.label("Snap");
@@ -783,9 +859,9 @@ impl App {
         // The device on the right, then the status in what's left, cut short if it's long.
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let colour = if self.audio.has_device() {
-                theme::TEXT_DIM
+                theme::text_dim()
             } else {
-                theme::ACCENT
+                theme::accent()
             };
             let device =
                 egui::Label::new(egui::RichText::new(&self.audio.description).color(colour))
@@ -800,7 +876,7 @@ impl App {
             ui.separator();
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add(
-                    egui::Label::new(egui::RichText::new(&self.status).color(theme::TEXT_DIM))
+                    egui::Label::new(egui::RichText::new(&self.status).color(theme::text_dim()))
                         .truncate(),
                 )
                 .on_hover_text(&self.status);
@@ -808,7 +884,61 @@ impl App {
         });
     }
 
+    /// Opens the box for renaming `track`.
+    fn ask_rename(&mut self, track: usize) {
+        if let Some(t) = self.session.project().tracks.get(track) {
+            self.rename = Some(RenamePrompt {
+                track,
+                text: t.name.clone(),
+                focused: false,
+            });
+        }
+    }
+
     fn dialogs(&mut self, ctx: &egui::Context) {
+        if let Some(prompt) = &mut self.rename {
+            let (mut submit, mut cancel) = (false, false);
+            egui::Modal::new(egui::Id::unique("rename-track")).show(ctx, |ui| {
+                ui.set_width(360.0);
+                ui.heading("Rename track");
+                let (enter, escape) =
+                    ui.input(|i| (i.key_pressed(Key::Enter), i.key_pressed(Key::Escape)));
+                let edit = ui
+                    .add(egui::TextEdit::singleline(&mut prompt.text).desired_width(f32::INFINITY));
+                if !prompt.focused {
+                    edit.request_focus();
+                    // Select the old name, so typing replaces it.
+                    if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), edit.id) {
+                        state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::two(
+                                egui::text::CCursor::new(0),
+                                egui::text::CCursor::new(prompt.text.chars().count()),
+                            )));
+                        state.store(ui.ctx(), edit.id);
+                    }
+                    prompt.focused = true;
+                }
+                submit = enter;
+                cancel = escape;
+                ui.horizontal(|ui| {
+                    submit |= ui.button("Rename").clicked();
+                    cancel |= ui.button("Cancel").clicked();
+                });
+            });
+            if submit {
+                let (track, name) = (prompt.track, prompt.text.trim().to_owned());
+                self.rename = None;
+                if !name.is_empty() {
+                    let result = self.session.rename_track(track, &name);
+                    self.finish(result);
+                    self.status = format!("Renamed the track to \"{name}\".");
+                }
+            } else if cancel {
+                self.rename = None;
+            }
+        }
+
         if let Some(prompt) = &mut self.prompt {
             let mut submit = false;
             let mut cancel = false;
@@ -819,7 +949,7 @@ impl App {
                 } else {
                     "Save project as"
                 });
-                ui.label("Path to an AudioZero .json project:");
+                ui.label("Path to an AudioZero project (.azproj, or .json):");
                 // Read the keys before the text box, which consumes Enter and Escape.
                 let (enter, escape) =
                     ui.input(|i| (i.key_pressed(Key::Enter), i.key_pressed(Key::Escape)));
@@ -850,7 +980,7 @@ impl App {
                     PathMode::Open => self.open_path(&path),
                     PathMode::SaveAs => {
                         if path.extension().is_none() {
-                            path.set_extension("json");
+                            path.set_extension("azproj");
                         }
                         self.save_to(path);
                     }
@@ -887,7 +1017,11 @@ impl App {
     }
 
     fn shortcuts(&mut self, ctx: &egui::Context) {
-        if self.prompt.is_some() || self.pending.is_some() || ctx.egui_wants_keyboard_input() {
+        if self.prompt.is_some()
+            || self.pending.is_some()
+            || self.rename.is_some()
+            || ctx.egui_wants_keyboard_input()
+        {
             self.release_keys();
             return;
         }
@@ -903,13 +1037,35 @@ impl App {
             if pressed(Key::Z) {
                 if shift { self.redo() } else { self.undo() }
             }
+            if pressed(Key::R)
+                && let Some(track) = self.selected_track
+            {
+                self.ask_rename(track);
+            }
             if pressed(Key::Y) {
                 self.redo();
             }
-            if pressed(Key::D)
-                && let Some(at) = self.selected_clip
-            {
-                self.duplicate_clip(at);
+            // Once per press: a held key mustn't pile up copies.
+            let duplicate = ctx.input(|i| {
+                i.events.iter().any(|e| {
+                    matches!(
+                        e,
+                        egui::Event::Key {
+                            key: Key::D,
+                            pressed: true,
+                            repeat: false,
+                            ..
+                        }
+                    )
+                })
+            });
+            if duplicate {
+                // In the piano roll it's the notes that are duplicated, not the whole clip.
+                if self.roll.is_some() {
+                    self.duplicate_selected_notes();
+                } else if let Some(at) = self.selected_clip {
+                    self.duplicate_clip(at);
+                }
             }
             if pressed(Key::A)
                 && let Some(roll) = &mut self.roll
@@ -975,7 +1131,7 @@ impl App {
             }
         } else if let Some(path) = dropped
             .iter()
-            .find(|p| p.extension().is_some_and(|e| e == "json"))
+            .find(|p| p.extension().is_some_and(|e| e == "azproj" || e == "json"))
         {
             self.open_path(path);
         }
@@ -1018,7 +1174,7 @@ fn record_dot(ui: &mut egui::Ui, on: bool) -> egui::Response {
         let colour = if response.hovered() {
             red
         } else {
-            theme::TEXT_DIM
+            theme::text_dim()
         };
         painter.circle_stroke(rect.center(), radius, egui::Stroke::new(1.5, colour));
     }
@@ -1029,7 +1185,7 @@ fn record_dot(ui: &mut egui::Ui, on: bool) -> egui::Response {
 fn meter(ui: &mut egui::Ui, left: f32, right: f32, size: Vec2) {
     let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
     let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, 2.0, theme::BG);
+    painter.rect_filled(rect, 2.0, theme::bg());
     let half = rect.height() / 2.0;
     for (i, level) in [left, right].into_iter().enumerate() {
         let level = level.clamp(0.0, 1.0);
@@ -1042,7 +1198,7 @@ fn meter(ui: &mut egui::Ui, left: f32, right: f32, size: Vec2) {
         let colour = if level > 0.89 {
             Color32::from_rgb(0xef, 0x53, 0x50)
         } else if level > 0.5 {
-            theme::ACCENT
+            theme::accent()
         } else {
             Color32::from_rgb(0x66, 0xbb, 0x6a)
         };
@@ -1077,7 +1233,7 @@ impl eframe::App for App {
                 .resizable(true)
                 .default_size(280.0)
                 .min_size(220.0)
-                .frame(egui::Frame::NONE.fill(theme::PANEL).inner_margin(8.0))
+                .frame(egui::Frame::NONE.fill(theme::panel()).inner_margin(8.0))
                 .show(ui, |ui| self.devices(ui));
         }
         if self.roll.is_some() {
@@ -1085,7 +1241,7 @@ impl eframe::App for App {
                 .resizable(true)
                 .default_size(300.0)
                 .min_size(160.0)
-                .frame(egui::Frame::NONE.fill(theme::PANEL))
+                .frame(egui::Frame::NONE.fill(theme::panel()))
                 .show(ui, |ui| self.piano_roll(ui));
         }
         egui::CentralPanel::default()
@@ -1094,6 +1250,8 @@ impl eframe::App for App {
         self.dialogs(&ctx);
         self.audio_dialog(&ctx);
         self.export_ui(&ctx);
+        self.audio_export_ui(&ctx);
+        self.soundgineer_window(&ctx);
         self.update_title(&ctx);
 
         // Keep the playhead and meters moving.

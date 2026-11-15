@@ -16,12 +16,12 @@ use std::process::ExitCode;
 const USAGE: &str = "\
 Usage: audiozero [PROJECT] [OPTIONS]
 
-Opens the AudioZero window with PROJECT (an AudioZero .json project), or the demo song.
+Opens the AudioZero window with PROJECT (an AudioZero .azproj or .json project), or the demo song.
 
 Options:
   --play             Play from the command line instead of opening the window
   --render OUT.wav   Render to a WAV file instead of playing
-  --save OUT.json    Save the project (handy for getting a demo project to edit)
+  --save OUT.azproj  Save the project (handy for getting a demo project to edit)
   --scan             List CLAP and VST3 plugins in the standard folders (without loading them)
   --mcp              Run the MCP server on stdin/stdout, so an AI assistant can build and edit
                      PROJECT (created when saved if it doesn't exist; empty song if not given).
