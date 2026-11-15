@@ -2,96 +2,28 @@
 
 # AudioZero
 
-**NOISYLOOP's native C++ digital audio workstation.** It's built with JUCE: one codebase for macOS, Windows and Linux.
+**NOISYLOOP's digital audio workstation, written in Rust.** One small program for Windows, macOS and Linux, with no sample libraries to download:
 
-![AudioZero arrangement view with the Operator synth](docs/screenshots/devices.png)
+- an arrangement view and a piano roll that knows the song's key (with **Randomize** for instant in-key melodies);
+- built-in instruments: **Soundgineer** (a wavetable synth with 59 presets, in its own window), **Operator** (FM), a **drum rack** with techno, house, dubstep, hip hop, lo-fi and trap kits and ready-made beats, and **Kick Me**;
+- effects, recording from MIDI and audio inputs, and a choice of sound card;
+- **WAV and MP3 export**, and audio-reactive video export;
+- an **MCP server**, so an AI assistant can build and edit songs while you listen;
+- three colour schemes: Dark, Darker and Light.
 
-*Real screenshot of the current build with the built-in demo song. The bottom panel shows Operator on the "Chords" track.*
+It's early but working. [Download a build](#download-a-build) or [build it yourself](#build-it-yourself).
 
-| Piano roll | Mixer |
+![A trap beat in the drum rack, with its piano roll](docs/screenshots/rust-drums.png)
+
+| Soundgineer, in its own window | Operator |
 | --- | --- |
-| ![Piano roll](docs/screenshots/pianoroll.png) | ![Mixer](docs/screenshots/mixer.png) |
+| ![Soundgineer](docs/screenshots/rust-soundgineer.png) | ![Operator in the device panel](docs/screenshots/rust-operator.png) |
 
-## What's in this build
+*Real screenshots, taken on a machine with no sound card.*
 
-- **Arrangement view** (Ableton / Bitwig / FL style)
-  - Tracks with mute, solo, arm, volume and meters.
-  - A bar ruler with a draggable loop brace.
-  - Snap grid, zoom (Cmd/Ctrl + wheel or pinch) and a follow-playhead option.
-  - Clips:
-    - Double-click an empty lane to create a MIDI clip.
-    - Drag to move, also across tracks. Drag the edges to trim. Alt-drag copies.
-    - Split, duplicate, copy/paste, rename, colour and mute.
-  - Every edit can be undone and redone.
-- **Bring your own content**
-  - Drag your **audio files** (wav, aif, flac, mp3, ogg) or **MIDI files** from Finder/Explorer onto a track. You can also drag them from the browser's sample folders, where clicking a sample previews it.
-  - Drag a **`.vst3` bundle** straight onto a track or the device chain. Instruments go into the instrument slot and effects are added to the chain.
-  - Scanned plugins appear in the browser, where you can drag them or double-click them.
-  - Dropping anything below the last track creates a new track.
-- **Operator**, a built-in 4-operator FM synth:
-  - 8 algorithms with a live diagram.
-  - Per operator: waveform, coarse/fine ratio, level, velocity and an ADSR envelope.
-  - Feedback.
-  - A low/high/band-pass filter with its own envelope.
-  - An LFO that can modulate pitch, filter, volume or FM amount.
-  - A pitch envelope for kicks and zaps.
-  - 16 voices, sustain pedal, and 10 presets.
-  - It also builds as a **standalone VST3 plugin** ("AudioZero Operator") you can use in other DAWs.
-- **Built-in effects:** Reverb and a stereo/ping-pong Delay.
-- **Piano roll**
-  - Click to draw notes. Drag to move or resize.
-  - Right-click or double-click deletes a note. Shift-drag selects.
-  - Alt-drag copies. Q quantizes. Up/Down transposes. There's a velocity lane.
-- **Mixer** with volume, pan, mute, solo and meters on every track and the master.
-- **Transport**
-  - Play/stop, loop, metronome, and tempo/time signature (drag or double-click to type).
-  - MIDI recording from hardware controllers or the **computer keyboard**: A-K play notes, Z/X change octave, C/V change velocity.
-- **Projects** save as `.azproj` (XML, with plugin state). Audio generated in memory is saved next to the project. **Export to WAV** renders offline.
-- Hosted plugins receive tempo, position, play state and loop points, so tempo-synced effects work. Every MIDI input is enabled automatically.
+> **Looking for the C++ / JUCE app?** AudioZero started as a C++ app built with JUCE. It's still here, and it's still the only version that can host third-party VST3 plugins, but new work happens in the Rust app. See [The original C++ app](#the-original-c-app-juce).
 
-See **Help > Keyboard Shortcuts** in the app for the full list.
-
-## Your own VST3 plugins
-
-AudioZero hosts VST3 through JUCE, so plugins built with JUCE work, for example Kick Me, GrainBrain and The Blucher. There are three ways to add one:
-
-1. Drag the `.vst3` from Finder/Explorer onto a track or onto the bottom device panel.
-2. Click **Scan Plugins** in the browser. To add your own build folder, use **Add Folder... > Add VST3 plugin folder**.
-3. Click **+ Add Effect** / **Choose Instrument...** in the device panel and pick **Browse for a .vst3 file...**.
-
-Click **Open Editor** on a plugin's device card to show its own UI. Plugin state is saved inside the project.
-
-The test suite checks this path by building the Operator VST3, then loading it through AudioZero's host. The test plays a MIDI clip with it, saves the project and reloads it.
-
-## Building
-
-All platforms fetch JUCE 8.0.10 automatically, which needs internet access the first time.
-
-| Platform | Requirements | Command |
-| --- | --- | --- |
-| macOS | Xcode, CMake | `bash scripts/build-mac.sh` |
-| Windows | Visual Studio 2022 or newer (C++ workload), CMake | `powershell scripts/build-windows.ps1` |
-| Linux | CMake, Ninja, ALSA/X11/freetype dev packages (listed in the script) | `bash scripts/build-linux.sh` |
-
-Each build produces:
-
-- the app, `AudioZero(.app/.exe)`;
-- the plugin, `AudioZero Operator.vst3`, plus a standalone Operator app;
-- the test runner, `AudioZeroCoreTests`.
-
-`scripts/screenshots.sh` regenerates the README screenshots from the real app. Under the hood it runs `AudioZero --screenshot out.png --tab devices|pianoroll|mixer`.
-
-`resources/icon.png` is a placeholder icon generated by `scripts/make-icon.py`. Replace the PNG with your own; CMake turns it into the `.icns` and `.ico` files.
-
-## Rust rewrite (early)
-
-AudioZero is moving to Rust so it no longer depends on JUCE. The Rust workspace sits next to the C++ app, which stays the working build until the Rust one can replace it.
-
-![The Rust AudioZero window playing the demo song](docs/screenshots/rust-app.png)
-
-*The Rust app playing the built-in demo song, with a track's instrument menu open. It was captured on a machine with no sound card, so the status bar says it's playing silently.*
-
-What works so far:
+## What's in the app
 
 - **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, snap, master volume and per-track mute, solo and volume with level meters.
 - **Instruments:** **Operator**, a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument, or click the track's name and pick it in the device panel. The demo song has a Kick track.
@@ -159,6 +91,10 @@ What works so far:
 
 *The Audio settings window after switching output. It was captured on a machine with no sound card, using two stand-in devices ("Fake Speakers" and "Fake Studio Interface").*
 
+## Crates
+
+The Rust workspace is split so each part can be used and tested on its own.
+
 | Crate | What it is |
 | --- | --- |
 | `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Audio files are opened only after a path check (no network paths, no `..` out of the project folder, audio extensions only) and decoded with size, length and memory caps. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes the built-in instruments (Operator, a small sine synth, Kick Me) and a demo song. |
@@ -167,7 +103,7 @@ What works so far:
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
 | `crates/audiozero-app` | The `audiozero` app: the window, sound card and MIDI input, plus command-line options to play, render to WAV, save the demo project, list sound cards or installed plugins, or run the MCP server. |
 
-### Download a build
+## Download a build
 
 The latest release, no GitHub account needed:
 
@@ -177,9 +113,9 @@ The latest release, no GitHub account needed:
 | Windows 10/11, x86-64 | [audiozero-windows-x64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-windows-x64.zip) |
 | macOS, Apple silicon | [audiozero-macos-arm64.zip](https://github.com/noisyloop/AudioZero/releases/latest/download/audiozero-macos-arm64.zip) |
 
-Checksums are in [SHA256SUMS.txt](https://github.com/noisyloop/AudioZero/releases/latest/download/SHA256SUMS.txt), and older versions are on the [Releases](https://github.com/noisyloop/AudioZero/releases) page. These links work once the first release has been published.
+Checksums are in [SHA256SUMS.txt](https://github.com/noisyloop/AudioZero/releases/latest/download/SHA256SUMS.txt), and older versions are on the [Releases](https://github.com/noisyloop/AudioZero/releases) page.
 
-To publish a release, open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml), click **Run workflow**, pick the branch and fill in **Publish a release with this tag** (for example `v0.1.0`). It builds all three systems, macOS included, and publishes them as a GitHub Release.
+To publish a release, open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml), click **Run workflow**, pick the branch and fill in **Publish a release with this tag** (for example `v0.5.0`). It builds all three systems, macOS included, and publishes them as a GitHub Release.
 
 Builds from any run (without a release) are under that run's **Artifacts**:
 
@@ -196,7 +132,7 @@ Each download is a zip containing the program. The command-line options below wo
 
 To make a new build, open the workflow, click **Run workflow** and pick a branch. Tick **Also build on macOS** only when you need it: macOS minutes count 10x against the Actions allowance.
 
-### Build it yourself
+## Build it yourself
 
 ```sh
 cargo run --release -p audiozero-app                          # open the window with the demo song
@@ -215,7 +151,7 @@ cargo test --workspace                                        # all tests
 
 On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio input and output), `midir` (MIDI input) and `eframe`/`egui` (the window).
 
-### Audio-reactive visuals
+## Audio-reactive visuals
 
 AudioZero has a built-in VJ. **Visuals > Show live visuals** opens a window that reacts while the song plays; put it on a second screen and press F11 (or double-click) for full screen. **Visuals > Export video…** renders a music video of the song or the loop, with its audio, in the background while you keep working (with progress and Cancel). An assistant can export too, with the MCP tool `export_video`.
 
@@ -237,7 +173,7 @@ audiozero song.json --still preview.png --at 12                       # one fram
 
 Export renders offline, frame by frame, so the video is always in sync and the same project gives the same video. It's drawn on the CPU, spread over all cores: a 20-second song took about 16 seconds at 1080p on a 4-core cloud machine. Custom shaders (on the GPU) and a node graph come next; see the roadmap.
 
-### AI control (MCP)
+## AI control (MCP)
 
 `audiozero --mcp [PROJECT]` runs an [MCP](https://modelcontextprotocol.io) server on stdin/stdout, so an assistant such as Claude can build and edit a song while you listen. It edits `PROJECT` (an existing `.json` project, or a new one that's created on the first save), or an empty song if none is given, and plays through your speakers.
 
@@ -278,32 +214,113 @@ Every build is manual for now: pushes, pull requests and merges don't start any 
 
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `rust.yml` | Linux, Windows (+ macOS on request) | Rust workspace: format check, Clippy, tests, demo render, and release builds of the app uploaded as downloads (see [Download a build](#download-a-build)) |
-| `ci.yml` | Windows + Linux | C++ app: build, all tests, app + VST3 artifacts, Linux UI screenshot |
-| `mac-build.yml` | macOS | C++ app: build, all tests (including the VST3 host smoke test), unsigned DMG, Operator VST3 artifact |
+| `rust.yml` | Linux, Windows (+ macOS on request) | **The Rust app:** format check, Clippy, tests, demo render, and release builds uploaded as downloads or published as a release (see [Download a build](#download-a-build)) |
+| `ci.yml` | Windows + Linux | The original C++ app: build, all tests, app + VST3 artifacts, Linux UI screenshot |
+| `mac-build.yml` | macOS | The original C++ app: build, all tests (including the VST3 host smoke test), unsigned DMG, Operator VST3 artifact |
 
-macOS minutes count 10x against the GitHub Actions allowance, so run `mac-build.yml` only when you need a Mac build.
+macOS minutes count 10x against the GitHub Actions allowance, so run `mac-build.yml` only when you need a Mac build of the C++ app (the Rust workflow only builds on macOS when asked).
 
 ## Status and known limitations
 
 This is an early but working DAW. Not done yet:
 
-- No audio input recording; MIDI recording works.
+- **Third-party plugins don't load in the Rust app.** `audiozero-host` finds CLAP and VST3 plugins but doesn't run them. Hosting (out of process, so a crashing plugin can't take the app down) and a way to show each plugin's own UI come next. Until then, the C++ app is the one that hosts VST3.
 - No automation lanes, clip launcher (session view) or time-stretching. Audio clips play at their original speed.
-- Plugins run in the same process, so a crashing plugin crashes AudioZero. Sandboxing is planned.
-- No plugin delay compensation.
-- Only VST3 is hosted (no AU yet).
-- Undo covers arrangement edits. Device add/remove isn't undoable yet.
+- No input monitoring, and no latency compensation for recorded takes or for plugins.
+- Undo covers arrangement, instrument and effect edits. Mixer and tempo changes aren't undo steps.
+- Sound cards go through the system's audio (WASAPI, Core Audio, ALSA). ASIO and JACK aren't supported.
+- The built-in synths leave some things out compared with their originals: see the notes under **Operator** and **Soundgineer** above.
 - The macOS and Windows builds are unsigned.
-- MCP / AI control exists only in the Rust app: `audiozero --mcp` (see [AI control (MCP)](#ai-control-mcp)). The server and the window don't share a live session yet.
+- MCP / AI control works on a project file, not on the open window's session: the server and the window don't share a live session yet (see [AI control (MCP)](#ai-control-mcp)).
 
 ## Roadmap
 
 1. **Hardening:** trust plugins by identity instead of the path in the project file, validate project and audio input, plugin sandboxing, latency compensation, crash recovery and autosave, signed installers. See [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) for the findings and the prioritised plan.
-2. **Workflow:** automation, clip launcher, audio recording, warping, sampler and drum rack, more built-in effects.
+2. **Workflow:** automation, clip launcher, warping, a sampler, more built-in effects and instruments. (Audio recording and the drum rack are done.)
 3. **MCP server:** the first version is in the Rust app. Next: drive the open window's session live (with the activity log visible in the UI), give plugins by identity once hosting lands, and render previews the assistant can check.
-4. **Plugins by others:** host CLAP and VST3 out of process, and offer [Nusick](https://github.com/noisyloop/Nusick) as the SDK for writing them, with a template and docs.
+4. **Plugins by others:** host CLAP and VST3 out of process, with a way to show each plugin's own UI, and offer [Nusick](https://github.com/noisyloop/Nusick) as the SDK for writing them, with a template and docs. The built-in synths' DSP can move into Nusick so they can also ship as plugins for other DAWs.
 5. **Audio-reactive visuals (built-in VJ):** visuals driven by the arrangement's notes, beats and audio, shown live while playing and exported for the song's length (or the loop or a selection) as 16:9, 9:16 shorts, 1:1 or 4:5, in MP4/H.264, H.265, WebM, ProRes or PNG frames with the audio.
    1. ✅ Built-in looks, a live window, and export (rendered offline, frame-accurate). In v0.2.0.
    2. Your own shaders (WGSL, reloaded as you edit), mapping any sound feature to any parameter, and automatable visual parameters.
    3. A TouchDesigner-style node graph on `wgpu`, sandboxed visual plugins (shaders and WebAssembly), and a visual SDK in Nusick.
+
+## The original C++ app (JUCE)
+
+AudioZero began as a C++ app built with JUCE. It's still in this repository (`src/`, `CMakeLists.txt`) and still builds, and it is **the only version that can host third-party VST3 plugins today**. New features go into the Rust app, which will replace it once it can host plugins too (see the [roadmap](#roadmap)).
+
+![The C++ app's arrangement view with the Operator synth](docs/screenshots/devices.png)
+
+| Piano roll | Mixer |
+| --- | --- |
+| ![Piano roll](docs/screenshots/pianoroll.png) | ![Mixer](docs/screenshots/mixer.png) |
+
+### What's in the C++ build
+
+- **Arrangement view** (Ableton / Bitwig / FL style)
+  - Tracks with mute, solo, arm, volume and meters.
+  - A bar ruler with a draggable loop brace.
+  - Snap grid, zoom (Cmd/Ctrl + wheel or pinch) and a follow-playhead option.
+  - Clips:
+    - Double-click an empty lane to create a MIDI clip.
+    - Drag to move, also across tracks. Drag the edges to trim. Alt-drag copies.
+    - Split, duplicate, copy/paste, rename, colour and mute.
+  - Every edit can be undone and redone.
+- **Bring your own content**
+  - Drag your **audio files** (wav, aif, flac, mp3, ogg) or **MIDI files** from Finder/Explorer onto a track. You can also drag them from the browser's sample folders, where clicking a sample previews it.
+  - Drag a **`.vst3` bundle** straight onto a track or the device chain. Instruments go into the instrument slot and effects are added to the chain.
+  - Scanned plugins appear in the browser, where you can drag them or double-click them.
+  - Dropping anything below the last track creates a new track.
+- **Operator**, a built-in 4-operator FM synth:
+  - 8 algorithms with a live diagram.
+  - Per operator: waveform, coarse/fine ratio, level, velocity and an ADSR envelope.
+  - Feedback.
+  - A low/high/band-pass filter with its own envelope.
+  - An LFO that can modulate pitch, filter, volume or FM amount.
+  - A pitch envelope for kicks and zaps.
+  - 16 voices, sustain pedal, and 10 presets.
+  - It also builds as a **standalone VST3 plugin** ("AudioZero Operator") you can use in other DAWs.
+- **Built-in effects:** Reverb and a stereo/ping-pong Delay.
+- **Piano roll**
+  - Click to draw notes. Drag to move or resize.
+  - Right-click or double-click deletes a note. Shift-drag selects.
+  - Alt-drag copies. Q quantizes. Up/Down transposes. There's a velocity lane.
+- **Mixer** with volume, pan, mute, solo and meters on every track and the master.
+- **Transport**
+  - Play/stop, loop, metronome, and tempo/time signature (drag or double-click to type).
+  - MIDI recording from hardware controllers or the **computer keyboard**: A-K play notes, Z/X change octave, C/V change velocity.
+- **Projects** save as `.azproj` (XML, with plugin state). Audio generated in memory is saved next to the project. **Export to WAV** renders offline.
+- Hosted plugins receive tempo, position, play state and loop points, so tempo-synced effects work. Every MIDI input is enabled automatically.
+
+See **Help > Keyboard Shortcuts** in the app for the full list.
+
+### Your own VST3 plugins
+
+AudioZero hosts VST3 through JUCE, so plugins built with JUCE work, for example Kick Me, GrainBrain and The Blucher. There are three ways to add one:
+
+1. Drag the `.vst3` from Finder/Explorer onto a track or onto the bottom device panel.
+2. Click **Scan Plugins** in the browser. To add your own build folder, use **Add Folder... > Add VST3 plugin folder**.
+3. Click **+ Add Effect** / **Choose Instrument...** in the device panel and pick **Browse for a .vst3 file...**.
+
+Click **Open Editor** on a plugin's device card to show its own UI. Plugin state is saved inside the project.
+
+The test suite checks this path by building the Operator VST3, then loading it through AudioZero's host. The test plays a MIDI clip with it, saves the project and reloads it.
+
+### Building the C++ app
+
+All platforms fetch JUCE 8.0.10 automatically, which needs internet access the first time.
+
+| Platform | Requirements | Command |
+| --- | --- | --- |
+| macOS | Xcode, CMake | `bash scripts/build-mac.sh` |
+| Windows | Visual Studio 2022 or newer (C++ workload), CMake | `powershell scripts/build-windows.ps1` |
+| Linux | CMake, Ninja, ALSA/X11/freetype dev packages (listed in the script) | `bash scripts/build-linux.sh` |
+
+Each build produces:
+
+- the app, `AudioZero(.app/.exe)`;
+- the plugin, `AudioZero Operator.vst3`, plus a standalone Operator app;
+- the test runner, `AudioZeroCoreTests`.
+
+`scripts/screenshots.sh` regenerates the README screenshots from the real app. Under the hood it runs `AudioZero --screenshot out.png --tab devices|pianoroll|mixer`.
+
+`resources/icon.png` is a placeholder icon generated by `scripts/make-icon.py`. Replace the PNG with your own; CMake turns it into the `.icns` and `.ico` files.
