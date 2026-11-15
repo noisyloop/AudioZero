@@ -10,7 +10,7 @@ use eframe::egui;
 
 /// Draws the control for one parameter: a slider, a tick box or a list, depending on its kind.
 /// `value` is changed if the user changed it (see the response's `changed`).
-fn param_control(
+pub(super) fn param_control(
     ui: &mut egui::Ui,
     salt: (usize, &str),
     p: &Param,
@@ -68,6 +68,7 @@ fn param_control(
 enum Action {
     Beat(&'static str),
     Close,
+    OpenEditor,
     Instrument(Option<&'static str>),
     Preset(&'static str),
     Add(&'static str),
@@ -143,6 +144,16 @@ impl App {
                 });
                 if drums {
                     self.beats_menu(ui, "Beats", |id| action = Some(Action::Beat(id)));
+                }
+                if instrument_id == Some("soundgineer")
+                    && ui
+                        .button("Open editor")
+                        .on_hover_text(
+                            "Soundgineer's own window: every control, the presets and a keyboard",
+                        )
+                        .clicked()
+                {
+                    action = Some(Action::OpenEditor);
                 }
             });
         }
@@ -230,6 +241,7 @@ impl App {
 
         match action {
             Some(Action::Close) => self.device_track = None,
+            Some(Action::OpenEditor) => self.open_soundgineer(index),
             Some(Action::Instrument(id)) => {
                 let result = self.session.set_instrument(index, id.map(Device::builtin));
                 self.finish(result);

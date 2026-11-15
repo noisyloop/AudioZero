@@ -13,16 +13,20 @@ pub trait Instrument: Send {
     /// Sets parameter `index` (in [`instrument_params`] order) to `value`. Instruments without
     /// parameters ignore it.
     fn set_param(&mut self, _index: usize, _value: f32) {}
+    /// Tells the instrument the song's tempo, in beats per minute, when it's built and whenever
+    /// it changes (for LFOs and delays that follow the beat).
+    fn set_tempo(&mut self, _bpm: f64) {}
     /// Adds the next `left.len()` samples into `left` and `right` (both the same length).
     fn render(&mut self, left: &mut [f32], right: &mut [f32]);
 }
 
 /// Built-in instruments: project id and display name.
-pub const BUILTINS: [(&str, &str); 4] = [
+pub const BUILTINS: [(&str, &str); 5] = [
     ("sine", "Sine synth"),
     ("kick", "Kick Me (Nusick)"),
     ("operator", "Operator (FM synth)"),
     ("drums", "Drum rack"),
+    ("soundgineer", "Soundgineer (wavetable synth)"),
 ];
 
 /// The parameters of a built-in instrument, or `None` if it has none (or `id` isn't one).
@@ -30,6 +34,7 @@ pub fn instrument_params(id: &str) -> Option<&'static [Param]> {
     match id {
         "operator" => Some(&crate::operator::PARAMS),
         "drums" => Some(&crate::drums::PARAMS),
+        "soundgineer" => Some(&crate::soundgineer::PARAMS),
         _ => None,
     }
 }
@@ -40,6 +45,7 @@ pub fn instrument_sections(id: &str) -> &'static [(&'static str, std::ops::Range
     match id {
         "operator" => &crate::operator::SECTIONS,
         "drums" => &crate::drums::SECTIONS,
+        "soundgineer" => &crate::soundgineer::SECTIONS,
         _ => &[],
     }
 }
@@ -49,6 +55,7 @@ pub fn instrument_presets(id: &str) -> &'static [&'static str] {
     match id {
         "operator" => &crate::operator::PRESETS,
         "drums" => &crate::drums::PRESETS,
+        "soundgineer" => &crate::soundgineer::PRESETS,
         _ => &[],
     }
 }
@@ -58,6 +65,7 @@ pub fn instrument_preset(id: &str, preset: &str) -> Option<&'static [(&'static s
     match id {
         "operator" => crate::operator::preset(preset),
         "drums" => crate::drums::preset(preset),
+        "soundgineer" => crate::soundgineer::preset(preset),
         _ => None,
     }
 }
@@ -69,6 +77,7 @@ pub fn create_builtin(id: &str) -> Option<Box<dyn Instrument>> {
         "kick" => Some(Box::new(Kick::new())),
         "operator" => Some(Box::new(crate::operator::Operator::new())),
         "drums" => Some(Box::new(crate::drums::DrumRack::new())),
+        "soundgineer" => Some(Box::new(crate::soundgineer::Soundgineer::new())),
         _ => None,
     }
 }

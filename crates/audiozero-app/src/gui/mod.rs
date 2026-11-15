@@ -12,6 +12,7 @@ mod devices;
 mod export_audio;
 mod live;
 mod piano_roll;
+mod soundgineer;
 mod theme;
 mod visuals;
 
@@ -182,6 +183,8 @@ struct App {
     beat_repeats: usize,
     /// The drum pad being held down with the mouse, by note.
     pad_held: Option<u8>,
+    /// Soundgineer's own window, if it's open.
+    sg_window: Option<soundgineer::Window>,
     audio_export: Option<export_audio::AudioExportDialog>,
     audio_job: Option<export_audio::AudioExportJob>,
     export_job: Option<visuals::ExportJob>,
@@ -189,6 +192,7 @@ struct App {
 
 impl App {
     fn new(start: Option<PathBuf>, settings: AudioSettings, ctx: egui::Context) -> Self {
+        audiozero_engine::soundgineer::warm_up();
         let mut audio = Output::open(&settings);
         let (midi, midi_status) = connect_midi(&mut audio, &ctx);
         let audio_note = audio.note.clone();
@@ -229,6 +233,7 @@ impl App {
             export_dialog: None,
             beat_repeats: 4,
             pad_held: None,
+            sg_window: None,
             audio_export: None,
             audio_job: None,
             export_job: None,
@@ -1161,6 +1166,7 @@ impl eframe::App for App {
         self.audio_dialog(&ctx);
         self.export_ui(&ctx);
         self.audio_export_ui(&ctx);
+        self.soundgineer_window(&ctx);
         self.update_title(&ctx);
 
         // Keep the playhead and meters moving.

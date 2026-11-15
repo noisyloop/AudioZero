@@ -8,6 +8,7 @@
 //! - [`effects`]: built-in track effects (delay, reverb, compressor).
 //! - [`engine`]: renders a project to audio, sample-accurately, without allocating on the audio thread.
 //! - [`export`]: rendering a song to a WAV or MP3 file.
+//! - [`soundgineer`]: Soundgineer, the built-in wavetable synth.
 //! - [`sample`]: audio files for audio clips: path checks, bounded decoding and a pool of
 //!   decoded audio.
 //! - [`synth`]: the [`Instrument`](synth::Instrument) trait and built-in instruments, including
@@ -28,6 +29,7 @@ pub mod operator;
 pub mod project;
 pub mod sample;
 pub mod session;
+pub mod soundgineer;
 pub mod synth;
 pub mod wav;
 

@@ -218,6 +218,7 @@ impl Engine {
                 let mut instrument = instrument;
                 if let Some(i) = instrument.as_mut() {
                     i.prepare(sample_rate);
+                    i.set_tempo(project.bpm);
                     let device = track.instrument.as_ref();
                     let info = device.and_then(Device::params_info).unwrap_or_default();
                     for (index, p) in info.iter().enumerate() {
@@ -289,6 +290,10 @@ impl Engine {
 
     pub fn set_bpm(&mut self, bpm: f64) {
         self.project.bpm = finite(bpm, 20.0, 999.0, self.project.bpm);
+        let bpm = self.project.bpm;
+        for instrument in self.tracks.iter_mut().filter_map(|t| t.instrument.as_mut()) {
+            instrument.set_tempo(bpm);
+        }
     }
 
     pub fn set_master_volume(&mut self, volume: f32) {

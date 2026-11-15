@@ -609,6 +609,72 @@ fn effects_through_mcp() {
 }
 
 #[test]
+fn the_key_through_mcp() {
+    let mut s = server();
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["key"], "C major");
+    ok(&mut s, "set_key", json!({ "key": 9, "scale": "minor" }));
+    assert_eq!(ok(&mut s, "get_project", json!({}))["key"], "A minor");
+    refused(&mut s, "set_key", json!({ "key": 12, "scale": "minor" }));
+    let m = refused(&mut s, "set_key", json!({ "key": 0, "scale": "wobbly" }));
+    assert!(m.contains("major"), "{m}");
+}
+
+#[test]
+fn soundgineer_through_mcp() {
+    let mut s = server();
+    let list = ok(&mut s, "list_instruments", json!({}));
+    let sg = list["instruments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["id"] == "soundgineer")
+        .unwrap()
+        .clone();
+    assert_eq!(sg["params"].as_array().unwrap().len(), 273);
+    assert_eq!(sg["presets"].as_array().unwrap().len(), 59);
+    assert!(
+        sg["presets"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("Reese Bass"))
+    );
+    ok(
+        &mut s,
+        "set_instrument",
+        json!({ "track": 0, "instrument": "soundgineer" }),
+    );
+    ok(
+        &mut s,
+        "set_instrument_preset",
+        json!({ "track": 0, "preset": "Sync Pluck" }),
+    );
+    assert!(
+        !s.audio().applied.last().unwrap().reload,
+        "a preset is heard live"
+    );
+    ok(
+        &mut s,
+        "set_instrument_param",
+        json!({ "track": 0, "param": "filter1.cutoff", "value": 1200 }),
+    );
+    let project = ok(&mut s, "get_project", json!({}));
+    let params = &project["tracks"][0]["instrument_params"];
+    assert_eq!(params["filter1.cutoff"], 1200.0);
+    assert_eq!(params["osc1.morph"], 0.55);
+    assert!(
+        params["mod1.depth"].as_f64().unwrap() > 0.0,
+        "the preset's routes came with it"
+    );
+    let m = refused(
+        &mut s,
+        "set_instrument_param",
+        json!({ "track": 0, "param": "mod1.dest", "value": 9999 }),
+    );
+    assert!(m.contains("between"), "{m}");
+}
+
+#[test]
 fn drum_beats_through_mcp() {
     let mut s = server_with(Project::default(), None, temp_folder("drums"));
     let list = ok(&mut s, "list_instruments", json!({}));

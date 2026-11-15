@@ -388,6 +388,18 @@ const TOOLS: &[Tool] = &[
         destructive: true,
     },
     Tool {
+        name: "set_key",
+        title: "Set key",
+        description: "Sets the song's key and scale. The piano roll marks the notes of the scale. Existing notes aren't changed. Not an undo step. Scales: major, minor, dorian, phrygian, lydian, mixolydian, harmonic_minor, melodic_minor, major_pentatonic, minor_pentatonic, blues, chromatic.",
+        properties: props!(
+            r#""key": { "type": "integer", "minimum": 0, "maximum": 11, "description": "The root note: 0 is C, 1 is C#, ... 11 is B" }"#,
+            r#""scale": { "type": "string", "description": "A scale id, for example minor" }"#
+        ),
+        required: &["key", "scale"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
         name: "add_drum_beat",
         title: "Add drum beat",
         description: "Adds a ready-made drum beat (ids and tempos are in list_instruments under drum_beats) as a clip. With no `track` it makes a new \"Drums\" track with the beat's kit; with a track (which needs the \"drums\" instrument) it goes after that track's last clip. In a song with no clips yet the tempo is set to the beat's. One undo step. Edit the notes afterwards with the note tools: drum pads are notes 36 (kick) to 51.",
@@ -1173,6 +1185,20 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 "look": settings.look,
             }))
         }
+        "set_key" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                key: u8,
+                scale: String,
+            }
+            let a: Args = parse(arguments)?;
+            let changes = s
+                .session
+                .set_key(a.key, &a.scale)
+                .map_err(|e| e.to_string())?;
+            Ok(done(s, &changes, json!({ "key": a.key, "scale": a.scale })))
+        }
         "add_drum_beat" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -1357,6 +1383,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
         "file": file,
         "unsaved_changes": s.session.is_dirty(),
         "bpm": p.bpm,
+        "key": audiozero_engine::music::key_name(p.key, &p.scale),
         "beats_per_bar": p.beats_per_bar,
         "loop": { "enabled": p.loop_enabled, "start": p.loop_start, "end": p.loop_end },
         "master_volume": f32_out(p.master_volume),

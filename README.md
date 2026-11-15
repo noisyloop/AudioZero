@@ -101,6 +101,20 @@ What works so far:
   - 16 voices and the same 10 presets (**Presets** in the device panel): Electric Piano, FM Bass, Glass Bell, Warm Pad, Kick, Pluck, Brass, Wobble Bass, Hi-Hat and Init.
   - Every setting is in the device panel, in sections you can fold. Changes are heard while it plays, saved in the project and undoable; a preset is one undo step.
   - Not ported yet: the algorithm diagram and the sustain pedal.
+- **Soundgineer** is the wavetable synth from [noisyloop/soundgineer](https://github.com/noisyloop/soundgineer), ported to Rust:
+  - Three wavetable oscillators (six built-in tables, generated at start-up, matching the original sample for sample), each with up to 16 unison voices, morph, detune, blend, stereo spread, start phase and hard sync; a sub and a noise oscillator.
+  - Two filters in series or parallel (12/24 dB low, high, band pass, notch, comb and vowel formant), a distortion section, six envelopes, eight LFOs, four macros, and a rack of eight effects (chorus, phaser, flanger, delay, reverb, EQ, compressor, distortion). The LFOs and the delay can follow the song's tempo.
+  - A modulation matrix with 16 slots: any of 24 sources to any of 112 targets.
+  - The 59 factory presets, by category (**Presets** in the device panel, or in its own window).
+  - **Open editor** in the device panel opens Soundgineer in **its own window**: every control on five pages, the preset browser, and a four-octave keyboard you can play with the mouse or the computer keyboard (A–K). **Record** puts what you play into a clip, and **Add clip** makes an empty one and opens it in the piano roll.
+  - The parameters and presets are generated from the original's source (`scripts/soundgineer`), so the two stay in step.
+  - Not ported: drawing your own LFO curves (every LFO is a triangle), importing your own wavetables and the noise sample slot, reordering the effects, the sustain pedal and the visualisers.
+
+  ![Soundgineer's window](docs/screenshots/rust-soundgineer.png)
+- **Drum rack** (**Drum rack** in the instrument list): 16 synthesized pads on the General MIDI drum notes 36–51 (kick, rim, snare, clap, toms, hats, shaker, perc, 808, crash, FX, ride), with six kits: **techno, house, dubstep, hip hop, lo-fi and trap**. Nothing is sampled, so it adds almost nothing to the download. Kit, volume, tune, decay, tone and a level per pad are in the device panel, which also has a 4×4 pad grid to play with the mouse (the computer keyboard plays the pads too). The closed and open hi-hats choke each other.
+  - **Ready-made beats:** 18 of them, three per genre. **Edit > Add drum track with beat** makes a drum track with the right kit and the beat as a clip; the device panel's **Beats** menu adds one to an existing drum track. In an empty song the tempo follows the beat. Beats are ordinary clips, so you can edit them in the piano roll, where each row is labelled with its pad.
+
+  ![A trap beat in the drum rack's piano roll](docs/screenshots/rust-drums.png)
 - **Audio clips:** drag audio files (wav, aif, flac, mp3, ogg) from your file manager onto a track, or below the last track to get a new track. Several files at once go one after another. Audio clips show their waveform and play at the file's own speed (no time-stretching yet). They move, resize, duplicate, mute and undo like MIDI clips. Files inside the project's folder are stored with relative paths, so the folder can be moved.
 - **Effects:** click a track's name to open its device panel on the right. Choose the instrument, add **Delay** (ping-pong), **Reverb** or **Compressor** with **+ Add effect**, and set their parameters with sliders. Changes are heard straight away without interrupting playback. Adding, removing and changing effects can be undone; a whole slider drag is one step.
 - **Sound card:** **Audio > Audio settings** (or a click on the device name in the status bar) chooses the output and input device, the sample rate and the buffer size.
@@ -117,16 +131,21 @@ What works so far:
   - A track with an instrument records MIDI into a new clip that covers whole bars. A track without an instrument records audio from the input chosen in the audio settings (the system's default input unless you pick one) as a 24-bit WAV in the project's `Recordings` folder (`~/Music/AudioZero/Recordings` if the project hasn't been saved), then adds it as an audio clip.
   - A take is one undo step. There's no input monitoring or latency compensation yet.
 - **Clip editing:** click to select, drag to move (also onto another track), drag the right edge to resize, double-click an empty lane to add a clip, and right-click for Edit notes, Duplicate, Mute and Delete. Add tracks with **+ Add track** and remove them by right-clicking a track's header.
+- **Export:** the **Export** button (or **File > Export audio**) renders the whole song or the loop range to a **WAV** (16 or 24-bit) or an **MP3** (128 to 320 kbps, through FFmpeg) at 44.1, 48 or 96 kHz. It runs in the background with progress and Cancel, writes to a temporary file that's renamed into place only when it's finished, and never replaces a file unless you tick Replace. The reverb and delay tails are included (a 2 second tail after the last clip).
+- **Colours:** **View > Colours** switches between **Dark**, **Darker** and **Light**, and remembers the choice.
 - **Piano roll:** double-click a clip to edit its notes:
   - click to add a note, or drag from an empty spot to draw one at the length you want;
   - drag notes to move them, and drag a note's right edge to change its length;
   - Shift-click to select several notes, Ctrl/Cmd + A to select all;
-  - right-click or Delete to remove, Up/Down to transpose (Shift moves an octave).
+  - drag across an empty area to select the notes inside the box (Shift adds to the selection), or Ctrl/Cmd-drag from an empty spot to draw a note;
+  - right-click or Delete to remove, Up/Down to transpose (Shift moves an octave);
+  - Ctrl/Cmd + D duplicates the selected notes to straight after them (and selects the copies, so pressing it again carries on);
+  - **Key and scale:** the song's key is chosen in the top bar or the piano roll (twelve keys; major, minor, the church modes, harmonic and melodic minor, pentatonics, blues or chromatic). The roll dims notes outside the scale, **In key** keeps new and moved notes on it, and **Randomize** writes a new melody in key (or new pitches for the selected notes), a different one each press. Undo brings the old notes back.
 - **Grid:** snap to bars, 1/4, 1/8, 1/16 or 1/32, or turn it off. Holding Alt ignores the grid.
 - **Undo:** every clip, note, track and instrument edit can be undone and redone (Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z or Ctrl + Y). A whole drag is one step. Mixer and tempo changes aren't undo steps, and undoing an edit leaves them as they are. All edits go through one `Session` (in the engine crate), which the MCP server uses too.
 - **Editing while playing:** an edit swaps in just that track's clips, so playback carries on. Adding or removing a track rebuilds the engine and keeps the playhead where it was. Every edit gets the same validation as a project file.
 - **Navigation:** click or drag the ruler to move the playhead; Ctrl/Cmd + wheel or pinch zooms; the wheel scrolls (Shift for sideways).
-- **Shortcuts:** Space plays and stops, Home goes back to the start, Ctrl/Cmd + S saves, Ctrl/Cmd + O opens, Ctrl/Cmd + D duplicates the selected clip.
+- **Shortcuts:** Space plays and stops, Home goes back to the start, Ctrl/Cmd + S saves, Ctrl/Cmd + O opens, Ctrl/Cmd + D duplicates the selected clip (or, in the piano roll, the selected notes). A copied clip goes after any clips in the way, never on top of them.
 - **Projects:** open, save and save-as (`.json`), drag a project onto the window to open it, and AudioZero asks before throwing away unsaved changes.
 - **No sound card:** the app still runs, and the playhead moves without sound.
 
@@ -234,12 +253,13 @@ The tools:
 
 - **Read:** `get_project`, `get_clip` and `list_instruments`.
 - **Tracks:** `add_track`, `remove_track`, `rename_track`, `set_instrument` and `set_track_mix`.
-- **Instrument settings:** `set_instrument_param` and `set_instrument_preset`, for Operator (`list_instruments` lists its parameters and presets).
+- **Instrument settings:** `set_instrument_param` and `set_instrument_preset`, for Operator, the drum rack and Soundgineer (`list_instruments` lists their parameters and presets).
 - **Effects:** `add_effect`, `remove_effect` and `set_effect_param` (`list_instruments` lists the effects and their parameters).
 - **Clips:** `add_clip` (optionally with notes), `update_clip`, `move_clip`, `duplicate_clip` and `remove_clip`.
 - **Notes:** `add_notes`, `set_notes`, `remove_notes` and `transpose_notes`.
 - **Song:** `set_transport` (tempo, loop, master volume), `undo`, `redo`, `play`, `stop` and `save`.
-- **Video:** `export_video` (look, format, fps, song or loop, MP4/WebM/PNG frames) into a new file in `~/Music/AudioZero`.
+- **Drums and key:** `add_drum_beat` (a ready-made beat on a new or existing drum track; `list_instruments` lists the beats, the kits and the pads) and `set_key`.
+- **Export:** `export_audio` (WAV or MP3, song or loop) and `export_video` (look, format, fps, song or loop, MP4/WebM/PNG frames), each into a new file in `~/Music/AudioZero`.
 
 It follows the rules in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md#before-the-mcp-server-ships):
 
