@@ -2,7 +2,7 @@
 //! and turning takes into clips.
 //!
 //! Which take a track records depends on the track: a track with an instrument records MIDI, a
-//! track without one records audio from the default input.
+//! track without one records audio from the input chosen in the audio settings.
 
 use super::App;
 use crate::input::AudioIn;
@@ -83,7 +83,7 @@ impl App {
             self.status = format!("\"{}\" is armed: play a MIDI keyboard or A–K.", t.name);
         } else {
             let name = t.name.clone();
-            match AudioIn::open() {
+            match AudioIn::open(&self.audio_settings) {
                 Ok(input) => {
                     self.status =
                         format!("\"{name}\" is armed to record from {}.", input.description);

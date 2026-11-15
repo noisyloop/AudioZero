@@ -57,6 +57,13 @@ pub enum Command {
         effect: usize,
         values: [f32; crate::effects::MAX_PARAMS],
     },
+    /// Change one parameter of a track's instrument, by its index in
+    /// [`crate::synth::instrument_params`].
+    SetInstrumentParam {
+        track: usize,
+        index: usize,
+        value: f32,
+    },
 }
 
 /// A note played live on a track.
@@ -240,6 +247,11 @@ impl Player {
                 effect,
                 values,
             } => engine.set_effect_params(track, effect, values),
+            Command::SetInstrumentParam {
+                track,
+                index,
+                value,
+            } => engine.set_instrument_param(track, index, value),
             Command::Replace(new) => {
                 let old = std::mem::replace(&mut self.engine, new);
                 self.throw_away(Garbage::Engine(old));
@@ -421,6 +433,13 @@ impl Controller {
                     values: crate::engine::param_values(device),
                 });
             }
+        }
+        for &(track, index, value) in &changes.instrument_params {
+            ok &= self.send(Command::SetInstrumentParam {
+                track,
+                index,
+                value,
+            });
         }
         if changes.bpm {
             ok &= self.send(Command::SetBpm(project.bpm));

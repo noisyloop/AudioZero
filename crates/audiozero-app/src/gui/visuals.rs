@@ -44,6 +44,11 @@ impl LiveVisuals {
         }
     }
 
+    /// Follows the audio device's sample rate.
+    fn set_rate(&mut self, rate: f64) {
+        self.analyzer = LiveAnalyzer::new(rate);
+    }
+
     fn set_look(&mut self, id: &'static str) {
         self.look_id = id;
         self.look = create_look(id).expect("a built-in look");
@@ -97,6 +102,14 @@ impl App {
         } else {
             let rate = self.audio.controller.sample_rate();
             self.visuals = Some(LiveVisuals::new("spectrum", "widescreen", rate));
+        }
+    }
+
+    /// Tells the live visuals that the audio device (and maybe its sample rate) changed.
+    pub(super) fn visuals_rate_changed(&mut self) {
+        let rate = self.audio.controller.sample_rate();
+        if let Some(visuals) = &mut self.visuals {
+            visuals.set_rate(rate);
         }
     }
 

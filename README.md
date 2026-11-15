@@ -94,15 +94,27 @@ AudioZero is moving to Rust so it no longer depends on JUCE. The Rust workspace 
 What works so far:
 
 - **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, snap, master volume and per-track mute, solo and volume with level meters.
-- **Instruments:** a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument. The demo song has a Kick track.
+- **Instruments:** **Operator**, a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument, or click the track's name and pick it in the device panel. The demo song has a Kick track.
+- **Operator** is the 4-operator FM synth from the C++ app, ported:
+  - 8 algorithms, feedback, and per operator a waveform, coarse/fine ratio, level, velocity and an ADSR envelope.
+  - A low/high/band-pass filter with its own envelope, a pitch envelope, and an LFO for pitch, filter, volume or FM amount.
+  - 16 voices and the same 10 presets (**Presets** in the device panel): Electric Piano, FM Bass, Glass Bell, Warm Pad, Kick, Pluck, Brass, Wobble Bass, Hi-Hat and Init.
+  - Every setting is in the device panel, in sections you can fold. Changes are heard while it plays, saved in the project and undoable; a preset is one undo step.
+  - Not ported yet: the algorithm diagram and the sustain pedal.
 - **Audio clips:** drag audio files (wav, aif, flac, mp3, ogg) from your file manager onto a track, or below the last track to get a new track. Several files at once go one after another. Audio clips show their waveform and play at the file's own speed (no time-stretching yet). They move, resize, duplicate, mute and undo like MIDI clips. Files inside the project's folder are stored with relative paths, so the folder can be moved.
 - **Effects:** click a track's name to open its device panel on the right. Choose the instrument, add **Delay** (ping-pong), **Reverb** or **Compressor** with **+ Add effect**, and set their parameters with sliders. Changes are heard straight away without interrupting playback. Adding, removing and changing effects can be undone; a whole slider drag is one step.
+- **Sound card:** **Audio > Audio settings** (or a click on the device name in the status bar) chooses the output and input device, the sample rate and the buffer size.
+  - **Apply** switches straight away and keeps the song, the playhead and whether it's playing. The choice is saved for next time, and `--play` and `--mcp` use it too.
+  - The buffer size is shown in frames and milliseconds. A smaller buffer means less delay when you play; if the sound crackles, choose a larger one. The window counts the crackles the sound card reports.
+  - **Look for devices** finds an interface you've just plugged in.
+  - If the device is unplugged, AudioZero carries on with the system's default device, or silently if there is none, and says so. If the saved device isn't connected at startup, it uses the default and keeps your choice for when it's back.
+  - It uses the system's normal audio: WASAPI on Windows, Core Audio on macOS and ALSA on Linux (which also reaches PipeWire and PulseAudio). ASIO and JACK aren't supported yet.
 - **Playing and recording:**
   - Every MIDI input is connected at startup. Notes go straight to the audio thread, so playing doesn't wait for the window.
   - The computer keyboard works as a MIDI keyboard: A–K play notes (W, E, T, Y, U are the black keys), Z/X change octave and C/V change velocity.
   - Live notes play the armed track, or else the track you're editing or have selected.
   - Arm a track with its ● button and press **R** (or the Rec button) to record; recording starts playback if it's stopped. Press R again, or stop, to finish the take. A loop wrap ends it too.
-  - A track with an instrument records MIDI into a new clip that covers whole bars. A track without an instrument records audio from the default input as a 24-bit WAV in the project's `Recordings` folder (`~/Music/AudioZero/Recordings` if the project hasn't been saved), then adds it as an audio clip.
+  - A track with an instrument records MIDI into a new clip that covers whole bars. A track without an instrument records audio from the input chosen in the audio settings (the system's default input unless you pick one) as a 24-bit WAV in the project's `Recordings` folder (`~/Music/AudioZero/Recordings` if the project hasn't been saved), then adds it as an audio clip.
   - A take is one undo step. There's no input monitoring or latency compensation yet.
 - **Clip editing:** click to select, drag to move (also onto another track), drag the right edge to resize, double-click an empty lane to add a clip, and right-click for Edit notes, Duplicate, Mute and Delete. Add tracks with **+ Add track** and remove them by right-clicking a track's header.
 - **Piano roll:** double-click a clip to edit its notes:
@@ -120,13 +132,21 @@ What works so far:
 
 ![Editing the Chords clip in the piano roll](docs/screenshots/rust-piano-roll.png)
 
+![Operator in the device panel](docs/screenshots/rust-operator.png)
+
+*Operator on the Chords track with the FM Bass preset.*
+
+![The Audio settings window](docs/screenshots/rust-audio-settings.png)
+
+*The Audio settings window after switching output. It was captured on a machine with no sound card, using two stand-in devices ("Fake Speakers" and "Fake Studio Interface").*
+
 | Crate | What it is |
 | --- | --- |
-| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Audio files are opened only after a path check (no network paths, no `..` out of the project folder, audio extensions only) and decoded with size, length and memory caps. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes a small built-in sine synth and a demo song. |
+| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Audio files are opened only after a path check (no network paths, no `..` out of the project folder, audio extensions only) and decoded with size, length and memory caps. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes the built-in instruments (Operator, a small sine synth, Kick Me) and a demo song. |
 | `crates/audiozero-visuals` | Audio-reactive visuals: per-frame analysis of the rendered song and its notes, the built-in looks, and video/PNG export (FFmpeg for video). No UI or GPU, so it runs headless. |
 | `crates/audiozero-mcp` | The MCP server: every tool is a `Session` operation, so an assistant's edits get the same checks and undo as yours. Speaks MCP over stdio, with no dependencies beyond `serde_json`. See [AI control (MCP)](#ai-control-mcp). |
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
-| `crates/audiozero-app` | The `audiozero` app: the window, plus command-line options to play, render to WAV, save the demo project, list installed plugins or run the MCP server. |
+| `crates/audiozero-app` | The `audiozero` app: the window, sound card and MIDI input, plus command-line options to play, render to WAV, save the demo project, list sound cards or installed plugins, or run the MCP server. |
 
 ### Download a build
 
@@ -166,9 +186,13 @@ cargo run --release -p audiozero-app -- --play                # play from the co
 cargo run --release -p audiozero-app -- --render demo.wav     # render to WAV
 cargo run --release -p audiozero-app -- --save demo.json      # write the demo as a project file
 cargo run --release -p audiozero-app -- --scan                # list installed CLAP/VST3 plugins
+cargo run --release -p audiozero-app -- --devices             # list sound cards and what they support
+cargo run --release -p audiozero-app -- --play --output-device scarlett --rate 48000 --buffer 256
 cargo run --release -p audiozero-app -- --mcp song.json       # MCP server for an AI assistant (see below)
 cargo test --workspace                                        # all tests
 ```
+
+`--output-device`, `--input-device`, `--rate` and `--buffer` work with the window, `--play` and `--mcp`. A device is an id from `--devices`, or a name or part of one. They apply to that run only; the window's Audio settings are what's saved, in `settings.json` under `~/.config/audiozero` (Linux), `~/Library/Application Support/AudioZero` (macOS) or `%APPDATA%\AudioZero` (Windows).
 
 On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio input and output), `midir` (MIDI input) and `eframe`/`egui` (the window).
 
@@ -210,6 +234,7 @@ The tools:
 
 - **Read:** `get_project`, `get_clip` and `list_instruments`.
 - **Tracks:** `add_track`, `remove_track`, `rename_track`, `set_instrument` and `set_track_mix`.
+- **Instrument settings:** `set_instrument_param` and `set_instrument_preset`, for Operator (`list_instruments` lists its parameters and presets).
 - **Effects:** `add_effect`, `remove_effect` and `set_effect_param` (`list_instruments` lists the effects and their parameters).
 - **Clips:** `add_clip` (optionally with notes), `update_clip`, `move_clip`, `duplicate_clip` and `remove_clip`.
 - **Notes:** `add_notes`, `set_notes`, `remove_notes` and `transpose_notes`.

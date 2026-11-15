@@ -218,6 +218,13 @@ impl Engine {
                 let mut instrument = instrument;
                 if let Some(i) = instrument.as_mut() {
                     i.prepare(sample_rate);
+                    let device = track.instrument.as_ref();
+                    let info = device.and_then(Device::params_info).unwrap_or_default();
+                    for (index, p) in info.iter().enumerate() {
+                        if let Some(value) = device.and_then(|d| d.param(p.name)) {
+                            i.set_param(index, value);
+                        }
+                    }
                 }
                 let samples =
                     resolve_samples(pool, &track.clips, sample_rate, &track.name, &mut warnings);
@@ -348,6 +355,19 @@ impl Engine {
             .and_then(|t| t.effects.get_mut(effect))
         {
             set_params(effect.as_mut(), &values);
+        }
+    }
+
+    /// Changes one parameter of a track's instrument while playing (`index` in
+    /// [`crate::synth::instrument_params`] order). Out-of-range tracks are ignored.
+    pub fn set_instrument_param(&mut self, track: usize, index: usize, value: f32) {
+        if let Some(instrument) = self
+            .tracks
+            .get_mut(track)
+            .and_then(|t| t.instrument.as_mut())
+            && value.is_finite()
+        {
+            instrument.set_param(index, value);
         }
     }
 

@@ -491,6 +491,72 @@ fn works_with_the_real_engine() {
 }
 
 #[test]
+fn operator_through_mcp() {
+    let mut s = server();
+    let list = ok(&mut s, "list_instruments", json!({}));
+    let operator = list["instruments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["id"] == "operator")
+        .unwrap()
+        .clone();
+    assert_eq!(operator["params"].as_array().unwrap().len(), 58);
+    assert_eq!(
+        operator["params"][0]["choices"].as_array().unwrap().len(),
+        8
+    );
+    assert!(
+        operator["presets"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("FM Bass"))
+    );
+    ok(
+        &mut s,
+        "set_instrument",
+        json!({ "track": 0, "instrument": "operator" }),
+    );
+    ok(
+        &mut s,
+        "set_instrument_preset",
+        json!({ "track": 0, "preset": "FM Bass" }),
+    );
+    assert!(!s.audio().applied.last().unwrap().reload, "heard live");
+    ok(
+        &mut s,
+        "set_instrument_param",
+        json!({ "track": 0, "param": "cutoff", "value": 900 }),
+    );
+    assert_eq!(s.audio().applied.last().unwrap().instrument_params.len(), 1);
+    let project = ok(&mut s, "get_project", json!({}));
+    let params = &project["tracks"][0]["instrument_params"];
+    assert_eq!(params["cutoff"], 900.0);
+    assert_eq!(params["filterOn"], 1.0);
+    let m = refused(
+        &mut s,
+        "set_instrument_param",
+        json!({ "track": 0, "param": "cutoff", "value": 5 }),
+    );
+    assert!(m.contains("between"), "{m}");
+    let m = refused(
+        &mut s,
+        "set_instrument_preset",
+        json!({ "track": 0, "preset": "Tuba" }),
+    );
+    assert!(m.contains("Electric Piano"), "{m}");
+    refused(
+        &mut s,
+        "set_instrument_param",
+        json!({ "track": 2, "param": "cutoff", "value": 900 }),
+    );
+    ok(&mut s, "undo", json!({}));
+    ok(&mut s, "undo", json!({}));
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][0]["instrument_params"], json!({}));
+}
+
+#[test]
 fn effects_through_mcp() {
     let mut s = server();
     let list = ok(&mut s, "list_instruments", json!({}));

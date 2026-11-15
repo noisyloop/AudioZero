@@ -100,8 +100,8 @@ impl Default for Track {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Device {
-    /// A device built into AudioZero, such as `"sine"` or `"reverb"`, with its settings by
-    /// name (effects only; see [`crate::effects::params_for`]).
+    /// A device built into AudioZero, such as `"operator"` or `"reverb"`, with its settings by
+    /// name (see [`crate::effects::params_for`] and [`crate::synth::instrument_params`]).
     Builtin {
         id: String,
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -128,29 +128,36 @@ impl Device {
         }
     }
 
-    /// An effect parameter's value: the stored one, else the default. `None` if this isn't a
-    /// built-in effect with that parameter.
+    /// The parameters this device has, if it's a built-in effect or instrument with any.
+    pub fn params_info(&self) -> Option<&'static [crate::effects::Param]> {
+        let id = self.builtin_id()?;
+        crate::effects::params_for(id).or_else(|| crate::synth::instrument_params(id))
+    }
+
+    /// A parameter's value: the stored one, else the default. `None` if this isn't a built-in
+    /// device with that parameter.
     pub fn param(&self, name: &str) -> Option<f32> {
-        let Self::Builtin { id, params } = self else {
+        let Self::Builtin { params, .. } = self else {
             return None;
         };
-        let info = crate::effects::params_for(id)?
-            .iter()
-            .find(|p| p.name == name)?;
+        let info = self.params_info()?.iter().find(|p| p.name == name)?;
         Some(params.get(name).copied().unwrap_or(info.default))
     }
 
-    /// Keeps only parameters the effect has, clamped into range.
+    /// Keeps only parameters the device has, clamped into range.
     fn sanitize(&mut self) {
-        if let Self::Builtin { id, params } = self {
+        if let Self::Builtin { id, .. } = self {
             truncate_name(id);
-            match crate::effects::params_for(id) {
+        }
+        let info = self.params_info();
+        if let Self::Builtin { params, .. } = self {
+            match info {
                 None => params.clear(),
                 Some(info) => {
                     params.retain(|name, _| info.iter().any(|p| p.name == name));
                     for p in info {
                         if let Some(v) = params.get_mut(p.name) {
-                            *v = finite32(*v, p.min, p.max, p.default);
+                            *v = p.fit(*v);
                         }
                     }
                 }

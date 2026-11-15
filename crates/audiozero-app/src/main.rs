@@ -5,9 +5,11 @@ mod audio;
 mod gui;
 mod input;
 mod record;
+mod settings;
 
 use audiozero_engine::sample::SamplePool;
 use audiozero_engine::{Command, Engine, PluginFormat, Project, wav};
+use settings::AudioSettings;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -24,6 +26,14 @@ Options:
   --mcp              Run the MCP server on stdin/stdout, so an AI assistant can build and edit
                      PROJECT (created when saved if it doesn't exist; empty song if not given).
                      It plays through the speakers. The activity log goes to stderr.
+
+Sound card (the window's Audio > Audio settings saves these; the options are for one run):
+  --devices          List the audio outputs and inputs, and what each supports
+  --output-device D  Play through D: an id from --devices, or a name or part of one
+  --input-device D   Record from D
+  --rate HZ          Sample rate, for example 44100 or 48000
+  --buffer FRAMES    Buffer size, for example 256. Smaller means less delay; raise it if
+                     the sound crackles
 
 Audio-reactive video:
   --video OUT        Render visuals for the song to OUT: a .mp4, .mov, .mkv or .webm video
@@ -51,6 +61,11 @@ struct Args {
     fps: Option<u32>,
     loop_only: bool,
     at: Option<f64>,
+    devices: bool,
+    output_device: Option<String>,
+    input_device: Option<String>,
+    rate: Option<u32>,
+    buffer: Option<u32>,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -92,12 +107,70 @@ fn parse_args() -> Result<Args, String> {
                 );
             }
             Some("--loop") => args.loop_only = true,
+            Some("--devices") => args.devices = true,
+            Some("--output-device") => {
+                args.output_device = Some(text(value("--output-device")?, "--output-device")?);
+            }
+            Some("--input-device") => {
+                args.input_device = Some(text(value("--input-device")?, "--input-device")?);
+            }
+            Some("--rate") => {
+                let v = value("--rate")?;
+                args.rate = Some(
+                    v.to_string_lossy()
+                        .parse()
+                        .map_err(|_| "--rate needs a sample rate in Hz")?,
+                );
+            }
+            Some("--buffer") => {
+                let v = value("--buffer")?;
+                args.buffer = Some(
+                    v.to_string_lossy()
+                        .parse()
+                        .map_err(|_| "--buffer needs a number of frames")?,
+                );
+            }
             Some(other) if other.starts_with('-') => return Err(format!("unknown option {other}")),
             _ if args.project.is_none() => args.project = Some(PathBuf::from(arg)),
             _ => return Err("only one project can be given".into()),
         }
     }
     Ok(args)
+}
+
+/// A device name from the command line.
+fn text(value: PathBuf, name: &str) -> Result<String, String> {
+    value
+        .into_os_string()
+        .into_string()
+        .map_err(|_| format!("{name} needs a device name"))
+}
+
+/// The saved audio settings, with this run's command-line choices on top.
+fn audio_settings(args: &Args) -> Result<AudioSettings, String> {
+    use audio::Direction;
+    let mut settings = AudioSettings::load();
+    if let Some(name) = &args.output_device {
+        settings.output = Some(audio::resolve(Direction::Output, name)?);
+    }
+    if let Some(name) = &args.input_device {
+        settings.input = Some(audio::resolve(Direction::Input, name)?);
+    }
+    if let Some(rate) = args.rate {
+        settings.sample_rate = Some(rate);
+    }
+    if let Some(buffer) = args.buffer {
+        settings.buffer = Some(buffer);
+    }
+    let given = settings.clone();
+    let settings = settings.sanitized();
+    if settings.sample_rate != given.sample_rate {
+        return Err("--rate is out of range".into());
+    }
+    if settings.buffer != given.buffer {
+        return Err("--buffer is out of range".into());
+    }
+    Ok(settings)
 }
 
 fn main() -> ExitCode {
@@ -134,10 +207,15 @@ pub fn default_folder() -> PathBuf {
 
 fn run(args: Args) -> Result<(), String> {
     if args.mcp {
-        if args.play || args.scan || args.render.is_some() || args.save.is_some() {
+        if args.play || args.scan || args.devices || args.render.is_some() || args.save.is_some() {
             return Err("--mcp can't be combined with other options".into());
         }
-        return mcp(args.project);
+        let settings = audio_settings(&args)?;
+        return mcp(args.project, &settings);
+    }
+    if args.devices {
+        devices();
+        return Ok(());
     }
     if args.scan {
         scan();
@@ -148,7 +226,8 @@ fn run(args: Args) -> Result<(), String> {
     }
 
     if !args.play && args.render.is_none() && args.save.is_none() {
-        return gui::run(args.project);
+        let settings = audio_settings(&args)?;
+        return gui::run(args.project, settings);
     }
 
     let project = match &args.project {
@@ -186,7 +265,11 @@ fn run(args: Args) -> Result<(), String> {
         return Ok(());
     }
 
-    play(project, project_folder(args.project.as_deref()))
+    play(
+        project,
+        project_folder(args.project.as_deref()),
+        &audio_settings(&args)?,
+    )
 }
 
 /// The folder a project's relative audio paths resolve against.
@@ -224,10 +307,62 @@ fn scan() {
     }
 }
 
-fn play(project: Project, folder: Option<PathBuf>) -> Result<(), String> {
-    let mut output = audio::Output::open();
+/// Lists the sound cards: `--devices`.
+fn devices() {
+    use audio::Direction;
+    let saved = AudioSettings::load();
+    for (direction, title, chosen) in [
+        (Direction::Output, "Outputs", &saved.output),
+        (Direction::Input, "Inputs", &saved.input),
+    ] {
+        let list = audio::devices(direction);
+        println!("{title} ({} found)", list.len());
+        for device in &list {
+            let mut marks = Vec::new();
+            if device.is_default {
+                marks.push("default");
+            }
+            if chosen.as_deref() == Some(&device.id) {
+                marks.push("chosen in the settings");
+            }
+            let marks = if marks.is_empty() {
+                String::new()
+            } else {
+                format!("  [{}]", marks.join(", "))
+            };
+            println!("  {}{marks}", device.name);
+            println!("      id: {}", device.id);
+            let Some(caps) = audio::capabilities(direction, Some(&device.id)) else {
+                println!("      (busy, or it doesn't say what it supports)");
+                continue;
+            };
+            let rates: Vec<String> = settings::offered_rates(&caps.rates)
+                .iter()
+                .map(u32::to_string)
+                .collect();
+            let mut line = format!("      {} ch · {} Hz", caps.channels, rates.join(", "));
+            // Some drivers report a range with no real upper limit; that says nothing useful.
+            if let Some((lo, hi)) = caps.buffer.filter(|&(_, hi)| hi <= 1 << 20) {
+                line.push_str(&format!(" · buffers of {lo} to {hi} frames"));
+            }
+            println!("{line}");
+        }
+        println!();
+    }
+    match settings::file() {
+        Some(path) if path.exists() => println!("Settings: {}", path.display()),
+        Some(path) => println!("Settings: {} (not saved yet)", path.display()),
+        None => println!("Settings: nowhere to keep them (no home folder)"),
+    }
+}
+
+fn play(project: Project, folder: Option<PathBuf>, settings: &AudioSettings) -> Result<(), String> {
+    let mut output = audio::Output::open(settings);
     output.controller.samples().set_base(folder);
     println!("{}", output.description);
+    if let Some(note) = &output.note {
+        eprintln!("note: {note}");
+    }
     if !output.has_device() {
         return Err("no audio output device (use --render to write a WAV file instead)".into());
     }
@@ -237,24 +372,37 @@ fn play(project: Project, folder: Option<PathBuf>) -> Result<(), String> {
     }
     output.controller.send(Command::Play);
     println!("Playing {seconds:.1} s. Press Ctrl+C to stop.");
-    std::thread::sleep(std::time::Duration::from_secs_f64(seconds));
+    let end = std::time::Instant::now() + std::time::Duration::from_secs_f64(seconds);
+    while std::time::Instant::now() < end {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        if output.take_lost() {
+            return Err("the audio device was disconnected".into());
+        }
+    }
+    match output.xruns() {
+        0 => {}
+        n => eprintln!("note: the sound card ran dry {n} times (crackles); try a larger --buffer"),
+    }
     Ok(())
 }
 
 /// Runs the MCP server. stdout carries only protocol messages; everything else goes to stderr.
-fn mcp(file: Option<PathBuf>) -> Result<(), String> {
+fn mcp(file: Option<PathBuf>, settings: &AudioSettings) -> Result<(), String> {
     let project = match &file {
         Some(path) if path.exists() => {
             Project::load(path).map_err(|e| format!("{}: {e}", path.display()))?
         }
         _ => Project::default(),
     };
-    let mut output = audio::Output::open();
+    let mut output = audio::Output::open(settings);
     output
         .controller
         .samples()
         .set_base(project_folder(file.as_deref()));
     eprintln!("[audiozero-mcp] {}", output.description);
+    if let Some(note) = &output.note {
+        eprintln!("[audiozero-mcp] {note}");
+    }
     let rules = audiozero_mcp::SaveRules {
         file,
         folder: default_folder(),
