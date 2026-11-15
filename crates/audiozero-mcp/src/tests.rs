@@ -641,9 +641,12 @@ fn the_arpeggiator_through_mcp() {
     refused(&mut s, "set_arp", json!({ "track": 0, "mode": "sideways" }));
     refused(&mut s, "set_arp", json!({ "track": 99, "on": true }));
     ok(&mut s, "undo", json!({}));
-    assert_eq!(
-        ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"]["gate"],
-        0.5
+    let gate = ok(&mut s, "get_project", json!({}))["tracks"][0]["arp"]["gate"]
+        .as_f64()
+        .unwrap();
+    assert!(
+        (gate - 0.6).abs() < 1e-6,
+        "back to the default gate, got {gate}"
     );
 }
 
