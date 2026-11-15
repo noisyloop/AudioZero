@@ -94,7 +94,13 @@ AudioZero is moving to Rust so it no longer depends on JUCE. The Rust workspace 
 What works so far:
 
 - **The window:** the arrangement view (tracks, clips with a preview of their notes, bar ruler, playhead), play/stop, tempo, loop, snap, master volume and per-track mute, solo and volume with level meters.
-- **Instruments:** a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument. The demo song has a Kick track.
+- **Instruments:** **Operator**, a sine synth and Nusick's **Kick Me**, built in from [Nusick](https://github.com/noisyloop/Nusick)'s `nusick-dsp` crate (no plugin needed). Right-click a track's header to choose its instrument, or click the track's name and pick it in the device panel. The demo song has a Kick track.
+- **Operator** is the 4-operator FM synth from the C++ app, ported:
+  - 8 algorithms, feedback, and per operator a waveform, coarse/fine ratio, level, velocity and an ADSR envelope.
+  - A low/high/band-pass filter with its own envelope, a pitch envelope, and an LFO for pitch, filter, volume or FM amount.
+  - 16 voices and the same 10 presets (**Presets** in the device panel): Electric Piano, FM Bass, Glass Bell, Warm Pad, Kick, Pluck, Brass, Wobble Bass, Hi-Hat and Init.
+  - Every setting is in the device panel, in sections you can fold. Changes are heard while it plays, saved in the project and undoable; a preset is one undo step.
+  - Not ported yet: the algorithm diagram and the sustain pedal.
 - **Audio clips:** drag audio files (wav, aif, flac, mp3, ogg) from your file manager onto a track, or below the last track to get a new track. Several files at once go one after another. Audio clips show their waveform and play at the file's own speed (no time-stretching yet). They move, resize, duplicate, mute and undo like MIDI clips. Files inside the project's folder are stored with relative paths, so the folder can be moved.
 - **Effects:** click a track's name to open its device panel on the right. Choose the instrument, add **Delay** (ping-pong), **Reverb** or **Compressor** with **+ Add effect**, and set their parameters with sliders. Changes are heard straight away without interrupting playback. Adding, removing and changing effects can be undone; a whole slider drag is one step.
 - **Sound card:** **Audio > Audio settings** (or a click on the device name in the status bar) chooses the output and input device, the sample rate and the buffer size.
@@ -126,13 +132,17 @@ What works so far:
 
 ![Editing the Chords clip in the piano roll](docs/screenshots/rust-piano-roll.png)
 
+![Operator in the device panel](docs/screenshots/rust-operator.png)
+
+*Operator on the Chords track with the FM Bass preset.*
+
 ![The Audio settings window](docs/screenshots/rust-audio-settings.png)
 
 *The Audio settings window after switching output. It was captured on a machine with no sound card, using two stand-in devices ("Fake Speakers" and "Fake Studio Interface").*
 
 | Crate | What it is |
 | --- | --- |
-| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Audio files are opened only after a path check (no network paths, no `..` out of the project folder, audio extensions only) and decoded with size, length and memory caps. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes a small built-in sine synth and a demo song. |
+| `crates/audiozero-engine` | The audio engine and project format, with no UI or platform code. Projects are JSON, and every project is checked against fixed limits and ranges before the engine sees it. Audio files are opened only after a path check (no network paths, no `..` out of the project folder, audio extensions only) and decoded with size, length and memory caps. Rendering is sample-accurate. The audio thread never allocates, frees, locks or waits: the UI sends commands through a lock-free queue, and a new project is built on the UI thread and swapped in whole. Includes the built-in instruments (Operator, a small sine synth, Kick Me) and a demo song. |
 | `crates/audiozero-visuals` | Audio-reactive visuals: per-frame analysis of the rendered song and its notes, the built-in looks, and video/PNG export (FFmpeg for video). No UI or GPU, so it runs headless. |
 | `crates/audiozero-mcp` | The MCP server: every tool is a `Session` operation, so an assistant's edits get the same checks and undo as yours. Speaks MCP over stdio, with no dependencies beyond `serde_json`. See [AI control (MCP)](#ai-control-mcp). |
 | `crates/audiozero-host` | Finds CLAP and VST3 plugins and resolves projects' plugins by identity, never by a path stored in the project. It doesn't load plugin code yet; that will happen in a separate process. |
@@ -224,6 +234,7 @@ The tools:
 
 - **Read:** `get_project`, `get_clip` and `list_instruments`.
 - **Tracks:** `add_track`, `remove_track`, `rename_track`, `set_instrument` and `set_track_mix`.
+- **Instrument settings:** `set_instrument_param` and `set_instrument_preset`, for Operator (`list_instruments` lists its parameters and presets).
 - **Effects:** `add_effect`, `remove_effect` and `set_effect_param` (`list_instruments` lists the effects and their parameters).
 - **Clips:** `add_clip` (optionally with notes), `update_clip`, `move_clip`, `duplicate_clip` and `remove_clip`.
 - **Notes:** `add_notes`, `set_notes`, `remove_notes` and `transpose_notes`.

@@ -83,6 +83,8 @@ pub struct Changes {
     pub mix: Vec<usize>,
     /// (track, effect) pairs whose parameters changed, with the effects themselves unchanged.
     pub effect_params: Vec<(usize, usize)>,
+    /// Instrument parameters that changed: (track, parameter index, new value).
+    pub instrument_params: Vec<(usize, usize, f32)>,
     pub bpm: bool,
     pub master: bool,
     pub looping: bool,
@@ -101,7 +103,7 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
     let reload = before.tracks.len() != after.tracks.len()
         || before.beats_per_bar != after.beats_per_bar
         || before.tracks.iter().zip(&after.tracks).any(|(a, b)| {
-            a.instrument != b.instrument
+            !same_instrument(&a.instrument, &b.instrument)
                 || a.effects.len() != b.effects.len()
                 || a.effects
                     .iter()
@@ -131,6 +133,17 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
                     .map(move |(e, _)| (t, e))
             })
             .collect(),
+        instrument_params: pairs()
+            .filter(|(_, (a, b))| a.instrument != b.instrument)
+            .flat_map(|(t, (a, b))| {
+                let (a, b) = (a.instrument.as_ref(), b.instrument.as_ref());
+                let info = b.and_then(Device::params_info).unwrap_or_default();
+                info.iter().enumerate().filter_map(move |(i, p)| {
+                    let new = b?.param(p.name)?;
+                    (a?.param(p.name) != Some(new)).then_some((t, i, new))
+                })
+            })
+            .collect(),
         mix: pairs()
             .filter(|(_, (a, b))| mix_of(a) != mix_of(b))
             .map(|(i, _)| i)
@@ -147,6 +160,14 @@ fn same_device(a: &Device, b: &Device) -> bool {
     match (a, b) {
         (Device::Builtin { id: x, .. }, Device::Builtin { id: y, .. }) => x == y,
         _ => a == b,
+    }
+}
+
+fn same_instrument(a: &Option<Device>, b: &Option<Device>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => same_device(a, b),
+        (None, None) => true,
+        _ => false,
     }
 }
 
@@ -436,6 +457,72 @@ impl Session {
                 f64::from(info.max),
             )?;
             params.insert(name.to_owned(), value);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Sets one parameter of a track's built-in instrument. An undo step (a whole knob drag is
+    /// one, inside a gesture), heard without rebuilding the engine. Stepped parameters
+    /// (switches, choices, whole numbers) are rounded.
+    pub fn set_instrument_param(
+        &mut self,
+        track: usize,
+        name: &str,
+        value: f32,
+    ) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            let device = p.tracks[track]
+                .instrument
+                .as_mut()
+                .ok_or_else(|| EditError::Invalid(format!("track {track} has no instrument")))?;
+            let info = device
+                .params_info()
+                .and_then(|ps| ps.iter().find(|p| p.name == name))
+                .ok_or_else(|| {
+                    EditError::Invalid(format!("the instrument has no parameter \"{name}\""))
+                })?;
+            check_range(
+                name,
+                f64::from(value),
+                f64::from(info.min),
+                f64::from(info.max),
+            )?;
+            if let Device::Builtin { params, .. } = device {
+                params.insert(name.to_owned(), info.fit(value));
+            }
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Sets every parameter of a track's built-in instrument from one of its presets
+    /// ([`crate::synth::instrument_presets`]). One undo step.
+    pub fn set_instrument_preset(
+        &mut self,
+        track: usize,
+        preset: &str,
+    ) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            let Some(Device::Builtin { id, params }) = &mut p.tracks[track].instrument else {
+                return Err(EditError::Invalid(format!(
+                    "track {track} has no built-in instrument"
+                )));
+            };
+            let values = crate::synth::instrument_preset(id, preset).ok_or_else(|| {
+                let names = crate::synth::instrument_presets(id);
+                EditError::Invalid(if names.is_empty() {
+                    format!("\"{id}\" has no presets")
+                } else {
+                    format!("no preset \"{preset}\"; use one of {}", names.join(", "))
+                })
+            })?;
+            *params = values
+                .iter()
+                .map(|&(name, value)| (name.to_owned(), value))
+                .collect();
             Ok(())
         })
         .map(|((), c)| c)
@@ -736,6 +823,133 @@ fn check_note(note: &Note, clip_length: f64) -> Result<(), EditError> {
     }
     check_range("note length", note.length, 1.0 / 128.0, MAX_BEATS)?;
     check_range("velocity", f64::from(note.velocity), 0.0, 1.0)
+}
+
+#[cfg(test)]
+mod instrument_tests {
+    use super::*;
+    use crate::demo;
+
+    fn operator_session() -> Session {
+        let mut s = Session::new(demo::project()).unwrap();
+        let changes = s
+            .set_instrument(0, Some(Device::builtin("operator")))
+            .unwrap();
+        assert!(changes.reload, "a new instrument rebuilds the engine");
+        s
+    }
+
+    #[test]
+    fn instrument_params_change_live_and_undo() {
+        let mut s = operator_session();
+        let changes = s.set_instrument_param(0, "opBLevel", 0.5).unwrap();
+        assert!(!changes.reload);
+        let index = crate::operator::PARAMS
+            .iter()
+            .position(|p| p.name == "opBLevel")
+            .unwrap();
+        assert_eq!(changes.instrument_params, vec![(0, index, 0.5)]);
+        let device = |s: &Session| s.project().tracks[0].instrument.clone().unwrap();
+        assert_eq!(device(&s).param("opBLevel"), Some(0.5));
+
+        // Stepped parameters are stored whole.
+        s.set_instrument_param(0, "algorithm", 2.6).unwrap();
+        assert_eq!(device(&s).param("algorithm"), Some(3.0));
+
+        assert!(s.set_instrument_param(0, "opBLevel", 7.0).is_err());
+        assert!(s.set_instrument_param(0, "wobble", 0.5).is_err());
+        assert!(s.set_instrument_param(9, "volume", 0.5).is_err());
+        let kick = s.project().tracks.len() - 1;
+        assert!(
+            s.set_instrument_param(kick, "volume", 0.5).is_err(),
+            "Kick Me has no parameters"
+        );
+
+        let changes = s.undo().unwrap();
+        assert_eq!(changes.instrument_params.len(), 1, "undo is heard live too");
+        assert_eq!(device(&s).param("algorithm"), Some(0.0));
+    }
+
+    #[test]
+    fn a_preset_replaces_every_setting_in_one_step() {
+        let mut s = operator_session();
+        s.set_instrument_param(0, "opDLevel", 0.9).unwrap();
+        let changes = s.set_instrument_preset(0, "Kick").unwrap();
+        assert!(!changes.reload);
+        let device = s.project().tracks[0].instrument.clone().unwrap();
+        assert_eq!(device.param("pitchEnvAmount"), Some(36.0));
+        assert_eq!(device.param("opDLevel"), Some(0.0), "back to the default");
+        assert!(
+            changes.instrument_params.len() > 5,
+            "every changed parameter is sent"
+        );
+        assert!(s.set_instrument_preset(0, "Tuba").is_err());
+        let kick = s.project().tracks.len() - 1;
+        assert!(s.set_instrument_preset(kick, "Init").is_err());
+        s.undo().unwrap();
+        let device = s.project().tracks[0].instrument.clone().unwrap();
+        assert_eq!(device.param("opDLevel"), Some(0.9));
+    }
+
+    #[test]
+    fn operator_settings_survive_a_save_and_are_clamped_on_load() {
+        let mut s = operator_session();
+        s.set_instrument_preset(0, "FM Bass").unwrap();
+        let reloaded = Project::from_json(&s.project().to_json()).unwrap();
+        assert_eq!(
+            reloaded.tracks[0].instrument,
+            s.project().tracks[0].instrument
+        );
+
+        let json = s
+            .project()
+            .to_json()
+            .replace("\"cutoff\": 1600.0", "\"cutoff\": 1e9, \"bogus\": 1.0");
+        let odd = Project::from_json(&json).unwrap();
+        let device = odd.tracks[0].instrument.clone().unwrap();
+        assert_eq!(device.param("cutoff"), Some(20_000.0));
+        assert_eq!(device.param("bogus"), None);
+    }
+
+    #[test]
+    fn the_engine_plays_operator_with_its_saved_settings() {
+        use crate::Engine;
+        let render = |preset: &str| {
+            let mut s = operator_session();
+            s.set_instrument_preset(0, preset).unwrap();
+            let mut engine = Engine::new(s.project().clone(), 48_000.0, 512).unwrap();
+            assert!(engine.warnings().is_empty(), "{:?}", engine.warnings());
+            engine.play();
+            engine.render(48_000).0
+        };
+        let (init, bass) = (render("Init"), render("FM Bass"));
+        assert!(init.iter().any(|x| x.abs() > 0.01), "Operator is heard");
+        assert_ne!(init, bass, "the preset changes the sound");
+
+        // A live change reaches the instrument.
+        let s = operator_session();
+        let mut engine = Engine::new(s.project().clone(), 48_000.0, 512).unwrap();
+        let mut quiet = Engine::new(s.project().clone(), 48_000.0, 512).unwrap();
+        quiet.set_instrument_param(0, 1, 0.0); // volume
+        quiet.set_instrument_param(99, 1, 0.0); // no such track: ignored
+        for e in [&mut engine, &mut quiet] {
+            for t in 1..s.project().tracks.len() {
+                e.set_track_mix(
+                    t,
+                    TrackMix {
+                        volume: 0.0,
+                        pan: 0.0,
+                        mute: true,
+                        solo: false,
+                    },
+                );
+            }
+            e.play();
+        }
+        let (loud, silent) = (engine.render(24_000).0, quiet.render(24_000).0);
+        assert!(loud.iter().any(|x| x.abs() > 0.01));
+        assert!(silent.iter().all(|x| x.abs() < 1e-6), "volume 0 is silent");
+    }
 }
 
 #[cfg(test)]

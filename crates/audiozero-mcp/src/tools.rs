@@ -16,7 +16,7 @@ the computer's speakers. Positions and lengths are in beats (quarter notes); a b
 `beats_per_bar` beats. Notes use MIDI pitch (60 = middle C) and start relative to their clip. \
 Tracks, clips and notes are addressed by index; indices shift when something is removed, so call \
 get_project (or get_clip) again after removing things. Every edit can be undone with undo. \
-Effects (add_effect, set_effect_param) are undo steps. Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Audio clips (with \
+Effects (add_effect, set_effect_param) and instrument settings (set_instrument_param, set_instrument_preset) are undo steps. Mixer and transport settings (set_track_mix, set_transport) aren't undo steps. Audio clips (with \
 an `audio` field) play a recording at its own speed; they have no notes, and you can move, \
 trim, duplicate or remove them but not create them. Nothing is written \
 to disk until you call save.";
@@ -162,6 +162,28 @@ const TOOLS: &[Tool] = &[
             r#""value": { "type": "number" }"#
         ),
         required: &["track", "effect", "param", "value"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "set_instrument_param",
+        title: "Set instrument parameter",
+        description: "Sets one parameter of a track's instrument, for example Operator's (names, ranges and choices are in list_instruments). An undo step; heard straight away.",
+        properties: props!(
+            track!(),
+            r#""param": { "type": "string" }"#,
+            r#""value": { "type": "number" }"#
+        ),
+        required: &["track", "param", "value"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "set_instrument_preset",
+        title: "Set instrument preset",
+        description: "Loads one of the instrument's presets (listed in list_instruments), replacing all of its parameters. One undo step.",
+        properties: props!(track!(), r#""preset": { "type": "string" }"#),
+        required: &["track", "preset"],
         read_only: false,
         destructive: false,
     },
@@ -492,6 +514,31 @@ fn instrument(id: &str) -> Result<Option<Device>, String> {
     }
 }
 
+/// A parameter, as list_instruments describes it.
+fn param_info(p: &audiozero_engine::effects::Param) -> Value {
+    use audiozero_engine::effects::Kind;
+    let mut info = json!({ "name": p.name, "label": p.label, "min": p.min, "max": p.max, "default": p.default, "unit": p.unit });
+    match p.kind {
+        Kind::Choice(labels) => info["choices"] = json!(labels),
+        Kind::Toggle => info["choices"] = json!(["off", "on"]),
+        Kind::Whole => info["whole"] = json!(true),
+        Kind::Linear | Kind::Log => {}
+    }
+    info
+}
+
+/// The instrument settings that aren't at their defaults, by name.
+fn instrument_params_of(track: &Track) -> Value {
+    match &track.instrument {
+        Some(Device::Builtin { params, .. }) => params
+            .iter()
+            .map(|(name, value)| (name.clone(), json!(f32_out(*value))))
+            .collect::<serde_json::Map<String, Value>>()
+            .into(),
+        _ => json!({}),
+    }
+}
+
 fn describe(device: Option<&Device>) -> Value {
     match device {
         None => json!("none"),
@@ -542,7 +589,14 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
             parse::<NoArgs>(arguments)?;
             let list: Vec<Value> = BUILTINS
                 .iter()
-                .map(|(id, name)| json!({ "id": id, "name": name }))
+                .map(|(id, name)| {
+                    let mut entry = json!({ "id": id, "name": name });
+                    if let Some(params) = audiozero_engine::synth::instrument_params(id) {
+                        entry["params"] = params.iter().map(param_info).collect();
+                        entry["presets"] = json!(audiozero_engine::synth::instrument_presets(id));
+                    }
+                    entry
+                })
                 .collect();
             let effects: Vec<Value> = audiozero_engine::effects::EFFECTS
                 .iter()
@@ -550,7 +604,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                     let params: Vec<Value> = audiozero_engine::effects::params_for(id)
                         .unwrap_or(&[])
                         .iter()
-                        .map(|p| json!({ "name": p.name, "min": p.min, "max": p.max, "default": p.default, "unit": p.unit }))
+                        .map(param_info)
                         .collect();
                     json!({ "id": id, "name": name, "params": params })
                 })
@@ -670,6 +724,43 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 s,
                 &changes,
                 json!({ "track": a.track, "effect": a.effect, "param": a.param, "value": f32_out(a.value) }),
+            ))
+        }
+        "set_instrument_param" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                param: String,
+                value: f32,
+            }
+            let a: Args = parse(arguments)?;
+            let changes = s
+                .session
+                .set_instrument_param(a.track, &a.param, a.value)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "param": a.param, "value": f32_out(a.value) }),
+            ))
+        }
+        "set_instrument_preset" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                preset: String,
+            }
+            let a: Args = parse(arguments)?;
+            let changes = s
+                .session
+                .set_instrument_preset(a.track, &a.preset)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "preset": a.preset }),
             ))
         }
         "set_track_mix" => {
@@ -1146,6 +1237,7 @@ fn project_summary(s: &Ctx<'_>) -> Value {
                 .collect();
             json!({
                 "track": i, "name": t.name, "instrument": describe(t.instrument.as_ref()),
+                "instrument_params": instrument_params_of(t),
                 "effects": effects_of(t), "volume": f32_out(t.volume), "pan": f32_out(t.pan), "mute": t.mute, "solo": t.solo, "clips": clips,
             })
         })

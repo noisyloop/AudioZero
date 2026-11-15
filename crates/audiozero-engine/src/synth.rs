@@ -1,5 +1,7 @@
 //! Built-in instruments.
 
+use crate::effects::Param;
+
 /// Anything the engine can play notes on: built-in instruments now, hosted plugins later.
 ///
 /// `render` runs on the audio thread, so implementations must not allocate, lock or block.
@@ -8,18 +10,59 @@ pub trait Instrument: Send {
     fn note_on(&mut self, pitch: u8, velocity: f32);
     fn note_off(&mut self, pitch: u8);
     fn all_notes_off(&mut self);
+    /// Sets parameter `index` (in [`instrument_params`] order) to `value`. Instruments without
+    /// parameters ignore it.
+    fn set_param(&mut self, _index: usize, _value: f32) {}
     /// Adds the next `left.len()` samples into `left` and `right` (both the same length).
     fn render(&mut self, left: &mut [f32], right: &mut [f32]);
 }
 
 /// Built-in instruments: project id and display name.
-pub const BUILTINS: [(&str, &str); 2] = [("sine", "Sine synth"), ("kick", "Kick Me (Nusick)")];
+pub const BUILTINS: [(&str, &str); 3] = [
+    ("sine", "Sine synth"),
+    ("kick", "Kick Me (Nusick)"),
+    ("operator", "Operator (FM synth)"),
+];
+
+/// The parameters of a built-in instrument, or `None` if it has none (or `id` isn't one).
+pub fn instrument_params(id: &str) -> Option<&'static [Param]> {
+    match id {
+        "operator" => Some(&crate::operator::PARAMS),
+        _ => None,
+    }
+}
+
+/// How an instrument's parameters are grouped for people: titles, with the range of
+/// [`instrument_params`] under each. Empty if it has no parameters.
+pub fn instrument_sections(id: &str) -> &'static [(&'static str, std::ops::Range<usize>)] {
+    match id {
+        "operator" => &crate::operator::SECTIONS,
+        _ => &[],
+    }
+}
+
+/// The names of a built-in instrument's presets.
+pub fn instrument_presets(id: &str) -> &'static [&'static str] {
+    match id {
+        "operator" => &crate::operator::PRESETS,
+        _ => &[],
+    }
+}
+
+/// A preset's parameter values by name; parameters it doesn't list are at their defaults.
+pub fn instrument_preset(id: &str, preset: &str) -> Option<&'static [(&'static str, f32)]> {
+    match id {
+        "operator" => crate::operator::preset(preset),
+        _ => None,
+    }
+}
 
 /// Creates a built-in instrument by its project id.
 pub fn create_builtin(id: &str) -> Option<Box<dyn Instrument>> {
     match id {
         "sine" => Some(Box::new(SineSynth::new())),
         "kick" => Some(Box::new(Kick::new())),
+        "operator" => Some(Box::new(crate::operator::Operator::new())),
         _ => None,
     }
 }

@@ -19,6 +19,46 @@ pub struct Param {
     pub max: f32,
     pub default: f32,
     pub unit: &'static str,
+    /// How the value is chosen and shown.
+    pub kind: Kind,
+}
+
+/// What kind of value a parameter is.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Kind {
+    /// Any value in the range.
+    Linear,
+    /// Any value in the range, where ratios matter more than differences (times, frequencies).
+    Log,
+    /// Whole numbers only.
+    Whole,
+    /// Off (0) or on (1).
+    Toggle,
+    /// One of these, by index from 0.
+    Choice(&'static [&'static str]),
+}
+
+impl Kind {
+    /// Whether values are whole numbers.
+    pub fn is_stepped(self) -> bool {
+        matches!(self, Kind::Whole | Kind::Toggle | Kind::Choice(_))
+    }
+}
+
+impl Param {
+    /// `value` as this parameter stores it: in range, and whole if the parameter is stepped.
+    /// Anything that isn't a number gives the default.
+    pub fn fit(&self, value: f32) -> f32 {
+        if !value.is_finite() {
+            return self.default;
+        }
+        let value = value.clamp(self.min, self.max);
+        if self.kind.is_stepped() {
+            value.round()
+        } else {
+            value
+        }
+    }
 }
 
 const fn param(
@@ -36,6 +76,7 @@ const fn param(
         max,
         default,
         unit,
+        kind: Kind::Linear,
     }
 }
 
