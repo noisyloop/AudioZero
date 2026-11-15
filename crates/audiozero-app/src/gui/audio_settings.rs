@@ -195,15 +195,15 @@ impl App {
                 ui.add_space(6.0);
                 ui.separator();
                 let colour = if self.audio.has_device() {
-                    theme::TEXT_DIM
+                    theme::text_dim()
                 } else {
-                    theme::ACCENT
+                    theme::accent()
                 };
                 ui.label(
                     egui::RichText::new(format!("Now: {}", self.audio.description)).color(colour),
                 );
                 if let Some(note) = &self.audio.note {
-                    ui.label(egui::RichText::new(note).color(theme::ACCENT));
+                    ui.label(egui::RichText::new(note).color(theme::accent()));
                 }
                 match self.audio.xruns() {
                     0 => {}
@@ -212,7 +212,7 @@ impl App {
                             egui::RichText::new(format!(
                                 "The sound card ran dry {n} times (crackles). A larger buffer helps."
                             ))
-                            .color(theme::ACCENT),
+                            .color(theme::accent()),
                         );
                     }
                 }

@@ -96,7 +96,7 @@ impl App {
         });
         ui.separator();
 
-        ui.label(egui::RichText::new("Instrument").color(theme::TEXT_DIM));
+        ui.label(egui::RichText::new("Instrument").color(theme::text_dim()));
         let current = match &track.instrument {
             None => "None".to_string(),
             Some(device) => device
@@ -166,9 +166,9 @@ impl App {
             }
 
             ui.add_space(8.0);
-            ui.label(egui::RichText::new("Effects").color(theme::TEXT_DIM));
+            ui.label(egui::RichText::new("Effects").color(theme::text_dim()));
             if track.effects.is_empty() {
-                ui.label(egui::RichText::new("No effects yet.").color(theme::TEXT_DIM));
+                ui.label(egui::RichText::new("No effects yet.").color(theme::text_dim()));
             }
             for (e, device) in track.effects.iter().enumerate() {
                 egui::Frame::group(ui.style()).show(ui, |ui| {

@@ -86,6 +86,51 @@ impl AudioSettings {
     }
 }
 
+/// How the window looks. Kept next to the audio settings, in `preferences.json`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Preferences {
+    /// The colour scheme's id; empty or unknown means the default one.
+    pub theme: String,
+}
+
+impl Preferences {
+    /// Reads preferences from JSON. Anything that isn't valid gives the defaults.
+    pub fn from_json(text: &str) -> Self {
+        let mut preferences: Self = serde_json::from_str(text).unwrap_or_default();
+        if preferences.theme.len() > 64 {
+            preferences.theme.clear();
+        }
+        preferences
+    }
+
+    fn path() -> Option<PathBuf> {
+        file().map(|f| f.with_file_name("preferences.json"))
+    }
+
+    /// The saved preferences, or the defaults if there are none (or they can't be read).
+    pub fn load() -> Self {
+        let Some(path) = Self::path() else {
+            return Self::default();
+        };
+        match std::fs::metadata(&path) {
+            Ok(meta) if meta.is_file() && meta.len() <= MAX_FILE_BYTES => {}
+            _ => return Self::default(),
+        }
+        std::fs::read_to_string(&path)
+            .map_or_else(|_| Self::default(), |text| Self::from_json(&text))
+    }
+
+    pub fn save(&self) -> Result<(), String> {
+        let path = Self::path().ok_or("there's no home folder to keep preferences in")?;
+        if let Some(folder) = path.parent() {
+            std::fs::create_dir_all(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
+        }
+        let text = serde_json::to_string_pretty(self).expect("preferences are plain data");
+        std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))
+    }
+}
+
 /// Where the settings are kept: `%APPDATA%\AudioZero` on Windows,
 /// `~/Library/Application Support/AudioZero` on macOS, and `$XDG_CONFIG_HOME/audiozero`
 /// (normally `~/.config/audiozero`) elsewhere.
@@ -176,6 +221,17 @@ mod tests {
             r#"{{"output": "{long}", "input": "  ", "sample_rate": 12, "buffer": 1000000}}"#
         );
         assert_eq!(AudioSettings::from_json(&text), AudioSettings::default());
+    }
+
+    #[test]
+    fn preferences_survive_bad_files() {
+        assert_eq!(
+            Preferences::from_json(r#"{"theme": "light"}"#).theme,
+            "light"
+        );
+        assert_eq!(Preferences::from_json("nope"), Preferences::default());
+        let long = format!(r#"{{"theme": "{}"}}"#, "x".repeat(100));
+        assert_eq!(Preferences::from_json(&long).theme, "");
     }
 
     #[test]

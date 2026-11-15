@@ -182,11 +182,11 @@ impl App {
                 .clicked();
             ui.separator();
             let track_name = &self.session.project().tracks[at.track].name;
-            ui.label(egui::RichText::new(format!("on {track_name} · {} notes · {} bars", clip.notes.len(), clip.length / f64::from(self.session.project().beats_per_bar))).color(theme::TEXT_DIM));
+            ui.label(egui::RichText::new(format!("on {track_name} · {} notes · {} bars", clip.notes.len(), clip.length / f64::from(self.session.project().beats_per_bar))).color(theme::text_dim()));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(8.0);
                 close = ui.button("Close").clicked();
-                ui.label(egui::RichText::new("Click: add · drag: select · Ctrl-drag: draw · Ctrl+D: duplicate · Delete: remove").color(theme::TEXT_DIM).size(11.0))
+                ui.label(egui::RichText::new("Hints (hover)").color(theme::text_dim()).size(11.0))
                     .on_hover_text("Click an empty spot to add a note. Drag across an empty area to select notes; Shift adds to the selection.\nCtrl/Cmd-drag draws a note at the length you want. Drag notes to move them, or their right edge to resize.\nCtrl/Cmd + D copies the selected notes to straight after them. Right-click or Delete removes.\nUp/Down transposes (Shift: an octave). Alt ignores the grid.");
             });
         });
@@ -271,14 +271,14 @@ impl App {
                 row,
                 0.0,
                 if is_black_key(pitch) {
-                    theme::BLACK_KEY_ROW
+                    theme::black_key_row()
                 } else {
-                    theme::WHITE_KEY_ROW
+                    theme::white_key_row()
                 },
             );
             if !chromatic {
                 if !music::in_scale(pitch, key, scale) {
-                    grid_painter.rect_filled(row, 0.0, Color32::from_black_alpha(70));
+                    grid_painter.rect_filled(row, 0.0, theme::shade(70));
                 } else if pitch % 12 == key {
                     grid_painter.rect_filled(row, 0.0, colour.gamma_multiply(0.10));
                 }
@@ -286,13 +286,13 @@ impl App {
             if pitch % 12 == 0 {
                 grid_painter.line_segment(
                     [row.left_bottom(), row.right_bottom()],
-                    Stroke::new(1.0, theme::BAR),
+                    Stroke::new(1.0, theme::bar()),
                 );
             }
             let key =
                 Rect::from_min_max(Pos2::new(keys.left(), y), Pos2::new(keys.right(), y + ROW));
             let (fill, text) = if is_black_key(pitch) {
-                (Color32::from_rgb(0x22, 0x24, 0x28), theme::TEXT_DIM)
+                (Color32::from_rgb(0x22, 0x24, 0x28), theme::text_dim())
             } else {
                 (
                     Color32::from_rgb(0xd8, 0xda, 0xde),
@@ -326,11 +326,11 @@ impl App {
             let beat = i as f64 * step;
             let x = grid.x(beat);
             let colour = if beat % per_bar == 0.0 {
-                theme::BAR.gamma_multiply(1.6)
+                theme::bar().gamma_multiply(1.6)
             } else if beat.fract() == 0.0 {
-                theme::BAR
+                theme::bar()
             } else {
-                theme::GRID
+                theme::grid()
             };
             grid_painter.line_segment(
                 [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
@@ -344,7 +344,7 @@ impl App {
             grid_painter.rect_filled(
                 Rect::from_min_max(Pos2::new(end_x, rect.top()), rect.right_bottom()),
                 0.0,
-                Color32::from_black_alpha(140),
+                theme::shade(140),
             );
             grid_painter.line_segment(
                 [
@@ -366,7 +366,7 @@ impl App {
             let fill = colour.gamma_multiply(0.45 + 0.55 * note.velocity);
             grid_painter.rect_filled(r, CornerRadius::same(2), fill);
             let outline = if is_selected {
-                Stroke::new(1.5, theme::SELECTION)
+                Stroke::new(1.5, theme::selection())
             } else {
                 Stroke::new(1.0, colour.gamma_multiply(0.5))
             };
@@ -375,11 +375,11 @@ impl App {
 
         // The selection box.
         if let Some(band) = self.roll.as_ref().and_then(|r| r.band) {
-            grid_painter.rect_filled(band, 0.0, theme::SELECTION.gamma_multiply(0.08));
+            grid_painter.rect_filled(band, 0.0, theme::selection().gamma_multiply(0.08));
             grid_painter.rect_stroke(
                 band,
                 0.0,
-                Stroke::new(1.0, theme::SELECTION.gamma_multiply(0.7)),
+                Stroke::new(1.0, theme::selection().gamma_multiply(0.7)),
                 StrokeKind::Inside,
             );
         }
@@ -390,12 +390,12 @@ impl App {
             let x = grid.x(position);
             grid_painter.line_segment(
                 [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
-                Stroke::new(1.5, theme::PLAYHEAD),
+                Stroke::new(1.5, theme::playhead()),
             );
         }
         painter.line_segment(
             [keys.right_top(), keys.right_bottom()],
-            Stroke::new(1.0, theme::BG),
+            Stroke::new(1.0, theme::bg()),
         );
     }
 

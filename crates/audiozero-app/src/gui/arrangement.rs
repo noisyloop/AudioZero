@@ -71,7 +71,7 @@ impl App {
         let area = ui.available_rect_before_wrap();
         let background = ui.allocate_rect(area, Sense::click_and_drag());
         let painter = ui.painter_at(area);
-        painter.rect_filled(area, 0.0, theme::BG);
+        painter.rect_filled(area, 0.0, theme::bg());
 
         let lanes_left = area.left() + HEADER_WIDTH;
         let ruler = Rect::from_min_max(
@@ -145,7 +145,7 @@ impl App {
                 Pos2::new(area.right(), top + TRACK_HEIGHT),
             )
             .intersect(lanes_rect);
-            painter.rect_filled(lane, 0.0, theme::ACCENT.gamma_multiply(0.15));
+            painter.rect_filled(lane, 0.0, theme::accent().gamma_multiply(0.15));
             let label = if track == tracks {
                 "Drop to add on a new track"
             } else {
@@ -156,7 +156,7 @@ impl App {
                 Align2::LEFT_CENTER,
                 label,
                 FontId::proportional(13.0),
-                Color32::WHITE,
+                theme::selection(),
             );
         }
 
@@ -181,9 +181,9 @@ impl App {
             let header = Rect::from_min_max(row.left_top(), Pos2::new(lanes_left, row.bottom()));
             let colour = theme::track(index);
             let lane_fill = if index % 2 == 0 {
-                theme::LANE
+                theme::lane()
             } else {
-                theme::LANE_ALT
+                theme::lane_alt()
             };
             rows_painter.rect_filled(
                 lane.intersect(lanes_rect),
@@ -235,7 +235,7 @@ impl App {
 
             // Header: right-click menu (registered first, so the widgets on top keep their clicks),
             // then name, mute/solo, volume and meter.
-            rows_painter.rect_filled(header, 0.0, theme::PANEL);
+            rows_painter.rect_filled(header, 0.0, theme::panel());
             rows_painter.rect_filled(
                 Rect::from_min_size(header.left_top(), Vec2::new(4.0, header.height())),
                 0.0,
@@ -243,7 +243,7 @@ impl App {
             );
             rows_painter.line_segment(
                 [row.left_bottom(), row.right_bottom()],
-                Stroke::new(1.0, theme::BG),
+                Stroke::new(1.0, theme::bg()),
             );
             let header_visible = header.intersect(lanes_rect.with_min_x(area.left()));
             if header_visible.height() > 0.0 {
@@ -309,7 +309,7 @@ impl App {
                 Align2::CENTER_CENTER,
                 "Empty project. Add a track to start.",
                 FontId::proportional(14.0),
-                theme::TEXT_DIM,
+                theme::text_dim(),
             );
         }
 
@@ -326,7 +326,7 @@ impl App {
                 ))
                 .line_segment(
                     [Pos2::new(x, area.top()), Pos2::new(x, area.bottom())],
-                    Stroke::new(1.5, theme::PLAYHEAD),
+                    Stroke::new(1.5, theme::playhead()),
                 );
         }
         painter.line_segment(
@@ -334,7 +334,7 @@ impl App {
                 Pos2::new(lanes_left, area.top()),
                 Pos2::new(lanes_left, area.bottom()),
             ],
-            Stroke::new(1.0, theme::BG),
+            Stroke::new(1.0, theme::bg()),
         );
     }
 
@@ -402,19 +402,19 @@ impl App {
             lane_painter.rect_filled(
                 Rect::from_min_max(Pos2::new(x0, ruler.top()), Pos2::new(x1, area.bottom())),
                 0.0,
-                theme::LOOP,
+                theme::loop_fill(),
             );
             lane_painter.rect_filled(
                 Rect::from_min_max(Pos2::new(x0, ruler.top()), Pos2::new(x1, ruler.top() + 4.0)),
                 0.0,
-                theme::ACCENT,
+                theme::accent(),
             );
         }
         for beat in first_beat.max(0)..=last_beat {
             let x = time.x(beat as f64);
             let is_bar = beat as f32 % per_bar == 0.0;
             if ppb >= 8.0 || is_bar {
-                let colour = if is_bar { theme::BAR } else { theme::GRID };
+                let colour = if is_bar { theme::bar() } else { theme::grid() };
                 lane_painter.line_segment(
                     [Pos2::new(x, tracks_top), Pos2::new(x, area.bottom())],
                     Stroke::new(1.0, colour),
@@ -427,20 +427,20 @@ impl App {
                         Pos2::new(x, ruler.bottom() - 8.0),
                         Pos2::new(x, ruler.bottom()),
                     ],
-                    Stroke::new(1.0, theme::TEXT_DIM),
+                    Stroke::new(1.0, theme::text_dim()),
                 );
                 lane_painter.text(
                     Pos2::new(x + 3.0, ruler.center().y),
                     Align2::LEFT_CENTER,
                     bar_index + 1,
                     FontId::proportional(11.0),
-                    theme::TEXT_DIM,
+                    theme::text_dim(),
                 );
             }
         }
         painter.line_segment(
             [ruler.left_bottom(), ruler.right_bottom()],
-            Stroke::new(1.0, theme::BAR),
+            Stroke::new(1.0, theme::bar()),
         );
     }
 
@@ -746,7 +746,7 @@ fn draw_clip(
     };
     painter.rect_filled(body, CornerRadius::same(4), fill);
     let outline = if selected {
-        Stroke::new(2.0, theme::SELECTION)
+        Stroke::new(2.0, theme::selection())
     } else {
         Stroke::new(1.0, colour)
     };

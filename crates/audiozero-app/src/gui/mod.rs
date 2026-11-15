@@ -39,7 +39,7 @@ pub fn run(start: Option<PathBuf>, settings: AudioSettings) -> Result<(), String
         "AudioZero",
         options,
         Box::new(move |cc| {
-            theme::apply(&cc.egui_ctx);
+            theme::set_scheme(&cc.egui_ctx, &crate::settings::Preferences::load().theme);
             Ok(Box::new(App::new(start, settings, cc.egui_ctx.clone())))
         }),
     )
@@ -677,6 +677,21 @@ impl App {
                     self.add_track();
                 }
             });
+            ui.menu_button("View", |ui| {
+                ui.label(egui::RichText::new("Colours").color(theme::text_dim()));
+                let current = theme::scheme().id;
+                for scheme in theme::SCHEMES {
+                    if ui.radio(current == scheme.id, scheme.name).clicked() {
+                        theme::set_scheme(ui.ctx(), scheme.id);
+                        let preferences = crate::settings::Preferences {
+                            theme: scheme.id.into(),
+                        };
+                        if let Err(e) = preferences.save() {
+                            self.status = format!("Can't save the colour choice: {e}");
+                        }
+                    }
+                }
+            });
             ui.menu_button("Audio", |ui| {
                 if ui.button("Audio settings…").clicked() {
                     self.open_audio_dialog();
@@ -751,7 +766,7 @@ impl App {
                 self.set_without_undo(|p| p.loop_enabled = looping);
             }
             ui.checkbox(&mut self.view.follow, "Follow");
-            ui.label(egui::RichText::new(self.keys_label()).color(theme::TEXT_DIM))
+            ui.label(egui::RichText::new(self.keys_label()).color(theme::text_dim()))
                 .on_hover_text("Computer keyboard: A–K play notes on the armed or selected track; Z/X change octave, C/V velocity");
             ui.separator();
 
@@ -786,9 +801,9 @@ impl App {
         // The device on the right, then the status in what's left, cut short if it's long.
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let colour = if self.audio.has_device() {
-                theme::TEXT_DIM
+                theme::text_dim()
             } else {
-                theme::ACCENT
+                theme::accent()
             };
             let device =
                 egui::Label::new(egui::RichText::new(&self.audio.description).color(colour))
@@ -803,7 +818,7 @@ impl App {
             ui.separator();
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add(
-                    egui::Label::new(egui::RichText::new(&self.status).color(theme::TEXT_DIM))
+                    egui::Label::new(egui::RichText::new(&self.status).color(theme::text_dim()))
                         .truncate(),
                 )
                 .on_hover_text(&self.status);
@@ -1038,7 +1053,7 @@ fn record_dot(ui: &mut egui::Ui, on: bool) -> egui::Response {
         let colour = if response.hovered() {
             red
         } else {
-            theme::TEXT_DIM
+            theme::text_dim()
         };
         painter.circle_stroke(rect.center(), radius, egui::Stroke::new(1.5, colour));
     }
@@ -1049,7 +1064,7 @@ fn record_dot(ui: &mut egui::Ui, on: bool) -> egui::Response {
 fn meter(ui: &mut egui::Ui, left: f32, right: f32, size: Vec2) {
     let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
     let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, 2.0, theme::BG);
+    painter.rect_filled(rect, 2.0, theme::bg());
     let half = rect.height() / 2.0;
     for (i, level) in [left, right].into_iter().enumerate() {
         let level = level.clamp(0.0, 1.0);
@@ -1062,7 +1077,7 @@ fn meter(ui: &mut egui::Ui, left: f32, right: f32, size: Vec2) {
         let colour = if level > 0.89 {
             Color32::from_rgb(0xef, 0x53, 0x50)
         } else if level > 0.5 {
-            theme::ACCENT
+            theme::accent()
         } else {
             Color32::from_rgb(0x66, 0xbb, 0x6a)
         };
@@ -1097,7 +1112,7 @@ impl eframe::App for App {
                 .resizable(true)
                 .default_size(280.0)
                 .min_size(220.0)
-                .frame(egui::Frame::NONE.fill(theme::PANEL).inner_margin(8.0))
+                .frame(egui::Frame::NONE.fill(theme::panel()).inner_margin(8.0))
                 .show(ui, |ui| self.devices(ui));
         }
         if self.roll.is_some() {
@@ -1105,7 +1120,7 @@ impl eframe::App for App {
                 .resizable(true)
                 .default_size(300.0)
                 .min_size(160.0)
-                .frame(egui::Frame::NONE.fill(theme::PANEL))
+                .frame(egui::Frame::NONE.fill(theme::panel()))
                 .show(ui, |ui| self.piano_roll(ui));
         }
         egui::CentralPanel::default()
