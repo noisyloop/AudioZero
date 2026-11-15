@@ -166,20 +166,27 @@ impl App {
             ui.add_space(8.0);
             ui.label(egui::RichText::new(&clip.name).strong().color(colour));
             ui.separator();
-            self.key_picker(ui, "roll");
-            if let Some(roll) = &mut self.roll {
-                ui.checkbox(&mut roll.in_key, "In key")
-                    .on_hover_text("Keep new and moved notes on the scale");
+            if self.roll_is_drums() {
+                ui.label(
+                    egui::RichText::new("Drum rack: each row is a pad")
+                        .color(theme::text_dim()),
+                );
+            } else {
+                self.key_picker(ui, "roll");
+                if let Some(roll) = &mut self.roll {
+                    ui.checkbox(&mut roll.in_key, "In key")
+                        .on_hover_text("Keep new and moved notes on the scale");
+                }
+                let selected = self.roll.as_ref().is_some_and(Roll::has_selection);
+                randomize = ui
+                    .button("Randomize")
+                    .on_hover_text(if selected {
+                        "New pitches in key for the selected notes"
+                    } else {
+                        "Write a new melody in key. Press again for another; Undo brings the old notes back"
+                    })
+                    .clicked();
             }
-            let selected = self.roll.as_ref().is_some_and(Roll::has_selection);
-            randomize = ui
-                .button("Randomize")
-                .on_hover_text(if selected {
-                    "New pitches in key for the selected notes"
-                } else {
-                    "Write a new melody in key. Press again for another; Undo brings the old notes back"
-                })
-                .clicked();
             ui.separator();
             let track_name = &self.session.project().tracks[at.track].name;
             ui.label(egui::RichText::new(format!("on {track_name} · {} notes · {} bars", clip.notes.len(), clip.length / f64::from(self.session.project().beats_per_bar))).color(theme::text_dim()));
@@ -262,7 +269,8 @@ impl App {
         // Rows and keyboard. Notes outside the song's scale are dimmed, and its root is tinted.
         let project = self.session.project();
         let (key, scale) = (project.key % 12, music::scale_by_id(&project.scale));
-        let chromatic = scale.steps.len() == 12;
+        let drums = self.roll_is_drums();
+        let chromatic = scale.steps.len() == 12 || drums;
         for pitch in lowest..=highest {
             let y = grid.y(pitch);
             let row =
@@ -276,6 +284,9 @@ impl App {
                     theme::white_key_row()
                 },
             );
+            if drums && audiozero_engine::drums::pad_name(pitch).is_none() {
+                grid_painter.rect_filled(row, 0.0, theme::shade(90));
+            }
             if !chromatic {
                 if !music::in_scale(pitch, key, scale) {
                     grid_painter.rect_filled(row, 0.0, theme::shade(70));
@@ -300,12 +311,17 @@ impl App {
                 )
             };
             keys_painter.rect_filled(key.shrink2(Vec2::new(0.0, 0.5)), 1.0, fill);
-            if pitch % 12 == 0 {
+            let label = if drums {
+                audiozero_engine::drums::pad_name(pitch).map(str::to_owned)
+            } else {
+                (pitch % 12 == 0).then(|| note_name(pitch))
+            };
+            if let Some(label) = label {
                 keys_painter.text(
                     Pos2::new(key.right() - 4.0, key.center().y),
                     Align2::RIGHT_CENTER,
-                    note_name(pitch),
-                    FontId::proportional(9.0),
+                    label,
+                    FontId::proportional(if drums { 8.5 } else { 9.0 }),
                     text,
                 );
             }
@@ -665,6 +681,16 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Whether the clip being edited is on a drum rack, where rows are pads, not pitches.
+    fn roll_is_drums(&self) -> bool {
+        self.roll
+            .as_ref()
+            .and_then(|r| self.session.project().tracks.get(r.clip.track))
+            .and_then(|t| t.instrument.as_ref())
+            .and_then(audiozero_engine::Device::builtin_id)
+            == Some("drums")
     }
 
     pub(super) fn delete_selected_notes(&mut self) {

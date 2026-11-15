@@ -66,6 +66,7 @@ fn param_control(
 }
 
 enum Action {
+    Beat(&'static str),
     Close,
     Instrument(Option<&'static str>),
     Preset(&'static str),
@@ -123,17 +124,30 @@ impl App {
             });
         let instrument_id = track.instrument.as_ref().and_then(Device::builtin_id);
         let presets = instrument_id.map_or(&[][..], instrument_presets);
+        let drums = instrument_id == Some("drums");
         if !presets.is_empty() {
             ui.add_space(4.0);
-            ui.menu_button("Presets", |ui| {
-                for name in presets {
-                    if ui.button(*name).clicked() {
-                        action = Some(Action::Preset(name));
+            ui.horizontal(|ui| {
+                ui.menu_button(if drums { "Kits" } else { "Presets" }, |ui| {
+                    for name in presets {
+                        if ui.button(*name).clicked() {
+                            action = Some(Action::Preset(name));
+                        }
                     }
+                })
+                .response
+                .on_hover_text(if drums {
+                    "Switch the whole kit. Undo brings the old one back."
+                } else {
+                    "Replaces every setting below. Undo brings yours back."
+                });
+                if drums {
+                    self.beats_menu(ui, "Beats", |id| action = Some(Action::Beat(id)));
                 }
-            })
-            .response
-            .on_hover_text("Replaces every setting below. Undo brings yours back.");
+            });
+        }
+        if drums {
+            self.pad_grid(ui, index);
         }
         ui.add_space(4.0);
 
@@ -220,6 +234,7 @@ impl App {
                 let result = self.session.set_instrument(index, id.map(Device::builtin));
                 self.finish(result);
             }
+            Some(Action::Beat(id)) => self.insert_beat(Some(index), id),
             Some(Action::Preset(name)) => {
                 let result = self.session.set_instrument_preset(index, name);
                 if self.done(result.map(|changes| ((), changes))).is_some() {
@@ -238,5 +253,119 @@ impl App {
             }
             None => {}
         }
+    }
+}
+
+impl App {
+    /// The **Beats** menu: how many repeats, then every ready-made beat by genre.
+    pub(super) fn beats_menu(
+        &mut self,
+        ui: &mut egui::Ui,
+        label: &str,
+        mut chosen: impl FnMut(&'static str),
+    ) {
+        ui.menu_button(label, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Bars of each:");
+                for repeats in [1, 2, 4, 8] {
+                    ui.selectable_value(&mut self.beat_repeats, repeats, repeats.to_string());
+                }
+            });
+            ui.separator();
+            for kit in &audiozero_engine::drums::KITS {
+                ui.menu_button(kit.name, |ui| {
+                    for beat in audiozero_engine::drums::beats_for(kit.id) {
+                        let label = format!("{}  ·  {:.0} BPM", beat.name, beat.bpm);
+                        if ui.button(label).clicked() {
+                            chosen(beat.id);
+                            ui.close();
+                        }
+                    }
+                });
+            }
+        })
+        .response
+        .on_hover_text("Ready-made beats: each is added as a clip you can edit");
+    }
+
+    /// Adds a beat as a clip on `track`, or on a new drum track.
+    pub(super) fn insert_beat(&mut self, track: Option<usize>, id: &str) {
+        let repeats = self.beat_repeats.max(1);
+        let result = self.session.add_drum_beat(track, id, repeats, None);
+        if let Some((at, tempo_set)) = self.done(result) {
+            let beat = audiozero_engine::drums::beat_by_id(id);
+            let name = beat.map_or("beat", |b| b.name);
+            self.selected_clip = Some(at);
+            self.device_track = Some(at.track);
+            self.status = if tempo_set {
+                format!(
+                    "Added \"{name}\" and set the tempo to {:.0} BPM. Press Space to play.",
+                    beat.map_or(120.0, |b| b.bpm)
+                )
+            } else {
+                format!(
+                    "Added \"{name}\". Double-click the clip to edit its notes. ({:.0} BPM is its usual tempo.)",
+                    beat.map_or(120.0, |b| b.bpm)
+                )
+            };
+        }
+    }
+
+    /// The drum pads as a 4 by 4 grid to play with the mouse (the bottom left is the kick, as
+    /// on a drum machine). Pressing plays the pad on this track.
+    fn pad_grid(&mut self, ui: &mut egui::Ui, track: usize) {
+        use audiozero_engine::drums::{FIRST_PAD, PAD_NAMES};
+        use audiozero_engine::{Command, LiveNote};
+        ui.add_space(6.0);
+        let gap = 4.0;
+        let width = (ui.available_width() - 8.0 - 3.0 * gap) / 4.0;
+        let size = egui::vec2(width.max(40.0), 34.0);
+        let mut down: Option<u8> = None;
+        ui.spacing_mut().item_spacing = egui::vec2(gap, gap);
+        for row in (0..4).rev() {
+            ui.horizontal(|ui| {
+                for col in 0..4 {
+                    let pad = row * 4 + col;
+                    let pitch = FIRST_PAD + pad as u8;
+                    let lit = self.pad_held == Some(pitch);
+                    let button = egui::Button::new(egui::RichText::new(PAD_NAMES[pad]).size(11.0))
+                        .min_size(size)
+                        .fill(if lit {
+                            theme::accent()
+                        } else {
+                            theme::track(pad / 4).gamma_multiply(0.25)
+                        });
+                    let response = ui.add(button).on_hover_text(format!(
+                        "{} (note {pitch}). Hold the mouse down to hit it.",
+                        PAD_NAMES[pad]
+                    ));
+                    if response.is_pointer_button_down_on() {
+                        down = Some(pitch);
+                    }
+                }
+            });
+        }
+        ui.spacing_mut().item_spacing = egui::vec2(8.0, 4.0);
+        // Hit a pad when it goes down, and let go when it comes up.
+        if down != self.pad_held {
+            if let Some(previous) = self.pad_held {
+                self.send(Command::LiveNote(LiveNote {
+                    track,
+                    pitch: previous,
+                    velocity: 0.0,
+                    on: false,
+                }));
+            }
+            if let Some(pitch) = down {
+                self.send(Command::LiveNote(LiveNote {
+                    track,
+                    pitch,
+                    velocity: 0.9,
+                    on: true,
+                }));
+            }
+            self.pad_held = down;
+        }
+        ui.add_space(4.0);
     }
 }

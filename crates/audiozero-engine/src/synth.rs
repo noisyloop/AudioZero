@@ -18,16 +18,18 @@ pub trait Instrument: Send {
 }
 
 /// Built-in instruments: project id and display name.
-pub const BUILTINS: [(&str, &str); 3] = [
+pub const BUILTINS: [(&str, &str); 4] = [
     ("sine", "Sine synth"),
     ("kick", "Kick Me (Nusick)"),
     ("operator", "Operator (FM synth)"),
+    ("drums", "Drum rack"),
 ];
 
 /// The parameters of a built-in instrument, or `None` if it has none (or `id` isn't one).
 pub fn instrument_params(id: &str) -> Option<&'static [Param]> {
     match id {
         "operator" => Some(&crate::operator::PARAMS),
+        "drums" => Some(&crate::drums::PARAMS),
         _ => None,
     }
 }
@@ -37,6 +39,7 @@ pub fn instrument_params(id: &str) -> Option<&'static [Param]> {
 pub fn instrument_sections(id: &str) -> &'static [(&'static str, std::ops::Range<usize>)] {
     match id {
         "operator" => &crate::operator::SECTIONS,
+        "drums" => &crate::drums::SECTIONS,
         _ => &[],
     }
 }
@@ -45,6 +48,7 @@ pub fn instrument_sections(id: &str) -> &'static [(&'static str, std::ops::Range
 pub fn instrument_presets(id: &str) -> &'static [&'static str] {
     match id {
         "operator" => &crate::operator::PRESETS,
+        "drums" => &crate::drums::PRESETS,
         _ => &[],
     }
 }
@@ -53,6 +57,7 @@ pub fn instrument_presets(id: &str) -> &'static [&'static str] {
 pub fn instrument_preset(id: &str, preset: &str) -> Option<&'static [(&'static str, f32)]> {
     match id {
         "operator" => crate::operator::preset(preset),
+        "drums" => crate::drums::preset(preset),
         _ => None,
     }
 }
@@ -63,6 +68,7 @@ pub fn create_builtin(id: &str) -> Option<Box<dyn Instrument>> {
         "sine" => Some(Box::new(SineSynth::new())),
         "kick" => Some(Box::new(Kick::new())),
         "operator" => Some(Box::new(crate::operator::Operator::new())),
+        "drums" => Some(Box::new(crate::drums::DrumRack::new())),
         _ => None,
     }
 }

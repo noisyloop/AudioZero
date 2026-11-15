@@ -4,6 +4,7 @@
 //! - [`control`]: drives an engine on the audio thread from the UI thread, without locks.
 //! - [`session`]: every edit to a project, with undo. The window and the MCP server both edit
 //!   through it.
+//! - [`drums`]: the drum rack: synthesized drum kits for several genres, and ready-made beats.
 //! - [`effects`]: built-in track effects (delay, reverb, compressor).
 //! - [`engine`]: renders a project to audio, sample-accurately, without allocating on the audio thread.
 //! - [`export`]: rendering a song to a WAV or MP3 file.
@@ -18,6 +19,7 @@
 
 pub mod control;
 pub mod demo;
+pub mod drums;
 pub mod effects;
 pub mod engine;
 pub mod export;

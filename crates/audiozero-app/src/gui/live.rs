@@ -311,7 +311,19 @@ impl App {
                 continue;
             };
             if pressed {
-                let pitch = (self.keys.octave + 1) * 12 + i32::from(semitone);
+                // On a drum rack the keys are the pads, from the kick up, whatever the octave.
+                let drums = self.session.project().tracks.get(track).is_some_and(|t| {
+                    t.instrument
+                        .as_ref()
+                        .and_then(audiozero_engine::Device::builtin_id)
+                        == Some("drums")
+                });
+                let pitch = if drums {
+                    i32::from(audiozero_engine::drums::FIRST_PAD)
+                        + NOTE_KEYS.iter().position(|(k, _)| *k == key).unwrap_or(0) as i32
+                } else {
+                    (self.keys.octave + 1) * 12 + i32::from(semitone)
+                };
                 let Ok(pitch) = u8::try_from(pitch) else {
                     continue;
                 };

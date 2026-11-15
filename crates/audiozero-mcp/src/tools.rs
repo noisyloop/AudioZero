@@ -388,6 +388,20 @@ const TOOLS: &[Tool] = &[
         destructive: true,
     },
     Tool {
+        name: "add_drum_beat",
+        title: "Add drum beat",
+        description: "Adds a ready-made drum beat (ids and tempos are in list_instruments under drum_beats) as a clip. With no `track` it makes a new \"Drums\" track with the beat's kit; with a track (which needs the \"drums\" instrument) it goes after that track's last clip. In a song with no clips yet the tempo is set to the beat's. One undo step. Edit the notes afterwards with the note tools: drum pads are notes 36 (kick) to 51.",
+        properties: props!(
+            r#""beat": { "type": "string", "description": "A beat id, for example techno-basic or trap-rolls" }"#,
+            r#""track": { "type": "integer", "minimum": 0, "description": "A track with the drum rack. Omit to make a new drums track." }"#,
+            r#""repeats": { "type": "integer", "minimum": 1, "maximum": 64, "description": "How many times the pattern repeats. Defaults to 4." }"#,
+            r#""start": { "type": "number", "minimum": 0, "description": "Where it starts, in beats. Defaults to the end of the track's clips." }"#
+        ),
+        required: &["beat"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
         name: "export_audio",
         title: "Export audio",
         description: "Renders the song (or the loop) to a new audio file `name`.wav or `name`.mp3 in the AudioZero folder. Never replaces a file. Faster than real time.",
@@ -604,6 +618,13 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 .iter()
                 .map(|(id, name)| {
                     let mut entry = json!({ "id": id, "name": name });
+                    if *id == "drums" {
+                        entry["pads"] = audiozero_engine::drums::PAD_NAMES
+                            .iter()
+                            .enumerate()
+                            .map(|(i, n)| json!({ "note": audiozero_engine::drums::FIRST_PAD as usize + i, "name": n }))
+                            .collect();
+                    }
                     if let Some(params) = audiozero_engine::synth::instrument_params(id) {
                         entry["params"] = params.iter().map(param_info).collect();
                         entry["presets"] = json!(audiozero_engine::synth::instrument_presets(id));
@@ -622,8 +643,12 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                     json!({ "id": id, "name": name, "params": params })
                 })
                 .collect();
+            let drum_beats: Vec<Value> = audiozero_engine::drums::BEATS
+                .iter()
+                .map(|b| json!({ "id": b.id, "name": b.name, "genre": b.genre, "bpm": b.bpm, "bars": b.bars() }))
+                .collect();
             Ok(
-                json!({ "instruments": list, "effects": effects, "note": "Third-party plugins aren't available to the assistant yet." }),
+                json!({ "instruments": list, "effects": effects, "drum_beats": drum_beats, "note": "Third-party plugins aren't available to the assistant yet." }),
             )
         }
         "add_track" => {
@@ -1147,6 +1172,26 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 "height": settings.height,
                 "look": settings.look,
             }))
+        }
+        "add_drum_beat" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                beat: String,
+                track: Option<usize>,
+                repeats: Option<usize>,
+                start: Option<f64>,
+            }
+            let a: Args = parse(arguments)?;
+            let ((at, tempo_set), changes) = s
+                .session
+                .add_drum_beat(a.track, &a.beat, a.repeats.unwrap_or(4), a.start)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": at.track, "clip": at.clip, "beat": a.beat, "tempo_set": tempo_set }),
+            ))
         }
         "export_audio" => {
             #[derive(Deserialize)]

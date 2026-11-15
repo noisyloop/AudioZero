@@ -178,6 +178,10 @@ struct App {
     tap_buffer: Vec<f32>,
     visuals: Option<visuals::LiveVisuals>,
     export_dialog: Option<visuals::ExportDialog>,
+    /// How many times a ready-made drum beat repeats when it's added.
+    beat_repeats: usize,
+    /// The drum pad being held down with the mouse, by note.
+    pad_held: Option<u8>,
     audio_export: Option<export_audio::AudioExportDialog>,
     audio_job: Option<export_audio::AudioExportJob>,
     export_job: Option<visuals::ExportJob>,
@@ -223,6 +227,8 @@ impl App {
             tap_buffer: Vec::new(),
             visuals: None,
             export_dialog: None,
+            beat_repeats: 4,
+            pad_held: None,
             audio_export: None,
             audio_job: None,
             export_job: None,
@@ -687,6 +693,12 @@ impl App {
                 ui.separator();
                 if ui.button("Add track").clicked() {
                     self.add_track();
+                }
+                let mut beat = None;
+                self.beats_menu(ui, "Add drum track with beat", |id| beat = Some(id));
+                if let Some(id) = beat {
+                    self.insert_beat(None, id);
+                    ui.close();
                 }
             });
             ui.menu_button("View", |ui| {

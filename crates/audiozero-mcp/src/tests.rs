@@ -609,6 +609,62 @@ fn effects_through_mcp() {
 }
 
 #[test]
+fn drum_beats_through_mcp() {
+    let mut s = server_with(Project::default(), None, temp_folder("drums"));
+    let list = ok(&mut s, "list_instruments", json!({}));
+    let drums = list["instruments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["id"] == "drums")
+        .unwrap()
+        .clone();
+    assert_eq!(drums["pads"].as_array().unwrap().len(), 16);
+    assert_eq!(drums["pads"][0], json!({ "note": 36, "name": "Kick" }));
+    assert!(
+        drums["presets"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("Trap"))
+    );
+    assert_eq!(list["drum_beats"].as_array().unwrap().len(), 18);
+
+    let r = ok(&mut s, "add_drum_beat", json!({ "beat": "lofi-chill" }));
+    assert_eq!(
+        (r["track"].clone(), r["tempo_set"].clone()),
+        (json!(0), json!(true))
+    );
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][0]["instrument"], "drums");
+    assert_eq!(project["tracks"][0]["instrument_params"]["kit"], 4.0);
+    assert_eq!(project["bpm"], 75.0);
+    let r = ok(
+        &mut s,
+        "add_drum_beat",
+        json!({ "beat": "lofi-rainy", "track": 0, "repeats": 2 }),
+    );
+    assert_eq!(r["clip"], 1);
+    assert_eq!(s.session().project().tracks[0].clips[1].start, 16.0);
+    refused(&mut s, "add_drum_beat", json!({ "beat": "nope" }));
+    refused(
+        &mut s,
+        "add_drum_beat",
+        json!({ "beat": "lofi-chill", "repeats": 0 }),
+    );
+    ok(
+        &mut s,
+        "set_instrument",
+        json!({ "track": 0, "instrument": "sine" }),
+    );
+    let m = refused(
+        &mut s,
+        "add_drum_beat",
+        json!({ "beat": "lofi-chill", "track": 0 }),
+    );
+    assert!(m.contains("drum rack"), "{m}");
+}
+
+#[test]
 fn export_audio_writes_new_files_only_in_the_folder() {
     let folder = temp_folder("export-audio");
     let mut s = server_with(demo::project(), None, folder.clone());

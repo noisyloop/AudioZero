@@ -371,6 +371,93 @@ impl Session {
         })
     }
 
+    /// Adds a ready-made drum beat ([`crate::drums::BEATS`]) as a clip, repeated `repeats` times.
+    ///
+    /// With a `track` (which needs the drum rack) the clip goes at `start` beats, or after the
+    /// track's last clip, on a bar line. With none, a new "Drums" track with the beat's kit is
+    /// made and the clip goes at `start` (default 0). In a song with no clips yet, the tempo is
+    /// set to the beat's. All one undo step. Returns the clip, the track's index, and whether
+    /// the tempo was set.
+    pub fn add_drum_beat(
+        &mut self,
+        track: Option<usize>,
+        beat_id: &str,
+        repeats: usize,
+        start: Option<f64>,
+    ) -> Result<((ClipRef, bool), Changes), EditError> {
+        let beat = crate::drums::beat_by_id(beat_id).ok_or_else(|| {
+            let ids: Vec<_> = crate::drums::BEATS.iter().map(|b| b.id).collect();
+            EditError::Invalid(format!(
+                "unknown beat \"{beat_id}\"; use one of {}",
+                ids.join(", ")
+            ))
+        })?;
+        if !(1..=64).contains(&repeats) {
+            return Err(EditError::Invalid(format!(
+                "repeats has to be 1 to 64, got {repeats}"
+            )));
+        }
+        if let Some(start) = start {
+            check_beat("start", start)?;
+        }
+        self.try_edit(|p| {
+            let empty = p.tracks.iter().all(|t| t.clips.is_empty());
+            let index = match track {
+                Some(index) => {
+                    check_track(p, index)?;
+                    if p.tracks[index].instrument.as_ref().and_then(Device::builtin_id)
+                        != Some("drums")
+                    {
+                        return Err(EditError::Invalid(format!(
+                            "track {index} doesn't have the drum rack; set its instrument to \"drums\""
+                        )));
+                    }
+                    index
+                }
+                None => {
+                    let kit = crate::drums::KITS
+                        .iter()
+                        .position(|k| k.id == beat.genre)
+                        .unwrap_or(0);
+                    let mut device = Device::builtin("drums");
+                    if let Device::Builtin { params, .. } = &mut device {
+                        params.insert("kit".into(), kit as f32);
+                    }
+                    p.tracks.push(Track {
+                        name: "Drums".into(),
+                        instrument: Some(device),
+                        ..Default::default()
+                    });
+                    p.tracks.len() - 1
+                }
+            };
+            let bar = f64::from(p.beats_per_bar);
+            let start = start.unwrap_or_else(|| {
+                let end = p.tracks[index]
+                    .clips
+                    .iter()
+                    .map(Clip::end)
+                    .fold(0.0, f64::max);
+                (end / bar).ceil() * bar
+            });
+            let clip = beat.clip(repeats, start, p.beats_per_bar);
+            check_clip_shape(&clip)?;
+            for note in &clip.notes {
+                check_note(note, clip.length)?;
+            }
+            let clips = &mut p.tracks[index].clips;
+            clips.push(clip);
+            let at = ClipRef {
+                track: index,
+                clip: clips.len() - 1,
+            };
+            if empty {
+                p.bpm = beat.bpm;
+            }
+            Ok((at, empty))
+        })
+    }
+
     pub fn remove_track(&mut self, index: usize) -> Result<Changes, EditError> {
         self.try_edit(|p| {
             check_track(p, index)?;
@@ -921,6 +1008,85 @@ fn check_note(note: &Note, clip_length: f64) -> Result<(), EditError> {
     }
     check_range("note length", note.length, 1.0 / 128.0, MAX_BEATS)?;
     check_range("velocity", f64::from(note.velocity), 0.0, 1.0)
+}
+
+#[cfg(test)]
+mod drum_tests {
+    use super::*;
+
+    #[test]
+    fn a_beat_makes_a_drum_track_with_its_kit_and_tempo() {
+        let mut s = Session::new(Project::default()).unwrap();
+        let ((at, tempo_set), changes) = s.add_drum_beat(None, "trap-classic", 2, None).unwrap();
+        assert!(
+            tempo_set && changes.reload,
+            "the rebuilt engine carries the tempo"
+        );
+        let p = s.project();
+        assert_eq!(p.bpm, 140.0);
+        assert_eq!(p.tracks[at.track].name, "Drums");
+        let device = p.tracks[at.track].instrument.as_ref().unwrap();
+        assert_eq!(device.builtin_id(), Some("drums"));
+        assert_eq!(device.param("kit"), Some(5.0), "the trap kit");
+        let clip = &p.tracks[at.track].clips[at.clip];
+        assert_eq!((clip.start, clip.length), (0.0, 8.0));
+        assert!(clip.notes.len() > 20);
+        // One undo step takes the track and its clip back. The tempo stays: it's never an
+        // undo step, like the other transport settings.
+        s.undo().unwrap();
+        assert!(s.project().tracks.is_empty());
+        assert_eq!(s.project().bpm, 140.0);
+    }
+
+    #[test]
+    fn beats_append_to_a_drum_track_and_leave_the_tempo_alone() {
+        let mut s = Session::new(Project::default()).unwrap();
+        let ((first, _), _) = s.add_drum_beat(None, "techno-basic", 1, None).unwrap();
+        let ((second, tempo_set), _) = s
+            .add_drum_beat(Some(first.track), "techno-driving", 2, None)
+            .unwrap();
+        assert!(!tempo_set);
+        assert_eq!(s.project().bpm, 130.0);
+        let clips = &s.project().tracks[0].clips;
+        assert_eq!(
+            (clips[0].start, clips[1].start, clips[1].length),
+            (0.0, 4.0, 8.0)
+        );
+        assert_eq!(second.clip, 1);
+        let ((third, _), _) = s
+            .add_drum_beat(Some(0), "techno-minimal", 1, Some(32.0))
+            .unwrap();
+        assert_eq!(s.project().tracks[0].clips[third.clip].start, 32.0);
+    }
+
+    #[test]
+    fn bad_beat_requests_are_refused() {
+        let mut project = Project::default();
+        project.tracks.push(Track::default());
+        project.tracks.push(Track {
+            instrument: Some(Device::builtin("sine")),
+            ..Default::default()
+        });
+        let mut s = Session::new(project).unwrap();
+        assert!(s.add_drum_beat(None, "nope", 1, None).is_err());
+        assert!(s.add_drum_beat(None, "techno-basic", 0, None).is_err());
+        assert!(s.add_drum_beat(None, "techno-basic", 65, None).is_err());
+        assert!(
+            s.add_drum_beat(None, "techno-basic", 1, Some(-1.0))
+                .is_err()
+        );
+        assert!(s.add_drum_beat(Some(9), "techno-basic", 1, None).is_err());
+        let m = s
+            .add_drum_beat(Some(1), "techno-basic", 1, None)
+            .unwrap_err();
+        assert!(m.to_string().contains("drum rack"), "{m}");
+        assert!(
+            s.add_drum_beat(Some(0), "techno-basic", 1, None).is_err(),
+            "no instrument"
+        );
+        assert_eq!(s.project().tracks.len(), 2, "nothing was added");
+        assert!(!s.can_undo());
+    }
 }
 
 #[cfg(test)]
