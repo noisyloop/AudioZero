@@ -633,9 +633,7 @@ impl Engine {
     fn update_lit(&mut self) {
         let tracks = &self.project.tracks;
         let any_solo = tracks.iter().any(|t| t.solo);
-        for lit in &mut self.lit {
-            *lit = !any_solo;
-        }
+        self.lit.fill(!any_solo);
         if !any_solo {
             return;
         }
