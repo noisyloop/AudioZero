@@ -74,9 +74,24 @@ impl Default for Project {
     }
 }
 
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Track {
+    /// Names this track in `parent`. Zero means "not assigned yet"; [`Project::sanitize`] gives
+    /// every track a unique one, so it stays put when tracks move.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub id: u32,
+    /// A group track has no instrument or clips: it mixes the tracks inside it, runs its own
+    /// effects on that mix, and sends the result on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub group: bool,
+    /// The `id` of the group this track is in, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<u32>,
     pub name: String,
     pub volume: f32,
     pub pan: f32,
@@ -92,6 +107,9 @@ pub struct Track {
 impl Default for Track {
     fn default() -> Self {
         Self {
+            id: 0,
+            group: false,
+            parent: None,
             name: "Track".into(),
             volume: 0.8,
             pan: 0.0,
@@ -456,8 +474,100 @@ impl Project {
             for clip in &mut track.clips {
                 clip.sanitize();
             }
+            if track.group {
+                track.instrument = None;
+                track.clips.clear();
+                track.arp = crate::arp::ArpSettings::default();
+            }
         }
+        self.sanitize_groups();
         Ok(())
+    }
+
+    /// Gives every track a unique id, then drops parents that don't name a group and breaks any
+    /// loops, so the tracks always form a tree.
+    fn sanitize_groups(&mut self) {
+        let mut seen = std::collections::HashSet::new();
+        let mut next = self.tracks.iter().map(|t| t.id).max().unwrap_or(0);
+        for track in &mut self.tracks {
+            if track.id == 0 || !seen.insert(track.id) {
+                next += 1;
+                track.id = next;
+                seen.insert(next);
+            }
+        }
+        for i in 0..self.tracks.len() {
+            let valid = self.tracks[i]
+                .parent
+                .and_then(|id| self.index_of(id))
+                .is_some_and(|p| p != i && self.tracks[p].group);
+            if !valid {
+                self.tracks[i].parent = None;
+            }
+        }
+        // A loop never reaches the top, so cut it where it is found.
+        for i in 0..self.tracks.len() {
+            let mut at = i;
+            for _ in 0..=self.tracks.len() {
+                match self.parent_of(at) {
+                    Some(p) => at = p,
+                    None => break,
+                }
+                if at == i {
+                    self.tracks[i].parent = None;
+                    break;
+                }
+            }
+        }
+    }
+
+    /// The index of the track with this id.
+    pub fn index_of(&self, id: u32) -> Option<usize> {
+        self.tracks.iter().position(|t| t.id == id)
+    }
+
+    /// The index of the group a track is in.
+    pub fn parent_of(&self, index: usize) -> Option<usize> {
+        self.index_of(self.tracks.get(index)?.parent?)
+    }
+
+    /// How many groups deep a track is.
+    pub fn depth(&self, index: usize) -> usize {
+        let mut depth = 0;
+        let mut at = index;
+        while let Some(p) = self.parent_of(at) {
+            depth += 1;
+            at = p;
+            if depth > self.tracks.len() {
+                break;
+            }
+        }
+        depth
+    }
+
+    /// Whether `index` is `group` or somewhere inside it.
+    pub fn is_inside(&self, index: usize, group: usize) -> bool {
+        let mut at = index;
+        for _ in 0..=self.tracks.len() {
+            if at == group {
+                return true;
+            }
+            match self.parent_of(at) {
+                Some(p) => at = p,
+                None => return false,
+            }
+        }
+        false
+    }
+
+    /// The track at `index` and everything inside it, as a range of indices (the tracks of a
+    /// group follow it, which the editing functions keep true).
+    pub fn block(&self, index: usize) -> std::ops::Range<usize> {
+        let mut end = index + 1;
+        while end < self.tracks.len() && self.is_inside(end, index) {
+            end += 1;
+        }
+        index..end
     }
 
     /// Where the last clip ends, in beats.
@@ -480,7 +590,8 @@ mod tests {
 
     #[test]
     fn round_trips() {
-        let project = crate::demo::project();
+        let mut project = crate::demo::project();
+        project.sanitize().unwrap(); // gives the tracks their ids, as loading does
         let back = Project::from_json(&project.to_json()).unwrap();
         assert_eq!(project, back);
     }
@@ -632,7 +743,8 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("audiozero-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("song.azproj.json");
-        let project = crate::demo::project();
+        let mut project = crate::demo::project();
+        project.sanitize().unwrap();
         project.save(&path).unwrap();
         assert_eq!(Project::load(&path).unwrap(), project);
         std::fs::remove_dir_all(&dir).unwrap();

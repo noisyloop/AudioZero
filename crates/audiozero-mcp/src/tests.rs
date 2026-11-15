@@ -840,3 +840,43 @@ fn export_video_writes_new_files_only_in_the_folder() {
     assert!(m.contains("already exists"), "{m}");
     std::fs::remove_dir_all(&folder).unwrap();
 }
+
+#[test]
+fn groups_through_mcp() {
+    let mut s = server();
+    let group = ok(&mut s, "group_track", json!({ "track": 1, "name": "Low" }));
+    assert_eq!(group["group"], 1);
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][1]["group"], true);
+    assert_eq!(project["tracks"][2]["in_group"], 1);
+    assert!(s.audio().applied.last().unwrap().reload);
+
+    // The group takes effects like any track.
+    ok(
+        &mut s,
+        "add_effect",
+        json!({ "track": 1, "effect": "compressor" }),
+    );
+    let project = ok(&mut s, "get_project", json!({}));
+    assert_eq!(project["tracks"][1]["effects"][0]["id"], "compressor");
+
+    // Kick joins the group, then leaves it.
+    let moved = ok(&mut s, "move_to_group", json!({ "track": 3, "group": 1 }));
+    assert_eq!(moved["track"], 3);
+    assert_eq!(
+        ok(&mut s, "get_project", json!({}))["tracks"][3]["in_group"],
+        1
+    );
+    ok(&mut s, "move_to_group", json!({ "track": 3 }));
+    assert!(ok(&mut s, "get_project", json!({}))["tracks"][3]["in_group"].is_null());
+
+    refused(&mut s, "move_to_group", json!({ "track": 0, "group": 0 }));
+    ok(&mut s, "ungroup", json!({ "group": 1 }));
+    assert_eq!(
+        ok(&mut s, "get_project", json!({}))["tracks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+}

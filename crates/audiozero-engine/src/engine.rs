@@ -56,6 +56,9 @@ struct TrackState {
     /// Audio clips' output for the current block.
     audio_l: Vec<f32>,
     audio_r: Vec<f32>,
+    /// What the tracks inside a group have sent to it this block (silent for other tracks).
+    bus_l: Vec<f32>,
+    bus_r: Vec<f32>,
     /// Notes played live since the last block, played at its start.
     live: Vec<Event>,
     /// Pitches held down live, so they can be released when playback stops.
@@ -144,6 +147,13 @@ pub struct Engine {
     track_l: Vec<f32>,
     track_r: Vec<f32>,
     master_peak: (f32, f32),
+    /// Track indices with the tracks inside a group before the group itself.
+    order: Vec<usize>,
+    /// Each track's group, as an index.
+    parents: Vec<Option<usize>>,
+    /// Which tracks are heard, given mute and solo (a soloed track also lights its groups and
+    /// everything inside it). Recomputed every block.
+    lit: Vec<bool>,
 }
 
 impl Engine {
@@ -248,12 +258,23 @@ impl Engine {
                     samples,
                     audio_l: vec![0.0; max_block],
                     audio_r: vec![0.0; max_block],
+                    bus_l: vec![0.0; if track.group { max_block } else { 0 }],
+                    bus_r: vec![0.0; if track.group { max_block } else { 0 }],
                     live: Vec::with_capacity(MAX_LIVE_EVENTS),
                     live_on: [false; 128],
                 }
             })
             .collect();
+        let parents: Vec<Option<usize>> = (0..project.tracks.len())
+            .map(|i| project.parent_of(i))
+            .collect();
+        let mut order: Vec<usize> = (0..project.tracks.len()).collect();
+        order.sort_by_key(|&i| std::cmp::Reverse(project.depth(i)));
+        let lit = vec![true; project.tracks.len()];
         Ok(Self {
+            order,
+            parents,
+            lit,
             project,
             sample_rate,
             max_block,
@@ -512,6 +533,10 @@ impl Engine {
             track.events.append(&mut track.live);
             track.audio_l[..n].fill(0.0);
             track.audio_r[..n].fill(0.0);
+            if !track.bus_l.is_empty() {
+                track.bus_l[..n].fill(0.0);
+                track.bus_r[..n].fill(0.0);
+            }
         }
 
         // Effects that follow the beat are told where the block starts.
@@ -521,12 +546,19 @@ impl Engine {
         }
 
         let samples_per_beat = self.sample_rate * 60.0 / self.project.bpm;
-        let any_solo = self.project.tracks.iter().any(|t| t.solo);
         let decay = meter_decay(n, self.sample_rate);
-        for (state, track) in self.tracks.iter_mut().zip(&self.project.tracks) {
+        self.update_lit();
+        for k in 0..self.order.len() {
+            let i = self.order[k];
+            let track = &self.project.tracks[i];
+            let state = &mut self.tracks[i];
             let (l, r) = (&mut self.track_l[..n], &mut self.track_r[..n]);
             l.fill(0.0);
             r.fill(0.0);
+            if track.group {
+                l.copy_from_slice(&state.bus_l[..n]);
+                r.copy_from_slice(&state.bus_r[..n]);
+            }
             state.events.sort_unstable_by_key(|e| (e.offset, e.on));
             if state.arp.is_on() {
                 // The arpeggiator turns the notes played into its pattern.
@@ -554,9 +586,9 @@ impl Engine {
                     instrument.render(&mut l[cursor..], &mut r[cursor..]);
                 }
             }
-            for i in 0..n {
-                l[i] += state.audio_l[i];
-                r[i] += state.audio_r[i];
+            for j in 0..n {
+                l[j] += state.audio_l[j];
+                r[j] += state.audio_r[j];
             }
             for effect in state.effects.iter_mut().flatten() {
                 effect.sync(bpm, block_start, playing);
@@ -569,13 +601,20 @@ impl Engine {
                 (block_peak(l) * gain_l).max(state.peak.0 * decay),
                 (block_peak(r) * gain_r).max(state.peak.1 * decay),
             );
-            let audible = !track.mute && (!any_solo || track.solo);
-            if !audible {
+            if track.mute || !self.lit[i] {
                 continue;
             }
-            for i in 0..n {
-                out_l[i] += l[i] * gain_l;
-                out_r[i] += r[i] * gain_r;
+            // On to the group this track is in, or to the master.
+            let (to_l, to_r): (&mut [f32], &mut [f32]) = match self.parents[i] {
+                Some(p) => {
+                    let group = &mut self.tracks[p];
+                    (&mut group.bus_l[..n], &mut group.bus_r[..n])
+                }
+                None => (&mut out_l[..], &mut out_r[..]),
+            };
+            for j in 0..n {
+                to_l[j] += l[j] * gain_l;
+                to_r[j] += r[j] * gain_r;
             }
         }
 
@@ -587,6 +626,42 @@ impl Engine {
             block_peak(out_l).max(self.master_peak.0 * decay),
             block_peak(out_r).max(self.master_peak.1 * decay),
         );
+    }
+
+    /// Works out which tracks are heard. With nothing soloed that's all of them; otherwise it's
+    /// the soloed tracks, the groups they're in, and everything inside soloed groups.
+    fn update_lit(&mut self) {
+        let tracks = &self.project.tracks;
+        let any_solo = tracks.iter().any(|t| t.solo);
+        for lit in &mut self.lit {
+            *lit = !any_solo;
+        }
+        if !any_solo {
+            return;
+        }
+        for i in 0..tracks.len() {
+            if !tracks[i].solo {
+                continue;
+            }
+            self.lit[i] = true;
+            // The groups above it.
+            let mut at = i;
+            while let Some(p) = self.parents[at] {
+                self.lit[p] = true;
+                at = p;
+            }
+            // And the tracks inside it.
+            for j in 0..tracks.len() {
+                let mut at = j;
+                while let Some(p) = self.parents[at] {
+                    if p == i {
+                        self.lit[j] = true;
+                        break;
+                    }
+                    at = p;
+                }
+            }
+        }
     }
 
     /// Turns the clips under the playhead into note events for this block, wrapping at the loop.
@@ -1155,6 +1230,103 @@ mod tests {
         assert!(
             tail[24_000..].iter().all(|x| x.abs() < 0.01),
             "silent after stop"
+        );
+    }
+
+    /// `one_note_project` with its track inside a new group (track 0 is the group).
+    fn grouped() -> Project {
+        let mut p = one_note_project();
+        p.tracks.insert(
+            0,
+            Track {
+                group: true,
+                id: 100,
+                name: "Group".into(),
+                volume: 1.0,
+                ..Default::default()
+            },
+        );
+        p.tracks[1].parent = Some(100);
+        p.tracks[1].volume = 1.0;
+        p
+    }
+
+    fn heard(project: Project) -> f32 {
+        let mut engine = Engine::new(project, 48_000.0, 512).unwrap();
+        engine.play();
+        rms(&engine.render(4800).0)
+    }
+
+    #[test]
+    fn a_group_passes_its_tracks_on_and_scales_them() {
+        let alone = {
+            let mut p = one_note_project();
+            p.tracks[0].volume = 1.0;
+            heard(p)
+        };
+        assert!(alone > 0.01);
+        let through = heard(grouped());
+        assert!((through - alone).abs() < 1e-5, "{through} vs {alone}");
+
+        let mut quieter = grouped();
+        quieter.tracks[0].volume = 0.5;
+        let half = heard(quieter);
+        assert!(
+            (half - alone * 0.5).abs() < 1e-4,
+            "{half} vs {}",
+            alone * 0.5
+        );
+    }
+
+    #[test]
+    fn muting_a_group_silences_what_is_in_it() {
+        let mut p = grouped();
+        p.tracks[0].mute = true;
+        assert_eq!(heard(p), 0.0);
+    }
+
+    #[test]
+    fn soloing_inside_a_group_keeps_the_group_audible() {
+        let mut p = grouped();
+        p.tracks[1].solo = true;
+        assert!(heard(p) > 0.01, "the soloed track and its group play");
+
+        let mut p = grouped();
+        p.tracks.push(Track {
+            solo: true,
+            ..Default::default()
+        });
+        assert_eq!(heard(p), 0.0, "an outside track is soloed");
+
+        let mut p = grouped();
+        p.tracks[0].solo = true;
+        assert!(heard(p) > 0.01, "soloing a group plays what's inside");
+    }
+
+    #[test]
+    fn groups_nest_and_run_their_effects() {
+        let mut p = grouped();
+        // An outer group around the group.
+        p.tracks.insert(
+            0,
+            Track {
+                group: true,
+                id: 200,
+                volume: 1.0,
+                ..Default::default()
+            },
+        );
+        p.tracks[1].parent = Some(200);
+        let plain = heard(p.clone());
+        assert!(plain > 0.01);
+        // A heavy distortion on the outer group changes the sound.
+        p.tracks[0].effects.push(Device::builtin("distortion"));
+        let mut engine = Engine::new(p.clone(), 48_000.0, 512).unwrap();
+        engine.play();
+        let with_fx = rms(&engine.render(4800).0);
+        assert!(
+            with_fx > 0.0 && (with_fx - plain).abs() > 1e-4,
+            "{with_fx} vs {plain}"
         );
     }
 }

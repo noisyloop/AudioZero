@@ -497,16 +497,76 @@ impl App {
         self.done(result);
     }
 
-    fn delete_track(&mut self, index: usize) {
-        self.selected_track = match self.selected_track {
-            Some(t) if t == index => None,
-            Some(t) if t > index => Some(t - 1),
-            other => other,
+    /// Runs an edit that adds, removes or moves tracks, then keeps the selection, the device
+    /// panel, the armed track and Soundgineer's window on the tracks they were on (by id), since
+    /// their indices will have shifted.
+    fn restructure<T>(
+        &mut self,
+        op: impl FnOnce(&mut Session) -> Result<(T, Changes), EditError>,
+    ) -> Option<T> {
+        let ids: Vec<Option<u32>> = {
+            let tracks = &self.session.project().tracks;
+            [
+                self.selected_track,
+                self.device_track,
+                self.armed,
+                self.sg_window.as_ref().map(|w| w.track),
+            ]
+            .map(|i| i.and_then(|i| tracks.get(i)).map(|t| t.id))
+            .to_vec()
         };
-        let result = self.session.remove_track(index);
-        self.finish(result);
+        let result = op(&mut self.session);
+        let value = self.done(result);
+        let project = self.session.project();
+        let find = |id: Option<u32>| id.and_then(|id| project.index_of(id));
+        self.selected_track = find(ids[0]);
+        self.device_track = find(ids[1]);
+        self.armed = find(ids[2]);
+        let window = find(ids[3]);
+        match (&mut self.sg_window, window) {
+            (Some(w), Some(track)) => w.track = track,
+            (window @ Some(_), None) => *window = None,
+            _ => {}
+        }
         self.selected_clip = None;
         self.roll = None;
+        value
+    }
+
+    fn delete_track(&mut self, index: usize) {
+        self.restructure(|s| s.remove_track(index).map(|c| ((), c)));
+    }
+
+    /// Ctrl+G: puts the selected track in a new group and asks for the group's name.
+    fn group_selected(&mut self) {
+        let Some(track) = self.selected_track else {
+            self.status = "Select a track first, then press Ctrl+G to group it.".into();
+            return;
+        };
+        let number = self
+            .session
+            .project()
+            .tracks
+            .iter()
+            .filter(|t| t.group)
+            .count()
+            + 1;
+        if let Some(group) = self.restructure(|s| s.group_track(track, &format!("Group {number}")))
+        {
+            self.selected_track = Some(group);
+            self.device_track = Some(group);
+            self.ask_rename(group);
+        }
+    }
+
+    /// Ctrl+Shift+G: takes the selected group apart (its tracks stay).
+    fn ungroup_track(&mut self, group: usize) {
+        self.restructure(|s| s.ungroup(group).map(|c| ((), c)));
+    }
+
+    /// Moves a track into a group, or out to the top level with `None`.
+    fn move_to_group(&mut self, track: usize, group: Option<usize>) {
+        self.restructure(|s| s.move_to_group(track, group));
     }
 
     fn set_instrument(&mut self, index: usize, id: &str) {
@@ -1017,11 +1077,14 @@ impl App {
     }
 
     fn shortcuts(&mut self, ctx: &egui::Context) {
-        if self.prompt.is_some()
-            || self.pending.is_some()
-            || self.rename.is_some()
-            || ctx.egui_wants_keyboard_input()
-        {
+        // Ctrl+D, Ctrl+G and Ctrl+R mean nothing to a text field, so a control that happens to
+        // keep keyboard focus (a tempo box, a combo) must not swallow them.
+        let editing = ctx.egui_wants_keyboard_input()
+            && !ctx.input(|i| {
+                i.modifiers.command
+                    && (i.key_pressed(Key::D) || i.key_pressed(Key::G) || i.key_pressed(Key::R))
+            });
+        if self.prompt.is_some() || self.pending.is_some() || self.rename.is_some() || editing {
             self.release_keys();
             return;
         }
@@ -1044,6 +1107,15 @@ impl App {
             }
             if pressed(Key::Y) {
                 self.redo();
+            }
+            if pressed(Key::G) {
+                match self.selected_track {
+                    Some(group) if shift && self.session.project().tracks[group].group => {
+                        self.ungroup_track(group);
+                    }
+                    Some(track) if shift => self.move_to_group(track, None),
+                    _ => self.group_selected(),
+                }
             }
             // Once per press: a held key mustn't pile up copies.
             let duplicate = ctx.input(|i| {

@@ -98,54 +98,63 @@ impl App {
         });
         ui.separator();
 
-        ui.label(egui::RichText::new("Instrument").color(theme::text_dim()));
-        let current = match &track.instrument {
-            None => "None".to_string(),
-            Some(device) => device
-                .builtin_id()
-                .and_then(|id| BUILTINS.iter().find(|(i, _)| *i == id))
-                .map_or("Plugin (not loaded)".into(), |(_, name)| name.to_string()),
-        };
-        egui::ComboBox::from_id_salt(("instrument", index))
-            .selected_text(current)
-            .width(ui.available_width() - 8.0)
-            .show_ui(ui, |ui| {
-                if ui
-                    .selectable_label(track.instrument.is_none(), "None (audio track)")
-                    .clicked()
-                {
-                    action = Some(Action::Instrument(None));
-                }
-                for (id, name) in BUILTINS {
-                    let on = track.instrument.as_ref().and_then(Device::builtin_id) == Some(id);
-                    if ui.selectable_label(on, name).clicked() {
-                        action = Some(Action::Instrument(Some(id)));
-                    }
-                }
-            });
         let instrument_id = track.instrument.as_ref().and_then(Device::builtin_id);
-        let presets = instrument_id.map_or(&[][..], instrument_presets);
-        let drums = instrument_id == Some("drums");
-        if !presets.is_empty() {
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                ui.menu_button(if drums { "Kits" } else { "Presets" }, |ui| {
-                    for name in presets {
-                        if ui.button(*name).clicked() {
-                            action = Some(Action::Preset(name));
+        if track.group {
+            ui.label(
+                egui::RichText::new(
+                    "A group: the tracks inside it are mixed together here, and these effects process that mix.",
+                )
+                .color(theme::text_dim()),
+            );
+        } else {
+            ui.label(egui::RichText::new("Instrument").color(theme::text_dim()));
+            let current = match &track.instrument {
+                None => "None".to_string(),
+                Some(device) => device
+                    .builtin_id()
+                    .and_then(|id| BUILTINS.iter().find(|(i, _)| *i == id))
+                    .map_or("Plugin (not loaded)".into(), |(_, name)| name.to_string()),
+            };
+            egui::ComboBox::from_id_salt(("instrument", index))
+                .selected_text(current)
+                .width(ui.available_width() - 8.0)
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(track.instrument.is_none(), "None (audio track)")
+                        .clicked()
+                    {
+                        action = Some(Action::Instrument(None));
+                    }
+                    for (id, name) in BUILTINS {
+                        let on = track.instrument.as_ref().and_then(Device::builtin_id) == Some(id);
+                        if ui.selectable_label(on, name).clicked() {
+                            action = Some(Action::Instrument(Some(id)));
                         }
                     }
-                })
-                .response
-                .on_hover_text(if drums {
-                    "Switch the whole kit. Undo brings the old one back."
-                } else {
-                    "Replaces every setting below. Undo brings yours back."
                 });
-                if drums {
-                    self.beats_menu(ui, "Beats", |id| action = Some(Action::Beat(id)));
-                }
-                if instrument_id == Some("soundgineer")
+            let instrument_id = track.instrument.as_ref().and_then(Device::builtin_id);
+            let presets = instrument_id.map_or(&[][..], instrument_presets);
+            let drums = instrument_id == Some("drums");
+            if !presets.is_empty() {
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.menu_button(if drums { "Kits" } else { "Presets" }, |ui| {
+                        for name in presets {
+                            if ui.button(*name).clicked() {
+                                action = Some(Action::Preset(name));
+                            }
+                        }
+                    })
+                    .response
+                    .on_hover_text(if drums {
+                        "Switch the whole kit. Undo brings the old one back."
+                    } else {
+                        "Replaces every setting below. Undo brings yours back."
+                    });
+                    if drums {
+                        self.beats_menu(ui, "Beats", |id| action = Some(Action::Beat(id)));
+                    }
+                    if instrument_id == Some("soundgineer")
                     && ui
                         .button("Open editor")
                         .on_hover_text(
@@ -155,10 +164,11 @@ impl App {
                 {
                     action = Some(Action::OpenEditor);
                 }
-            });
-        }
-        if drums {
-            self.pad_grid(ui, index);
+                });
+            }
+            if drums {
+                self.pad_grid(ui, index);
+            }
         }
         ui.add_space(4.0);
 

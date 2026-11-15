@@ -105,7 +105,8 @@ pub fn changes(before: &Project, after: &Project) -> Changes {
     let reload = before.tracks.len() != after.tracks.len()
         || before.beats_per_bar != after.beats_per_bar
         || before.tracks.iter().zip(&after.tracks).any(|(a, b)| {
-            !same_instrument(&a.instrument, &b.instrument)
+            (a.id, a.group, a.parent) != (b.id, b.group, b.parent)
+                || !same_instrument(&a.instrument, &b.instrument)
                 || a.effects.len() != b.effects.len()
                 || a.effects
                     .iter()
@@ -195,8 +196,10 @@ fn keep_unrecorded(current: &Project, restored: &mut Project) {
     restored.loop_enabled = current.loop_enabled;
     restored.loop_start = current.loop_start;
     restored.loop_end = current.loop_end;
-    for (to, from) in restored.tracks.iter_mut().zip(&current.tracks) {
-        (to.volume, to.pan, to.mute, to.solo) = (from.volume, from.pan, from.mute, from.solo);
+    for to in &mut restored.tracks {
+        if let Some(from) = current.tracks.iter().find(|t| t.id == to.id) {
+            (to.volume, to.pan, to.mute, to.solo) = (from.volume, from.pan, from.mute, from.solo);
+        }
     }
 }
 
@@ -467,7 +470,93 @@ impl Session {
     pub fn remove_track(&mut self, index: usize) -> Result<Changes, EditError> {
         self.try_edit(|p| {
             check_track(p, index)?;
+            // What was inside a removed group goes up a level rather than disappearing.
+            let (id, parent) = (p.tracks[index].id, p.tracks[index].parent);
+            for t in &mut p.tracks {
+                if t.parent == Some(id) {
+                    t.parent = parent;
+                }
+            }
             p.tracks.remove(index);
+            Ok(())
+        })
+        .map(|((), c)| c)
+    }
+
+    /// Puts `track` and everything inside it into a new group named `name`, in its place. The
+    /// group is in whatever group the track was in. Returns the group's index.
+    pub fn group_track(&mut self, track: usize, name: &str) -> Result<(usize, Changes), EditError> {
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            let group = Track {
+                group: true,
+                name: name.trim().to_owned(),
+                parent: p.tracks[track].parent,
+                ..Track::default()
+            };
+            p.tracks.insert(track, group);
+            // Ids are given out by sanitize, so the new group has none yet.
+            let id = p.tracks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+            p.tracks[track].id = id;
+            // The track itself moves in; what was inside it stays inside it.
+            p.tracks[track + 1].parent = Some(id);
+            Ok(track)
+        })
+    }
+
+    /// Moves `track` (with what's inside it) into `group`, after the group's last track, or out
+    /// of its group to the top level when `group` is `None`. Returns the track's new index.
+    pub fn move_to_group(
+        &mut self,
+        track: usize,
+        group: Option<usize>,
+    ) -> Result<(usize, Changes), EditError> {
+        self.try_edit(|p| {
+            check_track(p, track)?;
+            if let Some(g) = group {
+                check_track(p, g)?;
+                if !p.tracks[g].group {
+                    return Err(EditError::Invalid(format!("track {g} is not a group")));
+                }
+                if p.is_inside(g, track) {
+                    return Err(EditError::Invalid(
+                        "a group can't be moved into itself".into(),
+                    ));
+                }
+            }
+            let new_parent = group.map(|g| p.tracks[g].id);
+            if p.tracks[track].parent == new_parent {
+                return Ok(track);
+            }
+            let block = p.block(track);
+            let moved: Vec<Track> = p.tracks.drain(block).collect();
+            // Where it goes now: after the target group's last track, or at the very end.
+            let at = match new_parent.and_then(|id| p.index_of(id)) {
+                Some(g) => p.block(g).end,
+                None => p.tracks.len(),
+            };
+            for (k, t) in moved.into_iter().enumerate() {
+                p.tracks.insert(at + k, t);
+            }
+            p.tracks[at].parent = new_parent;
+            Ok(at)
+        })
+    }
+
+    /// Takes the tracks out of a group and removes the group (and its effects).
+    pub fn ungroup(&mut self, group: usize) -> Result<Changes, EditError> {
+        self.try_edit(|p| {
+            check_track(p, group)?;
+            if !p.tracks[group].group {
+                return Err(EditError::Invalid(format!("track {group} is not a group")));
+            }
+            let (id, parent) = (p.tracks[group].id, p.tracks[group].parent);
+            for t in &mut p.tracks {
+                if t.parent == Some(id) {
+                    t.parent = parent;
+                }
+            }
+            p.tracks.remove(group);
             Ok(())
         })
         .map(|((), c)| c)
@@ -1696,5 +1785,110 @@ mod tests {
         assert!(s.is_dirty());
         s.mark_saved();
         assert!(!s.is_dirty());
+    }
+
+    fn names(s: &Session) -> Vec<String> {
+        let p = s.project();
+        (0..p.tracks.len())
+            .map(|i| format!("{}{}", "-".repeat(p.depth(i)), p.tracks[i].name))
+            .collect()
+    }
+
+    #[test]
+    fn tracks_can_be_grouped_moved_between_groups_and_ungrouped() {
+        let mut s = session(); // Chords, Bass, Kick
+        assert_eq!(names(&s), ["Chords", "Bass", "Kick"]);
+
+        let (g, changes) = s.group_track(1, "Low").unwrap();
+        assert!(changes.reload);
+        assert_eq!(g, 1);
+        assert!(s.project().tracks[1].group);
+        assert_eq!(names(&s), ["Chords", "Low", "-Bass", "Kick"]);
+
+        // Drag Kick into the group, and Chords into a second group inside it.
+        let (at, _) = s.move_to_group(3, Some(1)).unwrap();
+        assert_eq!(at, 3);
+        assert_eq!(names(&s), ["Chords", "Low", "-Bass", "-Kick"]);
+        let (inner, _) = s.group_track(0, "High").unwrap();
+        let (at, _) = s.move_to_group(inner, Some(2)).unwrap();
+        assert_eq!(
+            names(&s),
+            ["Low", "-Bass", "-Kick", "-High", "--Chords"],
+            "moved to {at}"
+        );
+
+        // A group can't go inside itself or what it holds.
+        let low = 0;
+        let high = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "High")
+            .unwrap();
+        assert!(s.move_to_group(low, Some(high)).is_err());
+
+        // Out of the group again, to the top level.
+        let kick = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "Kick")
+            .unwrap();
+        s.move_to_group(kick, None).unwrap();
+        assert_eq!(names(&s), ["Low", "-Bass", "-High", "--Chords", "Kick"]);
+
+        // Removing a group keeps what was in it.
+        s.ungroup(0).unwrap();
+        assert_eq!(names(&s), ["Bass", "High", "-Chords", "Kick"]);
+
+        // Every step undoes.
+        s.undo().unwrap();
+        assert_eq!(names(&s), ["Low", "-Bass", "-High", "--Chords", "Kick"]);
+    }
+
+    #[test]
+    fn mix_settings_survive_undoing_a_regrouping() {
+        let mut s = session();
+        s.group_track(0, "G").unwrap();
+        let bass = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "Bass")
+            .unwrap();
+        s.set_track_mix(
+            bass,
+            TrackMix {
+                volume: 0.3,
+                pan: 0.0,
+                mute: false,
+                solo: false,
+            },
+        )
+        .unwrap();
+        s.undo().unwrap();
+        let bass = s
+            .project()
+            .tracks
+            .iter()
+            .position(|t| t.name == "Bass")
+            .unwrap();
+        assert!((s.project().tracks[bass].volume - 0.3).abs() < 1e-6);
+    }
+
+    #[test]
+    fn deleting_a_group_keeps_its_tracks_and_bad_parents_are_dropped() {
+        let mut s = session();
+        s.group_track(0, "G").unwrap();
+        s.remove_track(0).unwrap();
+        assert_eq!(names(&s), ["Chords", "Bass", "Kick"]);
+
+        let mut p = demo::project();
+        p.tracks[0].parent = Some(999);
+        p.tracks[1].group = true;
+        p.tracks[1].parent = Some(p.tracks[1].id.max(1));
+        let s = Session::new(p).unwrap();
+        assert!(s.project().tracks.iter().all(|t| t.parent.is_none()));
+        assert!(s.project().tracks.iter().all(|t| t.id != 0));
     }
 }
