@@ -51,7 +51,7 @@ pub fn run(start: Option<PathBuf>, settings: AudioSettings) -> Result<(), String
 
 /// Something that would throw away unsaved changes, waiting for the user to confirm.
 enum Pending {
-    New(Project, Option<PathBuf>),
+    New(Box<Project>, Option<PathBuf>),
     Quit,
 }
 
@@ -326,7 +326,7 @@ impl App {
     /// Replaces the current project, asking first if that would lose unsaved changes.
     fn replace(&mut self, project: Project, file: Option<PathBuf>) {
         if self.session.is_dirty() {
-            self.pending = Some(Pending::New(project, file));
+            self.pending = Some(Pending::New(Box::new(project), file));
         } else {
             self.install(project, file);
         }
@@ -1102,7 +1102,7 @@ impl App {
                 });
             });
             match (choice, self.pending.take()) {
-                (Some(true), Some(Pending::New(project, file))) => self.install(project, file),
+                (Some(true), Some(Pending::New(project, file))) => self.install(*project, file),
                 (Some(true), Some(Pending::Quit)) => {
                     self.allow_close = true;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);

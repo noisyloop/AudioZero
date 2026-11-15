@@ -655,6 +655,37 @@ fn the_key_through_mcp() {
     let mut s = server();
     let project = ok(&mut s, "get_project", json!({}));
     assert_eq!(project["key"], "C major");
+    // Song info: only the given fields change, identifiers are checked, and it's all kept.
+    ok(
+        &mut s,
+        "set_song_info",
+        json!({ "title": "Night Drive", "artist": "Jane Doe", "isrc": "US-RC1-26-00001" }),
+    );
+    let r = ok(
+        &mut s,
+        "set_song_info",
+        json!({ "producer": "Sam", "explicit": "clean" }),
+    );
+    assert_eq!(
+        r["song_info"]["title"], "Night Drive",
+        "the earlier fields stay"
+    );
+    assert_eq!(
+        r["song_info"]["isrc"], "USRC12600001",
+        "and identifiers are tidied"
+    );
+    assert_eq!(r["song_info"]["explicit"], "clean");
+    let m = refused(&mut s, "set_song_info", json!({ "isrc": "nope" }));
+    assert!(m.contains("ISRC"), "{m}");
+    refused(&mut s, "set_song_info", json!({ "upc": "123" }));
+    refused(&mut s, "set_song_info", json!({ "explicit": "very" }));
+    refused(&mut s, "set_song_info", json!({ "tempo": 120 }));
+    refused(&mut s, "set_song_info", json!({ "title": 5 }));
+    let r = ok(&mut s, "set_song_info", json!({}));
+    assert_eq!(
+        r["song_info"]["title"], "Night Drive",
+        "a refused change left it alone"
+    );
     ok(&mut s, "set_key", json!({ "key": 9, "scale": "minor" }));
     assert_eq!(ok(&mut s, "get_project", json!({}))["key"], "A minor");
     refused(&mut s, "set_key", json!({ "key": 12, "scale": "minor" }));

@@ -49,6 +49,9 @@ pub struct Project {
     pub key: u8,
     /// The song's scale, by id ([`crate::music::SCALES`]).
     pub scale: String,
+    /// Credits and identifiers written into exported files (artist, ISRC, ...).
+    #[serde(skip_serializing_if = "crate::metadata::Metadata::is_empty")]
+    pub metadata: crate::metadata::Metadata,
     pub tracks: Vec<Track>,
 }
 
@@ -69,6 +72,7 @@ impl Default for Project {
             master_volume: 0.85,
             key: 0,
             scale: "major".into(),
+            metadata: crate::metadata::Metadata::default(),
             tracks: Vec::new(),
         }
     }
@@ -509,6 +513,7 @@ impl Project {
             self.loop_end = self.loop_start + 4.0;
         }
         self.master_volume = finite32(self.master_volume, 0.0, 1.5, 0.85);
+        self.metadata.sanitize();
         self.key %= 12;
         self.scale = crate::music::scale_by_id(&self.scale).id.into();
 

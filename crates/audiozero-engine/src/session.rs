@@ -1116,6 +1116,17 @@ impl Session {
 
     /// Sets the song's key (0 = C to 11 = B) and scale ([`crate::music::SCALES`]). Notes
     /// already written stay as they are.
+    /// Sets the song info that's written into exported files. Not an undo step. Text is cleaned
+    /// up, and a bad ISRC, barcode, ISWC, date or language is refused with what's wrong.
+    pub fn set_metadata(
+        &mut self,
+        mut metadata: crate::metadata::Metadata,
+    ) -> Result<Changes, EditError> {
+        metadata.sanitize();
+        metadata.validate().map_err(EditError::Invalid)?;
+        self.set(|p| p.metadata = metadata)
+    }
+
     pub fn set_key(&mut self, key: u8, scale: &str) -> Result<Changes, EditError> {
         if key > 11 {
             return Err(EditError::Invalid(format!(

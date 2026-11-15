@@ -42,26 +42,51 @@ pub struct WavWriter<W: Write> {
     full_scale: f32,
     frames_left: usize,
     buffer: Vec<u8>,
+    after_data: Vec<u8>,
 }
 
 impl<W: Write> WavWriter<W> {
     /// Starts a 16- or 24-bit WAV of exactly `frames` frames.
-    pub fn new(mut out: W, sample_rate: u32, bits: u16, frames: usize) -> io::Result<Self> {
+    pub fn new(out: W, sample_rate: u32, bits: u16, frames: usize) -> io::Result<Self> {
+        Self::with_chunks(out, sample_rate, bits, frames, &[], Vec::new())
+    }
+
+    /// Like [`WavWriter::new`], with extra RIFF chunks: `before_data` goes between the format
+    /// and the audio (a `bext` chunk, say), `after_data` follows the audio (`LIST`, `id3 `). Each
+    /// must be whole chunks, already padded to an even size.
+    pub fn with_chunks(
+        mut out: W,
+        sample_rate: u32,
+        bits: u16,
+        frames: usize,
+        before_data: &[u8],
+        after_data: Vec<u8>,
+    ) -> io::Result<Self> {
         assert!(bits == 16 || bits == 24, "only 16 and 24 bits are written");
+        let too_long = || {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "audio is too long for a WAV file",
+            )
+        };
         let bytes_per_sample = usize::from(bits / 8);
         let frame_bytes = 2 * bytes_per_sample;
         let data_bytes = frames
             .checked_mul(frame_bytes)
             .and_then(|n| u32::try_from(n).ok())
-            .filter(|n| *n <= u32::MAX - 36)
-            .ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "audio is too long for a WAV file",
-                )
-            })?;
+            .ok_or_else(too_long)?;
+        // "WAVE" + the fmt chunk + the extra chunks + the data chunk's header and audio.
+        let riff_bytes = [
+            36usize,
+            before_data.len(),
+            after_data.len(),
+            data_bytes as usize,
+        ]
+        .into_iter()
+        .try_fold(0u32, |sum, n| sum.checked_add(u32::try_from(n).ok()?))
+        .ok_or_else(too_long)?;
         out.write_all(b"RIFF")?;
-        out.write_all(&(36 + data_bytes).to_le_bytes())?;
+        out.write_all(&riff_bytes.to_le_bytes())?;
         out.write_all(b"WAVEfmt ")?;
         out.write_all(&16u32.to_le_bytes())?; // fmt chunk size
         out.write_all(&1u16.to_le_bytes())?; // PCM
@@ -70,6 +95,7 @@ impl<W: Write> WavWriter<W> {
         out.write_all(&(sample_rate * frame_bytes as u32).to_le_bytes())?; // bytes per second
         out.write_all(&(frame_bytes as u16).to_le_bytes())?; // bytes per frame
         out.write_all(&bits.to_le_bytes())?;
+        out.write_all(before_data)?;
         out.write_all(b"data")?;
         out.write_all(&data_bytes.to_le_bytes())?;
         Ok(Self {
@@ -78,6 +104,7 @@ impl<W: Write> WavWriter<W> {
             full_scale: ((1i32 << (bits - 1)) - 1) as f32,
             frames_left: frames,
             buffer: Vec::new(),
+            after_data,
         })
     }
 
@@ -115,6 +142,7 @@ impl<W: Write> WavWriter<W> {
                 "less audio than the WAV header promised",
             ));
         }
+        self.out.write_all(&self.after_data)?;
         self.out.flush()
     }
 }

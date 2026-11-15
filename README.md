@@ -74,6 +74,7 @@ It's early but working. [Download a build](#download-a-build) or [build it yours
   - A take is one undo step. There's no input monitoring or latency compensation yet.
 - **Clip editing:** click to select, drag to move (also onto another track), drag the right edge to resize, double-click an empty lane to add a clip, and right-click for Edit notes, Duplicate, Mute and Delete. Add tracks with **+ Add track** and remove them by right-clicking a track's header.
 - **Export:** the **Export** button (or **File > Export audio**) renders the whole song or the loop range to a **WAV** (16 or 24-bit) or an **MP3** (128 to 320 kbps, through FFmpeg) at 44.1, 48 or 96 kHz. It runs in the background with progress and Cancel, writes to a temporary file that's renamed into place only when it's finished, and never replaces a file unless you tick Replace. The reverb and delay tails are included (a 2 second tail after the last clip).
+  - **Song info (optional):** the export window has a collapsed **Song info** section for the credits and identifiers a release carries: title, artist, album artist, album and track, release date, genre, composer, lyricist, producer, mixed by, label, **ISRC**, **UPC/EAN**, **ISWC**, the **©** and **℗** lines, language and an explicit flag. Leave it closed and nothing changes. It's saved with the song, checked as you type (an ISRC, barcode, ISWC or date that isn't valid stops the export and says why), and the song's tempo and key are added automatically. In a **WAV** it's written three ways, so different software can find it: an `id3 ` chunk (ID3v2.4, read by foobar2000, MusicBrainz Picard, Reaper and most tag editors), a `LIST`/`INFO` chunk (the basic fields Windows and many players read) and an EBU Tech 3285 `bext` chunk (what broadcast and archive tools read). In an **MP3** it's an ID3v2.4 tag. Distributors usually take the credits from their own form, so this is mainly for your own files, players and archives; Apple Music, for one, doesn't read tags from WAV files at all.
 - **Colours:** **View > Colours** switches between **Dark**, **Darker** and **Light**, and remembers the choice.
 - **Piano roll:** double-click a clip to edit its notes:
   - click to add a note, or drag from an empty spot to draw one at the length you want;
@@ -212,7 +213,7 @@ The tools:
 - **Clips:** `add_clip` (optionally with notes), `update_clip`, `move_clip`, `duplicate_clip` and `remove_clip`.
 - **Notes:** `add_notes`, `set_notes`, `remove_notes` and `transpose_notes`.
 - **Song:** `set_transport` (tempo, loop, master volume), `undo`, `redo`, `play`, `stop` and `save`.
-- **Drums and key:** `add_drum_beat` (a ready-made beat on a new or existing drum track; `list_instruments` lists the beats, the kits and the pads) and `set_key`.
+- **Drums and key:** `add_drum_beat` (a ready-made beat on a new or existing drum track; `list_instruments` lists the beats, the kits and the pads) `set_key`, and `set_song_info` (the credits and identifiers written into exports).
 - **Export:** `export_audio` (WAV or MP3, song or loop) and `export_video` (look, format, fps, song or loop, MP4/WebM/PNG frames), each into a new file in `~/Music/AudioZero`.
 
 It follows the rules in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md#before-the-mcp-server-ships):

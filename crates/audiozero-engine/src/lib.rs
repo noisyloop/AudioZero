@@ -30,6 +30,7 @@ pub mod engine;
 pub mod export;
 pub mod fx;
 pub mod glitch;
+pub mod metadata;
 pub mod music;
 pub mod operator;
 pub mod project;
@@ -37,6 +38,7 @@ pub mod sample;
 pub mod session;
 pub mod soundgineer;
 pub mod synth;
+pub mod tags;
 pub mod wav;
 
 pub use control::{Command, Controller, LiveInput, LiveNote, Player};

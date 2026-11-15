@@ -1,6 +1,7 @@
 //! The tools: their definitions (names, descriptions, JSON schemas) and what each one does.
 
 use crate::{Ctx, MAX_NOTES_PER_CALL};
+use audiozero_engine::metadata::Explicit;
 use audiozero_engine::project::limits::MAX_BEATS;
 use audiozero_engine::session::mix_of;
 use audiozero_engine::synth::BUILTINS;
@@ -450,6 +451,37 @@ const TOOLS: &[Tool] = &[
             r#""swing": { "type": "number", "minimum": 0, "maximum": 0.5, "description": "How far off-beat steps are pushed late" }"#
         ),
         required: &["track"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "set_song_info",
+        title: "Set song info",
+        description: "Sets the credits and identifiers written into exported WAV and MP3 files: title, artist, composer, producer, label, ISRC, UPC/EAN barcode, ISWC, the copyright (c) and phonogram (p) lines, release date, language and the explicit flag. Only the fields you give are changed (an empty string clears one). Identifiers are checked: a bad ISRC, barcode, ISWC or date is refused. Tempo and key come from the song. Not an undo step.",
+        properties: props!(
+            r#""title": { "type": "string" }"#,
+            r#""artist": { "type": "string" }"#,
+            r#""album_artist": { "type": "string" }"#,
+            r#""album": { "type": "string" }"#,
+            r#""track_number": { "type": "integer", "minimum": 0, "description": "0 clears it" }"#,
+            r#""track_total": { "type": "integer", "minimum": 0 }"#,
+            r#""release_date": { "type": "string", "description": "YYYY, YYYY-MM or YYYY-MM-DD" }"#,
+            r#""genre": { "type": "string" }"#,
+            r#""composer": { "type": "string" }"#,
+            r#""lyricist": { "type": "string" }"#,
+            r#""producer": { "type": "string" }"#,
+            r#""mixer": { "type": "string" }"#,
+            r#""label": { "type": "string" }"#,
+            r#""isrc": { "type": "string", "description": "Like US-RC1-26-00001" }"#,
+            r#""upc": { "type": "string", "description": "A 12-digit UPC or 13-digit EAN barcode" }"#,
+            r#""iswc": { "type": "string", "description": "Like T-034.524.680-1" }"#,
+            r#""copyright": { "type": "string", "description": "The (c) line: the year, then the owner, like 2026 Jane Doe" }"#,
+            r#""phonogram": { "type": "string", "description": "The (p) line: the year, then the owner of the recording" }"#,
+            r#""language": { "type": "string", "description": "Three letters, like eng" }"#,
+            r#""explicit": { "type": "string", "enum": ["unspecified", "not_explicit", "explicit", "clean"] }"#,
+            r#""comment": { "type": "string" }"#
+        ),
+        required: &[],
         read_only: false,
         destructive: false,
     },
@@ -1360,6 +1392,70 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 s,
                 &changes,
                 json!({ "track": a.track, "arp": serde_json::to_value(settings).unwrap_or_default() }),
+            ))
+        }
+        "set_song_info" => {
+            // Only the fields given change; the rest of the song's info stays.
+            let mut info = s.session.project().metadata.clone();
+            let args = arguments
+                .as_object()
+                .ok_or("the arguments have to be an object")?;
+            for (key, value) in args {
+                let text = || {
+                    value
+                        .as_str()
+                        .map(str::to_string)
+                        .ok_or_else(|| format!("{key} has to be text"))
+                };
+                let number = || {
+                    value
+                        .as_u64()
+                        .and_then(|n| u32::try_from(n).ok())
+                        .ok_or_else(|| format!("{key} has to be a whole number"))
+                };
+                match key.as_str() {
+                    "title" => info.title = text()?,
+                    "artist" => info.artist = text()?,
+                    "album_artist" => info.album_artist = text()?,
+                    "album" => info.album = text()?,
+                    "track_number" => info.track_number = number()?,
+                    "track_total" => info.track_total = number()?,
+                    "release_date" => info.release_date = text()?,
+                    "genre" => info.genre = text()?,
+                    "composer" => info.composer = text()?,
+                    "lyricist" => info.lyricist = text()?,
+                    "producer" => info.producer = text()?,
+                    "mixer" => info.mixer = text()?,
+                    "label" => info.label = text()?,
+                    "isrc" => info.isrc = text()?,
+                    "upc" => info.upc = text()?,
+                    "iswc" => info.iswc = text()?,
+                    "copyright" => info.copyright = text()?,
+                    "phonogram" => info.phonogram = text()?,
+                    "language" => info.language = text()?,
+                    "comment" => info.comment = text()?,
+                    "explicit" => {
+                        info.explicit = match text()?.as_str() {
+                            "unspecified" => Explicit::Unspecified,
+                            "not_explicit" => Explicit::NotExplicit,
+                            "explicit" => Explicit::Explicit,
+                            "clean" => Explicit::Clean,
+                            other => {
+                                return Err(format!(
+                                    "unknown explicit value \"{other}\"; use unspecified, not_explicit, explicit or clean"
+                                ));
+                            }
+                        }
+                    }
+                    other => return Err(format!("unknown field \"{other}\"")),
+                }
+            }
+            let changes = s.session.set_metadata(info).map_err(|e| e.to_string())?;
+            let saved = s.session.project().metadata.clone();
+            Ok(done(
+                s,
+                &changes,
+                json!({ "song_info": serde_json::to_value(&saved).unwrap_or_default() }),
             ))
         }
         "set_key" => {
