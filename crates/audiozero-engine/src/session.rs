@@ -574,7 +574,24 @@ impl Session {
             check_clip(p, at)?;
             let clips = &mut p.tracks[at.track].clips;
             let mut copy = clips[at.clip].clone();
+            // Straight after the clip if that's free, else after whatever is in the way, so
+            // copies never pile up on top of other clips.
             copy.start = copy.end();
+            loop {
+                let (start, end) = (copy.start, copy.end());
+                let blocker = clips
+                    .iter()
+                    .filter(|c| c.start < end - 1e-9 && c.end() > start + 1e-9)
+                    .map(Clip::end)
+                    .fold(None, |furthest: Option<f64>, e| {
+                        Some(furthest.map_or(e, |f| f.max(e)))
+                    });
+                match blocker {
+                    Some(end) => copy.start = end,
+                    None => break,
+                }
+            }
+            check_beat("start", copy.end())?;
             clips.push(copy);
             Ok(ClipRef {
                 track: at.track,
@@ -663,6 +680,66 @@ impl Session {
         .map(|((), c)| c)
     }
 
+    /// Copies notes to straight after the last of them, as Ctrl+D does, and returns the
+    /// copies' indices. With a `grid` (in beats, 0 for none) the copies keep the originals'
+    /// place on it: the distance is rounded up to whole grid steps. The clip grows by whole bars if the copies need the room and no later
+    /// clip on the track is in the way; copies that still don't fit are left out.
+    pub fn duplicate_notes(
+        &mut self,
+        at: ClipRef,
+        indices: &[usize],
+        grid: f64,
+    ) -> Result<(Vec<usize>, Changes), EditError> {
+        self.try_edit(|p| {
+            check_clip(p, at)?;
+            let bar = f64::from(p.beats_per_bar);
+            let clips = &p.tracks[at.track].clips;
+            let clip = &clips[at.clip];
+            no_audio(clip)?;
+            if let Some(&note) = indices.iter().find(|&&i| i >= clip.notes.len()) {
+                return Err(EditError::NoNote { clip: at, note });
+            }
+            let mut picked: Vec<usize> = indices.to_vec();
+            picked.sort_unstable();
+            picked.dedup();
+            let chosen: Vec<Note> = picked.iter().map(|&i| clip.notes[i]).collect();
+            let Some(first) = chosen.iter().map(|n| n.start).reduce(f64::min) else {
+                return Ok(Vec::new());
+            };
+            let last = chosen
+                .iter()
+                .map(|n| n.start + n.length)
+                .fold(first, f64::max);
+            let mut shift = last - first;
+            if grid.is_finite() && grid > 1e-6 {
+                shift = ((shift / grid) - 1e-6).ceil().max(1.0) * grid;
+            }
+            // How far the clip can grow: to the next clip on the track.
+            let room = clips
+                .iter()
+                .filter(|c| c.start >= clip.end() - 1e-9)
+                .map(|c| c.start - clip.start)
+                .fold(crate::project::limits::MAX_BEATS - clip.start, f64::min);
+            let wanted = ((last + shift) / bar).ceil() * bar;
+            let length = clip.length.max(wanted.min(room));
+
+            let clip = &mut p.tracks[at.track].clips[at.clip];
+            clip.length = length;
+            let mut copies = Vec::new();
+            for note in chosen {
+                let copy = Note {
+                    start: note.start + shift,
+                    ..note
+                };
+                if copy.start < length - 1e-9 {
+                    copies.push(clip.notes.len());
+                    clip.notes.push(copy);
+                }
+            }
+            Ok(copies)
+        })
+    }
+
     /// Removes notes by index. Every index has to exist; duplicates are ignored.
     pub fn remove_notes(&mut self, at: ClipRef, indices: &[usize]) -> Result<Changes, EditError> {
         self.try_edit(|p| {
@@ -720,6 +797,27 @@ impl Session {
     pub fn set_bpm(&mut self, bpm: f64) -> Result<Changes, EditError> {
         check_range("bpm", bpm, 20.0, 999.0)?;
         self.set(|p| p.bpm = bpm)
+    }
+
+    /// Sets the song's key (0 = C to 11 = B) and scale ([`crate::music::SCALES`]). Notes
+    /// already written stay as they are.
+    pub fn set_key(&mut self, key: u8, scale: &str) -> Result<Changes, EditError> {
+        if key > 11 {
+            return Err(EditError::Invalid(format!(
+                "the key has to be 0 (C) to 11 (B), got {key}"
+            )));
+        }
+        let Some(scale) = crate::music::SCALES.iter().find(|s| s.id == scale) else {
+            let ids: Vec<_> = crate::music::SCALES.iter().map(|s| s.id).collect();
+            return Err(EditError::Invalid(format!(
+                "unknown scale \"{scale}\"; use one of {}",
+                ids.join(", ")
+            )));
+        };
+        self.set(|p| {
+            p.key = key;
+            p.scale = scale.id.into();
+        })
     }
 
     pub fn set_master_volume(&mut self, volume: f32) -> Result<Changes, EditError> {
@@ -823,6 +921,148 @@ fn check_note(note: &Note, clip_length: f64) -> Result<(), EditError> {
     }
     check_range("note length", note.length, 1.0 / 128.0, MAX_BEATS)?;
     check_range("velocity", f64::from(note.velocity), 0.0, 1.0)
+}
+
+#[cfg(test)]
+mod duplicate_tests {
+    use super::*;
+
+    fn clip(start: f64, length: f64) -> Clip {
+        Clip {
+            start,
+            length,
+            ..Default::default()
+        }
+    }
+
+    fn session(clips: Vec<Clip>) -> Session {
+        let mut project = Project::default();
+        project.tracks.push(Track {
+            clips,
+            ..Default::default()
+        });
+        Session::new(project).unwrap()
+    }
+
+    #[test]
+    fn duplicated_clips_never_land_on_other_clips() {
+        let mut s = session(vec![clip(0.0, 4.0), clip(4.0, 4.0), clip(10.0, 2.0)]);
+        let at = ClipRef { track: 0, clip: 0 };
+        let (copy, _) = s.duplicate_clip(at).unwrap();
+        let starts = |s: &Session| -> Vec<f64> {
+            s.project().tracks[0]
+                .clips
+                .iter()
+                .map(|c| c.start)
+                .collect()
+        };
+        assert_eq!(starts(&s)[copy.clip], 12.0, "after the clips in the way");
+        // Again from the original: it goes after the first copy, not on top of it.
+        let (again, _) = s.duplicate_clip(at).unwrap();
+        assert_eq!(starts(&s)[again.clip], 16.0);
+        let clips = &s.project().tracks[0].clips;
+        for (i, a) in clips.iter().enumerate() {
+            for b in &clips[i + 1..] {
+                assert!(a.end() <= b.start || b.end() <= a.start, "no overlap");
+            }
+        }
+        // With room straight after, that's where it goes.
+        let mut s = session(vec![clip(0.0, 4.0)]);
+        let (copy, _) = s.duplicate_clip(at).unwrap();
+        assert_eq!(s.project().tracks[0].clips[copy.clip].start, 4.0);
+    }
+
+    fn note(pitch: u8, start: f64, length: f64) -> Note {
+        Note {
+            pitch,
+            start,
+            length,
+            velocity: 0.8,
+        }
+    }
+
+    #[test]
+    fn duplicated_notes_follow_the_selection() {
+        let mut first = clip(0.0, 4.0);
+        first.notes = vec![note(60, 0.0, 0.5), note(64, 0.5, 0.5), note(67, 3.0, 1.0)];
+        let mut s = session(vec![first]);
+        let at = ClipRef { track: 0, clip: 0 };
+        let (copies, _) = s.duplicate_notes(at, &[1, 0, 0], 0.0).unwrap();
+        assert_eq!(copies, vec![3, 4]);
+        let notes = &s.project().tracks[0].clips[0].notes;
+        assert_eq!((notes[3].pitch, notes[3].start), (60, 1.0));
+        assert_eq!((notes[4].pitch, notes[4].start), (64, 1.5));
+        assert_eq!(s.project().tracks[0].clips[0].length, 4.0, "it fitted");
+
+        // Duplicating everything doubles the clip.
+        let all: Vec<usize> = (0..5).collect();
+        let (copies, _) = s.duplicate_notes(at, &all, 0.0).unwrap();
+        assert_eq!(copies.len(), 5);
+        assert_eq!(s.project().tracks[0].clips[0].length, 8.0);
+        s.undo().unwrap();
+        assert_eq!(s.project().tracks[0].clips[0].length, 4.0);
+        assert_eq!(s.project().tracks[0].clips[0].notes.len(), 5);
+
+        assert!(s.duplicate_notes(at, &[99], 0.0).is_err());
+        assert_eq!(
+            s.duplicate_notes(at, &[], 0.0).unwrap().0,
+            Vec::<usize>::new()
+        );
+    }
+
+    #[test]
+    fn duplicated_notes_stay_on_the_grid() {
+        let mut first = clip(0.0, 8.0);
+        // A little short of a beat each, as played or generated notes often are.
+        first.notes = vec![note(60, 0.5, 0.45), note(64, 1.0, 0.95)];
+        let mut s = session(vec![first]);
+        let at = ClipRef { track: 0, clip: 0 };
+        s.duplicate_notes(at, &[0, 1], 0.5).unwrap();
+        let notes = &s.project().tracks[0].clips[0].notes;
+        assert_eq!(
+            (notes[2].start, notes[3].start),
+            (2.0, 2.5),
+            "1.45 rounds up to 1.5"
+        );
+        // An exact fit isn't pushed a step further.
+        s.duplicate_notes(at, &[1], 1.0).unwrap();
+        let notes = &s.project().tracks[0].clips[0].notes;
+        assert_eq!(notes[4].start, 2.0);
+    }
+
+    #[test]
+    fn a_clip_only_grows_into_free_space() {
+        let mut first = clip(0.0, 4.0);
+        first.notes = vec![note(60, 0.0, 1.0), note(62, 3.0, 1.0)];
+        let mut s = session(vec![first, clip(6.0, 4.0)]);
+        let at = ClipRef { track: 0, clip: 0 };
+        let (copies, _) = s.duplicate_notes(at, &[0, 1], 0.0).unwrap();
+        let clip = &s.project().tracks[0].clips[0];
+        assert_eq!(clip.length, 6.0, "up to the next clip");
+        assert_eq!(
+            copies.len(),
+            1,
+            "the copy that would start past the end is left out"
+        );
+        assert_eq!(clip.notes[2].start, 4.0);
+    }
+
+    #[test]
+    fn the_key_is_a_setting_not_an_undo_step() {
+        let mut s = session(vec![]);
+        s.set_key(9, "minor").unwrap();
+        assert_eq!((s.project().key, s.project().scale.as_str()), (9, "minor"));
+        assert!(!s.can_undo());
+        assert!(s.set_key(12, "minor").is_err());
+        assert!(s.set_key(0, "wobbly").is_err());
+        let json = s
+            .project()
+            .to_json()
+            .replace("\"minor\"", "\"nope\"")
+            .replace("\"key\": 9", "\"key\": 250");
+        let p = Project::from_json(&json).unwrap();
+        assert_eq!((p.key, p.scale.as_str()), (250 % 12, "major"));
+    }
 }
 
 #[cfg(test)]

@@ -755,6 +755,9 @@ impl App {
                 .on_hover_text("Computer keyboard: A–K play notes on the armed or selected track; Z/X change octave, C/V velocity");
             ui.separator();
 
+            self.key_picker(ui, "top");
+            ui.separator();
+
             ui.label("Snap");
             egui::ComboBox::from_id_salt("snap")
                 .selected_text(self.snap.label())
@@ -906,10 +909,27 @@ impl App {
             if pressed(Key::Y) {
                 self.redo();
             }
-            if pressed(Key::D)
-                && let Some(at) = self.selected_clip
-            {
-                self.duplicate_clip(at);
+            // Once per press: a held key mustn't pile up copies.
+            let duplicate = ctx.input(|i| {
+                i.events.iter().any(|e| {
+                    matches!(
+                        e,
+                        egui::Event::Key {
+                            key: Key::D,
+                            pressed: true,
+                            repeat: false,
+                            ..
+                        }
+                    )
+                })
+            });
+            if duplicate {
+                // In the piano roll it's the notes that are duplicated, not the whole clip.
+                if self.roll.is_some() {
+                    self.duplicate_selected_notes();
+                } else if let Some(at) = self.selected_clip {
+                    self.duplicate_clip(at);
+                }
             }
             if pressed(Key::A)
                 && let Some(roll) = &mut self.roll

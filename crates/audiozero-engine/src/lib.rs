@@ -11,6 +11,7 @@
 //! - [`synth`]: the [`Instrument`](synth::Instrument) trait and built-in instruments, including
 //!   Nusick's Kick Me.
 //! - [`operator`]: Operator, the built-in four-operator FM synth.
+//! - [`music`]: keys and scales, and a melody generator that stays in key.
 //! - [`demo`]: a short built-in song.
 //! - [`wav`]: a minimal WAV writer for export.
 
@@ -18,6 +19,7 @@ pub mod control;
 pub mod demo;
 pub mod effects;
 pub mod engine;
+pub mod music;
 pub mod operator;
 pub mod project;
 pub mod sample;
