@@ -15,6 +15,10 @@ rust-version = "1.95"
 license = "MIT"
 repository = "https://github.com/noisyloop/AudioZero"
 
+# oxideav-aac with a faster transform (see vendor/oxideav-aac/PATCHES.md).
+[patch.crates-io]
+oxideav-aac = { path = "vendor/oxideav-aac" }
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 

@@ -430,7 +430,7 @@ const TOOLS: &[Tool] = &[
             r#""format": { "type": "string", "enum": ["widescreen", "shorts", "square", "portrait", "4k"], "description": "Defaults to widescreen (1920x1080); shorts is 9:16" }"#,
             r#""fps": { "type": "integer", "enum": [30, 60] }"#,
             r#""loop": { "type": "boolean", "description": "Only the loop range" }"#,
-            r#""container": { "type": "string", "enum": ["mp4", "webm", "frames"], "description": "Defaults to mp4 (needs FFmpeg)" }"#
+            r#""container": { "type": "string", "enum": ["mp4", "webm", "frames"], "description": "Defaults to mp4 (built in, ready to upload). webm needs FFmpeg." }"#
         ),
         required: &["name"],
         read_only: false,
