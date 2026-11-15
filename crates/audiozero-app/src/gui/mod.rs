@@ -7,6 +7,7 @@
 //! [`Controller::apply`]: audiozero_engine::Controller::apply
 
 mod arrangement;
+mod audio_settings;
 mod devices;
 mod live;
 mod piano_roll;
@@ -16,6 +17,7 @@ mod visuals;
 use crate::audio::Output;
 use crate::input::{AudioIn, MidiIn};
 use crate::record::Take;
+use crate::settings::AudioSettings;
 use crate::{default_folder, project_folder};
 use audiozero_engine::sample::AUDIO_EXTENSIONS;
 use audiozero_engine::{
@@ -24,7 +26,7 @@ use audiozero_engine::{
 use eframe::egui::{self, Color32, Key, Pos2, Rect, Sense, Vec2};
 use std::path::{Path, PathBuf};
 
-pub fn run(start: Option<PathBuf>) -> Result<(), String> {
+pub fn run(start: Option<PathBuf>, settings: AudioSettings) -> Result<(), String> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("AudioZero")
@@ -38,7 +40,7 @@ pub fn run(start: Option<PathBuf>) -> Result<(), String> {
         options,
         Box::new(move |cc| {
             theme::apply(&cc.egui_ctx);
-            Ok(Box::new(App::new(start, cc.egui_ctx.clone())))
+            Ok(Box::new(App::new(start, settings, cc.egui_ctx.clone())))
         }),
     )
     .map_err(|e| e.to_string())
@@ -115,8 +117,34 @@ struct View {
     follow: bool,
 }
 
+/// Connects every MIDI input to `audio`'s live-note queue. Also returns what to say about it
+/// in the status bar.
+fn connect_midi(audio: &mut Output, ctx: &egui::Context) -> (Option<MidiIn>, String) {
+    let Some(live) = audio.controller.take_live_input() else {
+        return (None, String::new());
+    };
+    let ctx = ctx.clone();
+    match MidiIn::open(live, move || ctx.request_repaint()) {
+        Ok(midi) if midi.ports.is_empty() => {
+            (Some(midi), " · No MIDI inputs; A–K play notes".to_string())
+        }
+        Ok(midi) => {
+            let names = midi.ports.join(", ");
+            (Some(midi), format!(" · MIDI: {names}"))
+        }
+        Err(e) => (None, format!(" · MIDI unavailable ({e})")),
+    }
+}
+
 struct App {
     audio: Output,
+    /// The sound card choices in use (and saved, once applied in the Audio settings window).
+    audio_settings: AudioSettings,
+    audio_dialog: Option<audio_settings::AudioDialog>,
+    /// When the output device last went away, to stop retrying one that keeps failing.
+    output_lost_at: Option<std::time::Instant>,
+    /// For waking the window from other threads (MIDI input).
+    ctx: egui::Context,
     session: Session,
     file: Option<PathBuf>,
     status: String,
@@ -153,24 +181,17 @@ struct App {
 }
 
 impl App {
-    fn new(start: Option<PathBuf>, ctx: egui::Context) -> Self {
-        let mut audio = Output::open();
-        let (midi, midi_status) = match audio.controller.take_live_input() {
-            Some(live) => match MidiIn::open(live, move || ctx.request_repaint()) {
-                Ok(midi) if midi.ports.is_empty() => {
-                    (Some(midi), " · No MIDI inputs; A–K play notes".to_string())
-                }
-                Ok(midi) => {
-                    let names = midi.ports.join(", ");
-                    (Some(midi), format!(" · MIDI: {names}"))
-                }
-                Err(e) => (None, format!(" · MIDI unavailable ({e})")),
-            },
-            None => (None, String::new()),
-        };
+    fn new(start: Option<PathBuf>, settings: AudioSettings, ctx: egui::Context) -> Self {
+        let mut audio = Output::open(&settings);
+        let (midi, midi_status) = connect_midi(&mut audio, &ctx);
+        let audio_note = audio.note.clone();
         let mut app = Self {
             status: audio.description.clone(),
             audio,
+            audio_settings: settings,
+            audio_dialog: None,
+            output_lost_at: None,
+            ctx,
             session: Session::new(Project::default()).expect("an empty project is valid"),
             file: None,
             view: View {
@@ -207,6 +228,9 @@ impl App {
         }
         app.tap = app.audio.controller.take_output_tap();
         app.status.push_str(&midi_status);
+        if let Some(note) = audio_note {
+            app.status = format!("{note}.");
+        }
         app
     }
 
@@ -653,6 +677,11 @@ impl App {
                     self.add_track();
                 }
             });
+            ui.menu_button("Audio", |ui| {
+                if ui.button("Audio settings…").clicked() {
+                    self.open_audio_dialog();
+                }
+            });
             ui.menu_button("Visuals", |ui| {
                 let open = self.visuals.is_some();
                 if ui
@@ -758,7 +787,16 @@ impl App {
             } else {
                 theme::ACCENT
             };
-            ui.label(egui::RichText::new(&self.audio.description).color(colour));
+            let device =
+                egui::Label::new(egui::RichText::new(&self.audio.description).color(colour))
+                    .sense(Sense::click());
+            if ui
+                .add(device)
+                .on_hover_text("Click to choose the sound card (Audio > Audio settings)")
+                .clicked()
+            {
+                self.open_audio_dialog();
+            }
             ui.separator();
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add(
@@ -1023,6 +1061,7 @@ impl eframe::App for App {
         self.audio.controller.collect_garbage();
         self.validate_selection();
         self.handle_drops_and_close(&ctx);
+        self.watch_devices();
         self.live_input(&ctx);
         self.visuals_frame(&ctx);
         self.shortcuts(&ctx);
@@ -1053,6 +1092,7 @@ impl eframe::App for App {
             .frame(egui::Frame::NONE)
             .show(ui, |ui| self.arrangement(ui));
         self.dialogs(&ctx);
+        self.audio_dialog(&ctx);
         self.export_ui(&ctx);
         self.update_title(&ctx);
 

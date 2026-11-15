@@ -137,6 +137,8 @@ dependencies = [
  "eframe",
  "midir",
  "rtrb",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

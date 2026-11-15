@@ -1,11 +1,14 @@
-//! Live input: MIDI keyboards (through midir) and the default audio input (for recording).
+//! Live input: MIDI keyboards (through midir) and the audio input chosen in the audio settings
+//! (for recording).
 //!
 //! MIDI notes go from the MIDI thread straight to the audio thread through the engine's
 //! [`LiveInput`] queue, so playing doesn't wait for the UI. A copy, stamped with the playhead,
 //! goes to the UI for recording.
 
+use crate::audio::{Direction, choose_config, find_device, input_watch};
+use crate::settings::AudioSettings;
 use audiozero_engine::{LiveInput, LiveNote};
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{FromSample, SizedSample};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed};
 use std::sync::{Arc, Mutex, mpsc};
@@ -123,7 +126,7 @@ impl MidiIn {
     }
 }
 
-/// The default audio input, captured into a lock-free buffer that the UI drains.
+/// The audio input, captured into a lock-free buffer that the UI drains.
 pub struct AudioIn {
     _stream: cpal::Stream,
     samples: rtrb::Consumer<f32>,
@@ -131,43 +134,51 @@ pub struct AudioIn {
     pub channels: usize,
     /// Set when the UI didn't drain fast enough and audio was lost.
     overflowed: Arc<AtomicBool>,
+    /// Set when the device went away.
+    lost: Arc<AtomicBool>,
     pub description: String,
 }
 
 impl AudioIn {
-    /// Opens the default input. Capture starts at once; drain it regularly.
-    pub fn open() -> Result<Self, String> {
-        let host = cpal::default_host();
-        let device = host.default_input_device().ok_or("no audio input found")?;
-        let supported = device.default_input_config().map_err(|e| e.to_string())?;
-        let format = supported.sample_format();
-        let config: cpal::StreamConfig = supported.into();
-        let rate = f64::from(config.sample_rate);
-        let channels = usize::from(config.channels).max(1);
-        // Four seconds of buffer: plenty, since the UI drains it every frame.
-        let (tx, samples) = rtrb::RingBuffer::new((rate as usize * channels * 4).max(4096));
-        let overflowed = Arc::new(AtomicBool::new(false));
-        use cpal::SampleFormat as F;
-        let stream = match format {
-            F::F32 => build::<f32>(&device, &config, tx, Arc::clone(&overflowed)),
-            F::I16 => build::<i16>(&device, &config, tx, Arc::clone(&overflowed)),
-            F::I32 => build::<i32>(&device, &config, tx, Arc::clone(&overflowed)),
-            F::U16 => build::<u16>(&device, &config, tx, Arc::clone(&overflowed)),
-            other => return Err(format!("unsupported input format {other}")),
-        }?;
-        stream.play().map_err(|e| e.to_string())?;
-        let description = device
+    /// Opens the settings' input device (or the default one), at the settings' sample rate if
+    /// the device supports it. Capture starts at once; drain it regularly.
+    pub fn open(settings: &AudioSettings) -> Result<Self, String> {
+        let (device, note) = find_device(Direction::Input, settings.input.as_deref())?;
+        let (config, format, _) = choose_config(&device, Direction::Input, settings)?;
+        let (stream, samples, overflowed, lost) = match capture(&device, config, format) {
+            Ok(started) => started,
+            // A device can refuse a buffer size it claimed to support; try its own choice.
+            Err(e) if config.buffer_size != cpal::BufferSize::Default => {
+                let fallback = cpal::StreamConfig {
+                    buffer_size: cpal::BufferSize::Default,
+                    ..config
+                };
+                capture(&device, fallback, format).map_err(|_| e)?
+            }
+            Err(e) => return Err(e),
+        };
+        let mut description = device
             .description()
             .map(|d| d.to_string())
             .unwrap_or_else(|_| "Audio input".into());
+        description.push_str(&format!(" at {} Hz", config.sample_rate));
+        if let Some(note) = note {
+            description.push_str(&format!(" ({note})"));
+        }
         Ok(Self {
             _stream: stream,
             samples,
-            rate,
-            channels,
+            rate: f64::from(config.sample_rate),
+            channels: usize::from(config.channels).max(1),
             overflowed,
+            lost,
             description,
         })
+    }
+
+    /// Whether the input device went away (unplugged, say).
+    pub fn is_lost(&self) -> bool {
+        self.lost.load(Relaxed)
     }
 
     /// Moves everything captured so far into `left` and `right` (the first two channels; mono
@@ -206,11 +217,44 @@ impl AudioIn {
     }
 }
 
+type Capture = (
+    cpal::Stream,
+    rtrb::Consumer<f32>,
+    Arc<AtomicBool>,
+    Arc<AtomicBool>,
+);
+
+/// Builds and starts an input stream: the stream, what it captures, and its overflow and
+/// device-lost flags.
+fn capture(
+    device: &cpal::Device,
+    config: cpal::StreamConfig,
+    format: cpal::SampleFormat,
+) -> Result<Capture, String> {
+    let rate = config.sample_rate as usize;
+    let channels = usize::from(config.channels).max(1);
+    // Four seconds of buffer: plenty, since the UI drains it every frame.
+    let (tx, samples) = rtrb::RingBuffer::new((rate * channels * 4).max(4096));
+    let overflowed = Arc::new(AtomicBool::new(false));
+    let (on_error, lost) = input_watch();
+    use cpal::SampleFormat as F;
+    let stream = match format {
+        F::F32 => build::<f32>(device, config, tx, Arc::clone(&overflowed), on_error),
+        F::I16 => build::<i16>(device, config, tx, Arc::clone(&overflowed), on_error),
+        F::I32 => build::<i32>(device, config, tx, Arc::clone(&overflowed), on_error),
+        F::U16 => build::<u16>(device, config, tx, Arc::clone(&overflowed), on_error),
+        other => return Err(format!("unsupported input format {other}")),
+    }?;
+    stream.play().map_err(|e| e.to_string())?;
+    Ok((stream, samples, overflowed, lost))
+}
+
 fn build<T>(
     device: &cpal::Device,
-    config: &cpal::StreamConfig,
+    config: cpal::StreamConfig,
     mut tx: rtrb::Producer<f32>,
     overflowed: Arc<AtomicBool>,
+    on_error: impl FnMut(cpal::Error) + Send + 'static,
 ) -> Result<cpal::Stream, String>
 where
     T: SizedSample,
@@ -218,7 +262,7 @@ where
 {
     device
         .build_input_stream(
-            *config,
+            config,
             move |data: &[T], _: &cpal::InputCallbackInfo| {
                 // No allocation here: push into the preallocated ring, or note the overflow.
                 for &x in data {
@@ -228,7 +272,7 @@ where
                     }
                 }
             },
-            |err| eprintln!("audio input error: {err}"),
+            on_error,
             None,
         )
         .map_err(|e| e.to_string())
