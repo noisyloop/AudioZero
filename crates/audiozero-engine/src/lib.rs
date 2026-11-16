@@ -37,6 +37,7 @@ pub mod sample;
 pub mod session;
 pub mod soundgineer;
 pub mod synth;
+pub mod tune;
 pub mod wav;
 
 pub use control::{Command, Controller, LiveInput, LiveNote, Player};

@@ -6,7 +6,7 @@
 
 - an arrangement view and a piano roll that knows the song's key (with **Randomize** for instant in-key melodies);
 - built-in instruments: **Soundgineer** (a wavetable synth with 59 presets plus 72 generated ones, in its own window), **Operator** (FM), a **drum rack** with techno, house, dubstep, hip hop, lo-fi and trap kits and ready-made beats, and **Kick Me**;
-- effects, recording from MIDI and audio inputs, and a choice of sound card;
+- effects, recording from MIDI and audio inputs, **vocal tuning** (natural or hard-tuned), and a choice of sound card;
 - **WAV and MP3 export**, and audio-reactive video export;
 - an **MCP server**, so an AI assistant can build and edit songs while you listen;
 - three colour schemes: Dark, Darker and Light.
@@ -58,6 +58,13 @@ It's early but working. [Download a build](#download-a-build) or [build it yours
 
   ![A trap beat in the drum rack's piano roll](docs/screenshots/rust-drums.png)
 - **Audio clips:** drag audio files (wav, aif, flac, mp3, ogg) from your file manager onto a track, or below the last track to get a new track. Several files at once go one after another. Audio clips show their waveform and play at the file's own speed (no time-stretching yet). They move, resize, duplicate, mute and undo like MIDI clips. Files inside the project's folder are stored with relative paths, so the folder can be moved.
+- **Tune vocal (pitch correction):** right-click an audio clip and choose **Tune vocal…**.
+  - It finds the pitch of the recording, shows it against the notes of the scale (the song's key to start with; any key and scale can be chosen), and shows where your settings would move it before anything is changed.
+  - **Natural** (80 ms) corrects drift and keeps vibrato and slides, **Tight** (25 ms) sits firmly on the note, and **Hard tune** (0 ms) snaps at once for the robotic effect. **Retune speed** and **Amount** set anything in between.
+  - **Apply** writes the tuned audio to a new WAV in the project's `Tuned` folder and uses it in the clip, as one undo step. The recording itself is never changed.
+  - The voice keeps its character (the pitch moves, the formants don't), and breaths, consonants and silence are left exactly as recorded. About a second of work per minute of audio.
+  - It's for one voice, or one instrument playing single notes, per clip, up to 15 minutes. It works on recorded clips only, not live while you sing, and notes can't be edited by hand yet.
+  - `cargo run --release -p audiozero-engine --example tune_demo -- some/folder` writes a made-up out-of-tune phrase and its natural and hard-tuned versions, to hear what it does.
 - **Effects:** click a track's name to open its device panel on the right. Choose the instrument, add **Delay** (ping-pong), **Reverb** or **Compressor** with **+ Add effect**, and set their parameters with sliders. Changes are heard straight away without interrupting playback. Adding, removing and changing effects can be undone; a whole slider drag is one step.
 - **Sound card:** **Audio > Audio settings** (or a click on the device name in the status bar) chooses the output and input device, the sample rate and the buffer size.
   - **Apply** switches straight away and keeps the song, the playhead and whether it's playing. The choice is saved for next time, and `--play` and `--mcp` use it too.

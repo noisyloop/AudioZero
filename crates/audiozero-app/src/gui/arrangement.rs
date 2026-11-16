@@ -36,6 +36,7 @@ enum DragKind {
 
 enum ClipAction {
     Edit(ClipRef),
+    Tune(ClipRef),
     Duplicate(ClipRef),
     ToggleMute(ClipRef),
     Delete(ClipRef),
@@ -619,6 +620,15 @@ impl App {
                 if !is_audio && ui.button("Edit notes").clicked() {
                     action = Some(ClipAction::Edit(at));
                 }
+                if is_audio
+                    && ui
+                        .button("Tune vocal…")
+                        .on_hover_text("Pitch correction: natural or hard-tuned")
+                        .clicked()
+                {
+                    action = Some(ClipAction::Tune(at));
+                    ui.close();
+                }
                 if ui.button("Duplicate").clicked() {
                     action = Some(ClipAction::Duplicate(at));
                 }
@@ -633,6 +643,7 @@ impl App {
         }
         match action {
             Some(ClipAction::Edit(at)) => self.open_roll(at),
+            Some(ClipAction::Tune(at)) => self.open_tune(at),
             Some(ClipAction::Duplicate(at)) => self.duplicate_clip(at),
             Some(ClipAction::ToggleMute(at)) => self.toggle_clip_mute(at),
             Some(ClipAction::Delete(at)) => self.delete_clip(at),

@@ -15,6 +15,7 @@ mod piano_roll;
 mod sg_presets;
 mod soundgineer;
 mod theme;
+mod tune;
 mod visuals;
 
 use crate::audio::Output;
@@ -199,6 +200,7 @@ struct App {
     sg_window: Option<soundgineer::Window>,
     audio_export: Option<export_audio::AudioExportDialog>,
     audio_job: Option<export_audio::AudioExportJob>,
+    tune: Option<tune::TuneWindow>,
     export_job: Option<visuals::ExportJob>,
 }
 
@@ -250,6 +252,7 @@ impl App {
             sg_window: None,
             audio_export: None,
             audio_job: None,
+            tune: None,
             export_job: None,
         };
         match start {
@@ -1252,6 +1255,7 @@ impl eframe::App for App {
         self.audio_dialog(&ctx);
         self.export_ui(&ctx);
         self.audio_export_ui(&ctx);
+        self.tune_ui(&ctx);
         self.soundgineer_window(&ctx);
         self.update_title(&ctx);
 
