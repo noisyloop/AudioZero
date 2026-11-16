@@ -189,6 +189,7 @@ audiozero song.azproj --still preview.png --at 12                       # one fr
 ```
 
 - **Looks:** `spectrum` (mirrored bars over a bass glow), `rings` (one ring per track, pulsing with its notes, hue from the pitch) and `particles` (a burst for every note: across by pitch, up and down by track).
+  More visuals were added: six raymarched 3D fractals (`fractal-mandelbulb`, `fractal-menger`, `fractal-sierpinski`, `fractal-apollonian`, `fractal-kali` and `fractal-tetra`). The camera orbits as the song plays, the fold breathes with the bass, kicks pull the camera in and brighten the surface, and the colours turn once a bar. They're drawn at a reduced resolution and scaled up, so they're softer than the other looks and slower to export.
 - **Formats:** `widescreen` (1920×1080), `shorts` (1080×1920), `square` (1080×1080), `portrait` (1080×1350), `4k` (3840×2160), or any even `WIDTHxHEIGHT`.
 - **Files:** `.mp4`, `.mov` and `.mkv` (H.264 + AAC), and `.webm` (VP9 + Opus), with the song's audio. These need [FFmpeg](https://ffmpeg.org) on your `PATH`. Any other path is treated as a folder of PNG frames plus `audio.wav`, which works without FFmpeg.
 

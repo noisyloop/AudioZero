@@ -377,7 +377,7 @@ const TOOLS: &[Tool] = &[
         description: "Renders audio-reactive visuals for the song (or the loop) with its audio, as a new file `name`.mp4 (or .webm, or a folder of PNG frames) in the AudioZero folder. Never replaces a file. Takes a while: about as long as the song.",
         properties: props!(
             r#""name": { "type": "string", "description": "File name without extension (letters, digits, spaces, - and _)" }"#,
-            r#""look": { "type": "string", "enum": ["spectrum", "rings", "particles"], "description": "Defaults to spectrum" }"#,
+            r#""look": { "type": "string", "enum": ["spectrum", "rings", "particles", "fractal-mandelbulb", "fractal-menger", "fractal-sierpinski", "fractal-apollonian", "fractal-kali", "fractal-tetra"], "description": "Defaults to spectrum" }"#,
             r#""format": { "type": "string", "enum": ["widescreen", "shorts", "square", "portrait", "4k"], "description": "Defaults to widescreen (1920x1080); shorts is 9:16" }"#,
             r#""fps": { "type": "integer", "enum": [30, 60] }"#,
             r#""loop": { "type": "boolean", "description": "Only the loop range" }"#,
