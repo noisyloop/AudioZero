@@ -136,7 +136,7 @@ The latest release, no GitHub account needed:
 
 Checksums are in [SHA256SUMS.txt](https://github.com/noisyloop/AudioZero/releases/latest/download/SHA256SUMS.txt), and older versions are on the [Releases](https://github.com/noisyloop/AudioZero/releases) page.
 
-To publish a release, open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml), click **Run workflow**, pick the branch and fill in **Publish a release with this tag** (for example `v0.6.0`). It builds all three systems, macOS included, and publishes them as a GitHub Release.
+To publish a release, open [Actions > Rust workspace](https://github.com/noisyloop/AudioZero/actions/workflows/rust.yml), click **Run workflow**, pick the branch and fill in **Publish a release with this tag** (for example `v0.11.0`). It builds all three systems, macOS included, and publishes them as a GitHub Release.
 
 Builds from any run (without a release) are under that run's **Artifacts**:
 
