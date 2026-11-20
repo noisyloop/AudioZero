@@ -5,8 +5,10 @@
 //! - Double-click an empty lane to add a one-bar clip.
 //! - Hold Alt while dragging to ignore the grid.
 
+use super::audio_tools::Tool;
 use super::{App, ClipRef, meter, theme};
 use audiozero_engine::sample::{PEAK_FRAMES, Sample};
+use audiozero_engine::transcribe::Kind;
 use audiozero_engine::{AudioRegion, Clip, Project, synth::BUILTINS};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, StrokeKind,
@@ -32,9 +34,94 @@ pub struct Drag {
 enum DragKind {
     Move,
     Resize,
+    FadeIn,
+    FadeOut,
+}
+
+/// How far in from a clip's corners its fade handles sit, and how close a press has to be.
+const FADE_INSET: f32 = 14.0;
+const FADE_GRAB: f32 = 7.0;
+/// Clips narrower than this have no fade handles (the right-click menu still sets fades).
+const FADE_MIN_WIDTH: f32 = 70.0;
+
+/// Where a clip's fade-in and fade-out handles are, on its title bar.
+fn fade_handles(body: Rect, clip: &Clip) -> Option<(Pos2, Pos2)> {
+    if body.width() < FADE_MIN_WIDTH {
+        return None;
+    }
+    let per_beat = body.width() / clip.length as f32;
+    let y = body.top() + 7.5;
+    Some((
+        Pos2::new(
+            (body.left() + clip.fade_in as f32 * per_beat).max(body.left() + FADE_INSET),
+            y,
+        ),
+        Pos2::new(
+            (body.right() - clip.fade_out as f32 * per_beat).min(body.right() - FADE_INSET),
+            y,
+        ),
+    ))
+}
+
+/// The fades drawn over a clip: the part the volume hasn't reached yet is shaded, with a line
+/// along the volume, and a handle at the end of each fade.
+fn draw_fades(painter: &egui::Painter, lanes: Rect, body: Rect, clip: &Clip, show_handles: bool) {
+    let painter = painter.with_clip_rect(body.intersect(lanes));
+    let per_beat = body.width() / clip.length as f32;
+    let shade = Color32::from_black_alpha(130);
+    let line = Stroke::new(1.5, Color32::from_white_alpha(220));
+    let steps = 12;
+    // The curve is the same squared ramp the engine plays.
+    let curve = |from_x: f32, width: f32| -> Vec<Pos2> {
+        (0..=steps)
+            .map(|i| {
+                let t = i as f32 / steps as f32;
+                Pos2::new(
+                    from_x + width * t,
+                    body.bottom() - (body.height() - 15.0) * t * t,
+                )
+            })
+            .collect()
+    };
+    if clip.fade_in > 0.0 {
+        let points = curve(body.left(), clip.fade_in as f32 * per_beat);
+        let mut area = vec![Pos2::new(body.left(), body.top() + 15.0)];
+        area.extend(points.iter().rev());
+        painter.add(egui::Shape::convex_polygon(area, shade, Stroke::NONE));
+        painter.add(egui::Shape::line(points, line));
+    }
+    if clip.fade_out > 0.0 {
+        let points = curve(body.right(), -(clip.fade_out as f32) * per_beat);
+        let mut area = vec![Pos2::new(body.right(), body.top() + 15.0)];
+        area.extend(points.iter().rev());
+        painter.add(egui::Shape::convex_polygon(area, shade, Stroke::NONE));
+        painter.add(egui::Shape::line(points, line));
+    }
+    if show_handles && let Some((fade_in, fade_out)) = fade_handles(body, clip) {
+        for at in [fade_in, fade_out] {
+            painter.rect_filled(
+                Rect::from_center_size(at, Vec2::splat(8.0)),
+                CornerRadius::same(2),
+                Color32::from_white_alpha(230),
+            );
+            painter.rect_stroke(
+                Rect::from_center_size(at, Vec2::splat(8.0)),
+                CornerRadius::same(2),
+                Stroke::new(1.0, Color32::BLACK),
+                StrokeKind::Inside,
+            );
+        }
+    }
 }
 
 enum ClipAction {
+    Fades(ClipRef, f64, f64),
+    /// Reverse an audio clip.
+    Reverse(ClipRef),
+    /// Find the melody, chords or drums of an audio clip as notes.
+    ToMidi(ClipRef, Kind),
+    /// Split an audio clip into drums, bass, vocals and other.
+    Stems(ClipRef),
     Edit(ClipRef),
     Tune(ClipRef),
     Duplicate(ClipRef),
@@ -48,6 +135,18 @@ enum TrackAction {
     Delete(usize),
     Add,
     SetInstrument(usize, &'static str),
+    /// Put the track in a new group.
+    Group(usize),
+    Copy(usize),
+    Paste(usize),
+    /// Take a group apart.
+    Ungroup(usize),
+    /// Move a track into a group, or out to the top level.
+    MoveTo(usize, Option<usize>),
+    /// Play the track offline into audio on a new track below.
+    Bounce(usize),
+    /// Reverse every clip of an audio track, and its order in time.
+    ReverseTrack(usize),
 }
 
 /// Converts between beats and screen x for the current scroll and zoom.
@@ -120,6 +219,7 @@ impl App {
             if background.double_clicked()
                 && track >= 0.0
                 && (track as usize) < self.session.project().tracks.len()
+                && !self.session.project().tracks[track as usize].group
             {
                 self.add_clip_at(&ctx, track as usize, time.beat(pointer.x));
             } else if background.clicked() {
@@ -182,6 +282,11 @@ impl App {
             let lane = Rect::from_min_max(Pos2::new(lanes_left, row.top()), row.right_bottom());
             let header = Rect::from_min_max(row.left_top(), Pos2::new(lanes_left, row.bottom()));
             let colour = theme::track(index);
+            let (is_group, depth, parent) = {
+                let p = self.session.project();
+                (p.tracks[index].group, p.depth(index), p.parent_of(index))
+            };
+            let indent = depth as f32 * 12.0;
             let lane_fill = if index % 2 == 0 {
                 theme::lane()
             } else {
@@ -192,6 +297,20 @@ impl App {
                 0.0,
                 lane_fill.gamma_multiply(0.9),
             );
+            if is_group {
+                lane_painter.rect_filled(
+                    lane.intersect(lanes_rect),
+                    0.0,
+                    colour.gamma_multiply(0.12),
+                );
+                lane_painter.text(
+                    Pos2::new(lanes_left.max(lane.left()) + 12.0, lane.center().y),
+                    Align2::LEFT_CENTER,
+                    "Group: the tracks inside it are mixed here, with this group's effects on the mix",
+                    FontId::proportional(12.0),
+                    theme::text_dim(),
+                );
+            }
 
             for (clip_index, clip) in self.session.project().tracks[index]
                 .clips
@@ -229,6 +348,10 @@ impl App {
                         bpm,
                     );
                 }
+                let hovered = ctx
+                    .input(|i| i.pointer.hover_pos())
+                    .is_some_and(|p| body.contains(p));
+                draw_fades(&lane_painter, lanes_rect, body, clip, selected || hovered);
                 let visible = body.intersect(lanes_rect);
                 if visible.width() > 0.0 && visible.height() > 0.0 {
                     clip_rects.push((at, visible, body));
@@ -249,9 +372,17 @@ impl App {
                     theme::panel()
                 },
             );
+            if let Some(parent) = parent {
+                // The group this track is in shows as a strip of its colour along the left.
+                rows_painter.rect_filled(
+                    Rect::from_min_size(header.left_top(), Vec2::new(indent, header.height())),
+                    0.0,
+                    theme::track(parent).gamma_multiply(0.55),
+                );
+            }
             rows_painter.rect_filled(
                 Rect::from_min_size(
-                    header.left_top(),
+                    header.left_top() + Vec2::new(indent, 0.0),
                     Vec2::new(if selected { 7.0 } else { 4.0 }, header.height()),
                 ),
                 0.0,
@@ -271,6 +402,39 @@ impl App {
                 if header_response.clicked() {
                     track_action = Some(TrackAction::Devices(index));
                 }
+                // A track dropped on a group goes into it; dropped on a track in a group, it
+                // joins that group.
+                if let Some(dropped) = header_response.dnd_release_payload::<usize>() {
+                    let target = if is_group { Some(index) } else { parent };
+                    if let Some(group) = target {
+                        track_action = Some(TrackAction::MoveTo(*dropped, Some(group)));
+                    }
+                }
+                if (is_group || parent.is_some())
+                    && header_response.contains_pointer()
+                    && egui::DragAndDrop::has_payload_of_type::<usize>(&ctx)
+                {
+                    rows_painter.rect_stroke(
+                        header.shrink(1.0),
+                        3.0,
+                        Stroke::new(2.0, theme::selection()),
+                        egui::StrokeKind::Inside,
+                    );
+                }
+                let has_copy = !self.track_clipboard.is_empty();
+                let can_bounce = is_group
+                    || self
+                        .session
+                        .track(index)
+                        .is_some_and(|t| t.instrument.is_some());
+                let is_audio = self.is_audio_track(index);
+                let groups: Vec<(usize, String)> = {
+                    let p = self.session.project();
+                    (0..p.tracks.len())
+                        .filter(|&g| p.tracks[g].group && !p.is_inside(g, index))
+                        .map(|g| (g, p.tracks[g].name.clone()))
+                        .collect()
+                };
                 header_response.context_menu(|ui| {
                     if ui.button("Rename…  (Ctrl+R)").clicked() {
                         track_action = Some(TrackAction::Rename(index));
@@ -279,33 +443,118 @@ impl App {
                     if ui.button("Devices and effects…").clicked() {
                         track_action = Some(TrackAction::Devices(index));
                     }
+                    if can_bounce {
+                        let label = if is_group {
+                            "Bounce group to audio track"
+                        } else {
+                            "Bounce to audio track"
+                        };
+                        if ui
+                            .button(label)
+                            .on_hover_text(
+                                "Plays the track offline into a WAV and puts it on a new audio track just below",
+                            )
+                            .clicked()
+                        {
+                            track_action = Some(TrackAction::Bounce(index));
+                            ui.close();
+                        }
+                    }
+                    if is_audio && ui.button("Reverse track").clicked() {
+                        track_action = Some(TrackAction::ReverseTrack(index));
+                        ui.close();
+                    }
                     ui.separator();
-                    ui.label("Instrument");
-                    for (id, name) in BUILTINS {
-                        if ui.button(name).clicked() {
-                            track_action = Some(TrackAction::SetInstrument(index, id));
+                    if ui.button("Copy  (Ctrl+C)").clicked() {
+                        track_action = Some(TrackAction::Copy(index));
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(has_copy, egui::Button::new("Paste a copy after  (Ctrl+V)"))
+                        .clicked()
+                    {
+                        track_action = Some(TrackAction::Paste(index));
+                        ui.close();
+                    }
+                    if ui.button("Group  (Ctrl+G)").clicked() {
+                        track_action = Some(TrackAction::Group(index));
+                        ui.close();
+                    }
+                    if is_group && ui.button("Ungroup  (Ctrl+Shift+G)").clicked() {
+                        track_action = Some(TrackAction::Ungroup(index));
+                        ui.close();
+                    }
+                    if parent.is_some() && ui.button("Remove from group").clicked() {
+                        track_action = Some(TrackAction::MoveTo(index, None));
+                        ui.close();
+                    }
+                    if !groups.is_empty() {
+                        ui.menu_button("Move to group", |ui| {
+                            for (g, name) in &groups {
+                                if Some(*g) != parent && ui.button(name).clicked() {
+                                    track_action = Some(TrackAction::MoveTo(index, Some(*g)));
+                                    ui.close();
+                                }
+                            }
+                        });
+                    }
+                    if !is_group {
+                        ui.separator();
+                        ui.label("Instrument");
+                        for (id, name) in BUILTINS {
+                            if ui.button(name).clicked() {
+                                track_action = Some(TrackAction::SetInstrument(index, id));
+                            }
                         }
                     }
                     ui.separator();
                     if ui.button("Add track").clicked() {
                         track_action = Some(TrackAction::Add);
                     }
-                    if ui.button("Delete track").clicked() {
+                    let delete = if is_group {
+                        "Delete group (its tracks stay)"
+                    } else {
+                        "Delete track"
+                    };
+                    if ui.button(delete).clicked() {
                         track_action = Some(TrackAction::Delete(index));
                     }
                 });
             }
-            let inner = header
-                .shrink2(Vec2::new(10.0, 6.0))
-                .translate(Vec2::new(3.0, 0.0));
+            let inner = Rect::from_min_max(
+                Pos2::new(header.left() + 13.0 + indent, header.top() + 6.0),
+                Pos2::new(header.right() - 7.0, header.bottom() - 6.0),
+            );
             if inner.top() < tracks_top {
                 continue; // partly scrolled under the ruler; skip the widgets
             }
             self.track_header(ui, index, inner);
         }
 
-        // "+ Track" under the last track.
+        // "+ Track" under the last track. A track dropped anywhere below the last one leaves
+        // its group.
         let add_top = row_top(self.session.project().tracks.len());
+        if egui::DragAndDrop::has_payload_of_type::<usize>(&ctx) {
+            let zone = Rect::from_min_max(
+                Pos2::new(area.left(), add_top.max(tracks_top)),
+                area.right_bottom(),
+            );
+            if zone.height() > 0.0 {
+                let response = ui.interact(zone, ui.scope_id().with("leave-group"), Sense::hover());
+                if let Some(dropped) = response.dnd_release_payload::<usize>() {
+                    track_action = Some(TrackAction::MoveTo(*dropped, None));
+                }
+                if response.contains_pointer() {
+                    painter.text(
+                        zone.center_top() + Vec2::new(0.0, 40.0),
+                        Align2::CENTER_CENTER,
+                        "Drop here to take the track out of its group",
+                        FontId::proportional(13.0),
+                        theme::selection(),
+                    );
+                }
+            }
+        }
         if add_top + 30.0 <= area.bottom() && add_top >= tracks_top {
             let add = Rect::from_min_size(
                 Pos2::new(area.left() + 10.0, add_top + 8.0),
@@ -327,6 +576,34 @@ impl App {
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
             Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
+            Some(TrackAction::Group(index)) => {
+                self.selected_track = Some(index);
+                self.group_selected();
+            }
+            Some(TrackAction::Copy(index)) => {
+                self.selected_track = Some(index);
+                self.copy_track(&ctx);
+            }
+            Some(TrackAction::Paste(index)) => {
+                self.selected_track = Some(index);
+                self.paste_track();
+            }
+            Some(TrackAction::Ungroup(index)) => self.ungroup_track(index),
+            Some(TrackAction::MoveTo(track, group)) => self.move_to_group(track, group),
+            Some(TrackAction::Bounce(index)) => {
+                self.selected_track = Some(index);
+                self.start_tool(Tool::Bounce { track: index });
+            }
+            Some(TrackAction::ReverseTrack(index)) => {
+                self.selected_track = Some(index);
+                let clips = self.audio_clips_of(index);
+                if !clips.is_empty() {
+                    self.start_tool(Tool::Reverse {
+                        clips,
+                        mirror: true,
+                    });
+                }
+            }
             None => {}
         }
 
@@ -487,12 +764,16 @@ impl App {
                         .add(
                             egui::Label::new(egui::RichText::new(&track.name).strong())
                                 .selectable(false)
-                                .sense(Sense::click()),
+                                .sense(Sense::click_and_drag()),
                         )
                         .on_hover_text(
-                            "Click: select and open devices. Double-click or Ctrl+R: rename",
+                            "Click: select and open devices. Double-click or Ctrl+R: rename. \
+                             Drag onto a group to put it inside",
                         )
                         .on_hover_cursor(CursorIcon::PointingHand);
+                    if name.dragged() {
+                        name.dnd_set_drag_payload(index);
+                    }
                     devices_clicked |= name.clicked();
                     rename_clicked |= name.double_clicked();
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -504,13 +785,16 @@ impl App {
                             .toggle_value(&mut track.mute, "M")
                             .on_hover_text("Mute")
                             .changed();
-                        let armed = self.armed == Some(index);
-                        let hint = if track.instrument.is_some() {
-                            "Arm to record MIDI (and play it from a MIDI keyboard or A–K)"
-                        } else {
-                            "Arm to record audio from the input"
-                        };
-                        arm_clicked |= super::record_dot(ui, armed).on_hover_text(hint).clicked();
+                        if !track.group {
+                            let armed = self.armed == Some(index);
+                            let hint = if track.instrument.is_some() {
+                                "Arm to record MIDI (and play it from a MIDI keyboard or A–K)"
+                            } else {
+                                "Arm to record audio from the input"
+                            };
+                            arm_clicked |=
+                                super::record_dot(ui, armed).on_hover_text(hint).clicked();
+                        }
                     });
                 });
                 ui.horizontal(|ui| {
@@ -587,6 +871,26 @@ impl App {
             if near_edge {
                 ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
             }
+            let handles = self.clip(at).and_then(|clip| fade_handles(body, clip));
+            let on_handle = |p: Pos2| {
+                handles.and_then(|(fade_in, fade_out)| {
+                    if p.distance(fade_out) <= FADE_GRAB {
+                        Some(DragKind::FadeOut)
+                    } else if p.distance(fade_in) <= FADE_GRAB {
+                        Some(DragKind::FadeIn)
+                    } else {
+                        None
+                    }
+                })
+            };
+            if let Some(p) = response.hover_pos()
+                && on_handle(p).is_some()
+            {
+                ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
+                response.clone().on_hover_text(
+                    "Drag to fade the track in or out over this clip (Alt: no snap)",
+                );
+            }
             // Measure from where the button went down: egui reports a drag only after the
             // pointer has moved a few pixels, and starting from there would lose that distance.
             if response.drag_started()
@@ -596,7 +900,9 @@ impl App {
                 && let Some(clip) = self.clip(at)
             {
                 let grab = time.beat(pointer.x) - clip.start;
-                let kind = if (body.right() - pointer.x).abs() <= EDGE_GRAB {
+                let kind = if let Some(fade) = on_handle(pointer) {
+                    fade
+                } else if (body.right() - pointer.x).abs() <= EDGE_GRAB {
                     DragKind::Resize
                 } else {
                     DragKind::Move
@@ -632,6 +938,66 @@ impl App {
                 if ui.button("Duplicate").clicked() {
                     action = Some(ClipAction::Duplicate(at));
                 }
+                if is_audio {
+                    ui.separator();
+                    if ui
+                        .button("Reverse")
+                        .on_hover_text("Plays this clip backwards (as a new file; Undo brings the original back)")
+                        .clicked()
+                    {
+                        action = Some(ClipAction::Reverse(at));
+                        ui.close();
+                    }
+                    ui.menu_button("Convert to MIDI", |ui| {
+                        for kind in Kind::ALL {
+                            if ui.button(kind.label()).clicked() {
+                                action = Some(ClipAction::ToMidi(at, kind));
+                                ui.close();
+                            }
+                        }
+                    });
+                    if ui
+                        .button("Separate stems")
+                        .on_hover_text("Splits the clip into drums, bass, vocals and other on four new tracks below")
+                        .clicked()
+                    {
+                        action = Some(ClipAction::Stems(at));
+                        ui.close();
+                    }
+                    ui.separator();
+                }
+                if let Some(clip) = self.clip(at) {
+                    let bar = f64::from(self.session.project().beats_per_bar);
+                    let (length, fade_in, fade_out) = (clip.length, clip.fade_in, clip.fade_out);
+                    let choices = [
+                        ("None", 0.0),
+                        ("1 beat", 1.0),
+                        ("1 bar", bar),
+                        ("2 bars", 2.0 * bar),
+                        ("4 bars", 4.0 * bar),
+                        ("Whole clip", length),
+                    ];
+                    ui.menu_button("Fade in", |ui| {
+                        for (label, beats) in choices {
+                            let beats = beats.min(length);
+                            if ui.button(label).clicked() {
+                                let out = fade_out.min(length - beats);
+                                action = Some(ClipAction::Fades(at, beats, out));
+                                ui.close();
+                            }
+                        }
+                    });
+                    ui.menu_button("Fade out", |ui| {
+                        for (label, beats) in choices {
+                            let beats = beats.min(length);
+                            if ui.button(label).clicked() {
+                                let into = fade_in.min(length - beats);
+                                action = Some(ClipAction::Fades(at, into, beats));
+                                ui.close();
+                            }
+                        }
+                    });
+                }
                 let muted = self.clip(at).is_some_and(|c| c.muted);
                 if ui.button(if muted { "Unmute" } else { "Mute" }).clicked() {
                     action = Some(ClipAction::ToggleMute(at));
@@ -642,6 +1008,28 @@ impl App {
             });
         }
         match action {
+            Some(ClipAction::Fades(at, fade_in, fade_out)) => {
+                let result = self.session.set_clip_fades(at, fade_in, fade_out);
+                self.finish(result);
+            }
+            Some(ClipAction::Reverse(at)) => {
+                if let Some(clip) = self.audio_clip(at) {
+                    self.start_tool(Tool::Reverse {
+                        clips: vec![clip],
+                        mirror: false,
+                    });
+                }
+            }
+            Some(ClipAction::ToMidi(at, kind)) => {
+                if let Some(clip) = self.audio_clip(at) {
+                    self.start_tool(Tool::ToMidi { clip, kind });
+                }
+            }
+            Some(ClipAction::Stems(at)) => {
+                if let Some(clip) = self.audio_clip(at) {
+                    self.start_tool(Tool::Stems { clip });
+                }
+            }
             Some(ClipAction::Edit(at)) => self.open_roll(at),
             Some(ClipAction::Tune(at)) => self.open_tune(at),
             Some(ClipAction::Duplicate(at)) => self.duplicate_clip(at),
@@ -706,6 +1094,20 @@ impl App {
                         drag.at = new_at;
                     }
                 }
+            }
+            DragKind::FadeIn => {
+                ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
+                let fade = (self.snap_to_grid(ctx, beat) - clip.start)
+                    .clamp(0.0, clip.length - clip.fade_out);
+                self.live(|p| p.tracks[at.track].clips[at.clip].fade_in = fade);
+                self.status = format!("Fade in: {fade:.2} beats");
+            }
+            DragKind::FadeOut => {
+                ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);
+                let fade = (clip.end() - self.snap_to_grid(ctx, beat))
+                    .clamp(0.0, clip.length - clip.fade_in);
+                self.live(|p| p.tracks[at.track].clips[at.clip].fade_out = fade);
+                self.status = format!("Fade out: {fade:.2} beats");
             }
             DragKind::Resize => {
                 ctx.set_cursor_icon(CursorIcon::ResizeHorizontal);

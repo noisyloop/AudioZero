@@ -8,6 +8,7 @@
 
 mod arrangement;
 mod audio_settings;
+mod audio_tools;
 mod devices;
 mod export_audio;
 mod live;
@@ -52,7 +53,7 @@ pub fn run(start: Option<PathBuf>, settings: AudioSettings) -> Result<(), String
 
 /// Something that would throw away unsaved changes, waiting for the user to confirm.
 enum Pending {
-    New(Project, Option<PathBuf>),
+    New(Box<Project>, Option<PathBuf>),
     Quit,
 }
 
@@ -174,6 +175,8 @@ struct App {
     /// The track last clicked (its header, or one of its clips): highlighted, and the one
     /// Ctrl+R renames.
     selected_track: Option<usize>,
+    /// Tracks copied with Ctrl+C (a track and what's inside it), for Ctrl+V.
+    track_clipboard: Vec<Track>,
     pending: Option<Pending>,
     allow_close: bool,
     title: String,
@@ -202,6 +205,8 @@ struct App {
     audio_job: Option<export_audio::AudioExportJob>,
     tune: Option<tune::TuneWindow>,
     export_job: Option<visuals::ExportJob>,
+    /// A bounce, reverse, audio-to-MIDI or stem job that's running.
+    tool_job: Option<audio_tools::ToolJob>,
 }
 
 impl App {
@@ -234,6 +239,7 @@ impl App {
             prompt: None,
             rename: None,
             selected_track: None,
+            track_clipboard: Vec::new(),
             pending: None,
             allow_close: false,
             title: String::new(),
@@ -253,6 +259,7 @@ impl App {
             audio_export: None,
             audio_job: None,
             tune: None,
+            tool_job: None,
             export_job: None,
         };
         match start {
@@ -326,7 +333,7 @@ impl App {
     /// Replaces the current project, asking first if that would lose unsaved changes.
     fn replace(&mut self, project: Project, file: Option<PathBuf>) {
         if self.session.is_dirty() {
-            self.pending = Some(Pending::New(project, file));
+            self.pending = Some(Pending::New(Box::new(project), file));
         } else {
             self.install(project, file);
         }
@@ -501,16 +508,109 @@ impl App {
         self.done(result);
     }
 
-    fn delete_track(&mut self, index: usize) {
-        self.selected_track = match self.selected_track {
-            Some(t) if t == index => None,
-            Some(t) if t > index => Some(t - 1),
-            other => other,
+    /// Runs an edit that adds, removes or moves tracks, then keeps the selection, the device
+    /// panel, the armed track and Soundgineer's window on the tracks they were on (by id), since
+    /// their indices will have shifted.
+    fn restructure<T>(
+        &mut self,
+        op: impl FnOnce(&mut Session) -> Result<(T, Changes), EditError>,
+    ) -> Option<T> {
+        let ids: Vec<Option<u32>> = {
+            let tracks = &self.session.project().tracks;
+            [
+                self.selected_track,
+                self.device_track,
+                self.armed,
+                self.sg_window.as_ref().map(|w| w.track),
+            ]
+            .map(|i| i.and_then(|i| tracks.get(i)).map(|t| t.id))
+            .to_vec()
         };
-        let result = self.session.remove_track(index);
-        self.finish(result);
+        let result = op(&mut self.session);
+        let value = self.done(result);
+        let project = self.session.project();
+        let find = |id: Option<u32>| id.and_then(|id| project.index_of(id));
+        self.selected_track = find(ids[0]);
+        self.device_track = find(ids[1]);
+        self.armed = find(ids[2]);
+        let window = find(ids[3]);
+        match (&mut self.sg_window, window) {
+            (Some(w), Some(track)) => w.track = track,
+            (window @ Some(_), None) => *window = None,
+            _ => {}
+        }
         self.selected_clip = None;
         self.roll = None;
+        value
+    }
+
+    fn delete_track(&mut self, index: usize) {
+        self.restructure(|s| s.remove_track(index).map(|c| ((), c)));
+    }
+
+    /// Ctrl+C: copies the selected track (with its instrument, settings, effects and clips, and
+    /// anything inside it if it's a group).
+    fn copy_track(&mut self, ctx: &egui::Context) {
+        let Some(track) = self.selected_track else {
+            self.status = "Select a track to copy it.".into();
+            return;
+        };
+        let p = self.session.project();
+        let block = p.block(track);
+        self.track_clipboard = p.tracks[block].to_vec();
+        // egui only reports Ctrl+V when the system clipboard holds some text, so put a label there.
+        ctx.copy_text(format!("AudioZero track: {}", p.tracks[track].name));
+        self.status = format!(
+            "Copied \"{}\". Select a track and press Ctrl+V to paste a copy after it.",
+            p.tracks[track].name
+        );
+    }
+
+    /// Ctrl+V: pastes the copied track after the selected one, as a new track to edit.
+    fn paste_track(&mut self) {
+        if self.track_clipboard.is_empty() {
+            self.status = "Nothing copied. Select a track and press Ctrl+C first.".into();
+            return;
+        }
+        let copy = self.track_clipboard.clone();
+        let after = self.selected_track;
+        if let Some(at) = self.restructure(|s| s.paste_tracks(copy, after)) {
+            self.selected_track = Some(at);
+            self.device_track = Some(at);
+            self.status = "Pasted a copy. Ctrl+R renames it.".into();
+        }
+    }
+
+    /// Ctrl+G: puts the selected track in a new group and asks for the group's name.
+    fn group_selected(&mut self) {
+        let Some(track) = self.selected_track else {
+            self.status = "Select a track first, then press Ctrl+G to group it.".into();
+            return;
+        };
+        let number = self
+            .session
+            .project()
+            .tracks
+            .iter()
+            .filter(|t| t.group)
+            .count()
+            + 1;
+        if let Some(group) = self.restructure(|s| s.group_track(track, &format!("Group {number}")))
+        {
+            self.selected_track = Some(group);
+            self.device_track = Some(group);
+            self.ask_rename(group);
+        }
+    }
+
+    /// Ctrl+Shift+G: takes the selected group apart (its tracks stay).
+    fn ungroup_track(&mut self, group: usize) {
+        self.restructure(|s| s.ungroup(group).map(|c| ((), c)));
+    }
+
+    /// Moves a track into a group, or out to the top level with `None`.
+    fn move_to_group(&mut self, track: usize, group: Option<usize>) {
+        self.restructure(|s| s.move_to_group(track, group));
     }
 
     fn set_instrument(&mut self, index: usize, id: &str) {
@@ -1009,7 +1109,7 @@ impl App {
                 });
             });
             match (choice, self.pending.take()) {
-                (Some(true), Some(Pending::New(project, file))) => self.install(project, file),
+                (Some(true), Some(Pending::New(project, file))) => self.install(*project, file),
                 (Some(true), Some(Pending::Quit)) => {
                     self.allow_close = true;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -1021,11 +1121,18 @@ impl App {
     }
 
     fn shortcuts(&mut self, ctx: &egui::Context) {
-        if self.prompt.is_some()
-            || self.pending.is_some()
-            || self.rename.is_some()
-            || ctx.egui_wants_keyboard_input()
-        {
+        // Ctrl+D, Ctrl+G and Ctrl+R mean nothing to a text field, so a control that happens to
+        // keep keyboard focus (a tempo box, a combo) must not swallow them.
+        let editing = ctx.egui_wants_keyboard_input()
+            && !ctx.input(|i| {
+                i.modifiers.command
+                    && (i.key_pressed(Key::D)
+                        || i.key_pressed(Key::G)
+                        || i.key_pressed(Key::R)
+                        || i.key_pressed(Key::C)
+                        || i.key_pressed(Key::V))
+            });
+        if self.prompt.is_some() || self.pending.is_some() || self.rename.is_some() || editing {
             self.release_keys();
             return;
         }
@@ -1048,6 +1155,30 @@ impl App {
             }
             if pressed(Key::Y) {
                 self.redo();
+            }
+            // egui turns Ctrl+C and Ctrl+V into these events (and may drop the key press).
+            let (copy, paste) = ctx.input(|i| {
+                (
+                    i.key_pressed(Key::C)
+                        || i.events.iter().any(|e| matches!(e, egui::Event::Copy)),
+                    i.key_pressed(Key::V)
+                        || i.events.iter().any(|e| matches!(e, egui::Event::Paste(_))),
+                )
+            });
+            if copy {
+                self.copy_track(ctx);
+            }
+            if paste {
+                self.paste_track();
+            }
+            if pressed(Key::G) {
+                match self.selected_track {
+                    Some(group) if shift && self.session.project().tracks[group].group => {
+                        self.ungroup_track(group);
+                    }
+                    Some(track) if shift => self.move_to_group(track, None),
+                    _ => self.group_selected(),
+                }
             }
             // Once per press: a held key mustn't pile up copies.
             let duplicate = ctx.input(|i| {
@@ -1256,6 +1387,7 @@ impl eframe::App for App {
         self.export_ui(&ctx);
         self.audio_export_ui(&ctx);
         self.tune_ui(&ctx);
+        self.tool_ui(&ctx);
         self.soundgineer_window(&ctx);
         self.update_title(&ctx);
 

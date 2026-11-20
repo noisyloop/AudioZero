@@ -49,6 +49,9 @@ pub struct Project {
     pub key: u8,
     /// The song's scale, by id ([`crate::music::SCALES`]).
     pub scale: String,
+    /// Credits and identifiers written into exported files (artist, ISRC, ...).
+    #[serde(skip_serializing_if = "crate::metadata::Metadata::is_empty")]
+    pub metadata: crate::metadata::Metadata,
     pub tracks: Vec<Track>,
 }
 
@@ -69,14 +72,30 @@ impl Default for Project {
             master_volume: 0.85,
             key: 0,
             scale: "major".into(),
+            metadata: crate::metadata::Metadata::default(),
             tracks: Vec::new(),
         }
     }
 }
 
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Track {
+    /// Names this track in `parent`. Zero means "not assigned yet"; [`Project::sanitize`] gives
+    /// every track a unique one, so it stays put when tracks move.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub id: u32,
+    /// A group track has no instrument or clips: it mixes the tracks inside it, runs its own
+    /// effects on that mix, and sends the result on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub group: bool,
+    /// The `id` of the group this track is in, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<u32>,
     pub name: String,
     pub volume: f32,
     pub pan: f32,
@@ -92,6 +111,9 @@ pub struct Track {
 impl Default for Track {
     fn default() -> Self {
         Self {
+            id: 0,
+            group: false,
+            parent: None,
             name: "Track".into(),
             volume: 0.8,
             pan: 0.0,
@@ -102,6 +124,20 @@ impl Default for Track {
             effects: Vec::new(),
             clips: Vec::new(),
         }
+    }
+}
+
+impl Track {
+    /// The volume the track's clip fades give at `beat`: that of the clip that started last
+    /// (muted ones don't count), or full volume before the first clip.
+    pub fn fade_gain(&self, beat: f64) -> f32 {
+        let mut latest: Option<&Clip> = None;
+        for clip in &self.clips {
+            if !clip.muted && clip.start <= beat && latest.is_none_or(|l| clip.start >= l.start) {
+                latest = Some(clip);
+            }
+        }
+        latest.and_then(|c| c.fade_gain(beat)).unwrap_or(1.0)
     }
 }
 
@@ -208,6 +244,18 @@ pub struct Clip {
     pub notes: Vec<Note>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio: Option<AudioRegion>,
+    /// How long the track's volume takes to rise from silence at the start of the clip, in
+    /// beats. Zero for no fade.
+    #[serde(skip_serializing_if = "is_zero_f64")]
+    pub fade_in: f64,
+    /// How long the volume takes to fall to silence at the end of the clip, in beats. The track
+    /// then stays silent until its next clip starts.
+    #[serde(skip_serializing_if = "is_zero_f64")]
+    pub fade_out: f64,
+}
+
+fn is_zero_f64(x: &f64) -> bool {
+    *x == 0.0
 }
 
 /// The audio an audio clip plays. It plays at the file's own speed (no time-stretching yet), so
@@ -243,11 +291,35 @@ impl Default for Clip {
             muted: false,
             notes: Vec::new(),
             audio: None,
+            fade_in: 0.0,
+            fade_out: 0.0,
         }
     }
 }
 
 impl Clip {
+    /// The volume the clip's fades give at `beat` on the timeline (0 to 1), or `None` before
+    /// the clip starts. After a clip that fades out, it stays at zero.
+    pub fn fade_gain(&self, beat: f64) -> Option<f32> {
+        let t = beat - self.start;
+        if t < 0.0 {
+            return None;
+        }
+        let rise = if self.fade_in > 0.0 {
+            (t / self.fade_in).min(1.0)
+        } else {
+            1.0
+        };
+        let fall = if self.fade_out > 0.0 {
+            ((self.length - t) / self.fade_out).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        // Squared, so the fade sounds even rather than dropping away at the end.
+        let g = (rise * fall) as f32;
+        Some(g * g)
+    }
+
     pub fn is_audio(&self) -> bool {
         self.audio.is_some()
     }
@@ -273,6 +345,8 @@ impl Clip {
             audio.gain = finite32(audio.gain, 0.0, 4.0, 1.0);
             self.notes.clear();
         }
+        self.fade_in = finite(self.fade_in, 0.0, self.length, 0.0);
+        self.fade_out = finite(self.fade_out, 0.0, self.length - self.fade_in, 0.0);
         let length = self.length;
         self.notes
             .retain(|n| n.start.is_finite() && n.start >= 0.0 && n.start < length);
@@ -439,6 +513,7 @@ impl Project {
             self.loop_end = self.loop_start + 4.0;
         }
         self.master_volume = finite32(self.master_volume, 0.0, 1.5, 0.85);
+        self.metadata.sanitize();
         self.key %= 12;
         self.scale = crate::music::scale_by_id(&self.scale).id.into();
 
@@ -456,8 +531,100 @@ impl Project {
             for clip in &mut track.clips {
                 clip.sanitize();
             }
+            if track.group {
+                track.instrument = None;
+                track.clips.clear();
+                track.arp = crate::arp::ArpSettings::default();
+            }
         }
+        self.sanitize_groups();
         Ok(())
+    }
+
+    /// Gives every track a unique id, then drops parents that don't name a group and breaks any
+    /// loops, so the tracks always form a tree.
+    fn sanitize_groups(&mut self) {
+        let mut seen = std::collections::HashSet::new();
+        let mut next = self.tracks.iter().map(|t| t.id).max().unwrap_or(0);
+        for track in &mut self.tracks {
+            if track.id == 0 || !seen.insert(track.id) {
+                next += 1;
+                track.id = next;
+                seen.insert(next);
+            }
+        }
+        for i in 0..self.tracks.len() {
+            let valid = self.tracks[i]
+                .parent
+                .and_then(|id| self.index_of(id))
+                .is_some_and(|p| p != i && self.tracks[p].group);
+            if !valid {
+                self.tracks[i].parent = None;
+            }
+        }
+        // A loop never reaches the top, so cut it where it is found.
+        for i in 0..self.tracks.len() {
+            let mut at = i;
+            for _ in 0..=self.tracks.len() {
+                match self.parent_of(at) {
+                    Some(p) => at = p,
+                    None => break,
+                }
+                if at == i {
+                    self.tracks[i].parent = None;
+                    break;
+                }
+            }
+        }
+    }
+
+    /// The index of the track with this id.
+    pub fn index_of(&self, id: u32) -> Option<usize> {
+        self.tracks.iter().position(|t| t.id == id)
+    }
+
+    /// The index of the group a track is in.
+    pub fn parent_of(&self, index: usize) -> Option<usize> {
+        self.index_of(self.tracks.get(index)?.parent?)
+    }
+
+    /// How many groups deep a track is.
+    pub fn depth(&self, index: usize) -> usize {
+        let mut depth = 0;
+        let mut at = index;
+        while let Some(p) = self.parent_of(at) {
+            depth += 1;
+            at = p;
+            if depth > self.tracks.len() {
+                break;
+            }
+        }
+        depth
+    }
+
+    /// Whether `index` is `group` or somewhere inside it.
+    pub fn is_inside(&self, index: usize, group: usize) -> bool {
+        let mut at = index;
+        for _ in 0..=self.tracks.len() {
+            if at == group {
+                return true;
+            }
+            match self.parent_of(at) {
+                Some(p) => at = p,
+                None => return false,
+            }
+        }
+        false
+    }
+
+    /// The track at `index` and everything inside it, as a range of indices (the tracks of a
+    /// group follow it, which the editing functions keep true).
+    pub fn block(&self, index: usize) -> std::ops::Range<usize> {
+        let mut end = index + 1;
+        while end < self.tracks.len() && self.is_inside(end, index) {
+            end += 1;
+        }
+        index..end
     }
 
     /// Where the last clip ends, in beats.
@@ -480,7 +647,8 @@ mod tests {
 
     #[test]
     fn round_trips() {
-        let project = crate::demo::project();
+        let mut project = crate::demo::project();
+        project.sanitize().unwrap(); // gives the tracks their ids, as loading does
         let back = Project::from_json(&project.to_json()).unwrap();
         assert_eq!(project, back);
     }
@@ -632,7 +800,8 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("audiozero-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("song.azproj.json");
-        let project = crate::demo::project();
+        let mut project = crate::demo::project();
+        project.sanitize().unwrap();
         project.save(&path).unwrap();
         assert_eq!(Project::load(&path).unwrap(), project);
         std::fs::remove_dir_all(&dir).unwrap();

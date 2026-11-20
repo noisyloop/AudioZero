@@ -1,6 +1,7 @@
 //! The tools: their definitions (names, descriptions, JSON schemas) and what each one does.
 
 use crate::{Ctx, MAX_NOTES_PER_CALL};
+use audiozero_engine::metadata::Explicit;
 use audiozero_engine::project::limits::MAX_BEATS;
 use audiozero_engine::session::mix_of;
 use audiozero_engine::synth::BUILTINS;
@@ -116,6 +117,41 @@ const TOOLS: &[Tool] = &[
         destructive: false,
     },
     Tool {
+        name: "group_track",
+        title: "Group track",
+        description: "Puts a track (and any tracks inside it) in a new group, in its place, and returns the group's track index. A group has no instrument or clips: it mixes the tracks inside it, and its effects (add_effect on the group) process that mix, like a bus with EQ and compression. Track indices shift, so read them again from get_project. Can be undone.",
+        properties: props!(
+            track!(),
+            r#""name": { "type": "string", "description": "The group's name. Defaults to \"Group\"." }"#
+        ),
+        required: &["track"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "move_to_group",
+        title: "Move track to group",
+        description: "Moves a track (with the tracks inside it) into a group, after the group's last track, or out to the top level when `group` is left out. Returns the track's new index; others may shift. Can be undone.",
+        properties: props!(
+            track!(),
+            r#""group": { "type": "integer", "minimum": 0, "description": "The group's track index. Leave out to take the track out of its group." }"#
+        ),
+        required: &["track"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "ungroup",
+        title: "Ungroup",
+        description: "Takes a group apart: its tracks stay (in the group above it, if any) and the group and its effects are removed. Can be undone.",
+        properties: props!(
+            r#""group": { "type": "integer", "minimum": 0, "description": "The group's track index" }"#
+        ),
+        required: &["group"],
+        read_only: false,
+        destructive: true,
+    },
+    Tool {
         name: "set_instrument",
         title: "Set instrument",
         description: "Changes a track's instrument.",
@@ -199,6 +235,20 @@ const TOOLS: &[Tool] = &[
             r#""solo": { "type": "boolean" }"#
         ),
         required: &["track"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "set_clip_fades",
+        title: "Set clip fades",
+        description: "Fades the track's volume in at the start of a clip and/or out at its end, in beats (0 removes a fade). After a clip that fades out, the track stays silent until its next clip starts. Use it for intros, outros and transitions. Only the fades given change. Can be undone.",
+        properties: props!(
+            track!(),
+            r#""clip": { "type": "integer", "minimum": 0 }"#,
+            r#""fade_in": { "type": "number", "minimum": 0, "description": "Beats to rise from silence" }"#,
+            r#""fade_out": { "type": "number", "minimum": 0, "description": "Beats to fall to silence" }"#
+        ),
+        required: &["track", "clip"],
         read_only: false,
         destructive: false,
     },
@@ -381,7 +431,7 @@ const TOOLS: &[Tool] = &[
             r#""format": { "type": "string", "enum": ["widescreen", "shorts", "square", "portrait", "4k"], "description": "Defaults to widescreen (1920x1080); shorts is 9:16" }"#,
             r#""fps": { "type": "integer", "enum": [30, 60] }"#,
             r#""loop": { "type": "boolean", "description": "Only the loop range" }"#,
-            r#""container": { "type": "string", "enum": ["mp4", "webm", "frames"], "description": "Defaults to mp4 (needs FFmpeg)" }"#
+            r#""container": { "type": "string", "enum": ["mp4", "webm", "frames"], "description": "Defaults to mp4 (built in, ready to upload). webm needs FFmpeg." }"#
         ),
         required: &["name"],
         read_only: false,
@@ -401,6 +451,37 @@ const TOOLS: &[Tool] = &[
             r#""swing": { "type": "number", "minimum": 0, "maximum": 0.5, "description": "How far off-beat steps are pushed late" }"#
         ),
         required: &["track"],
+        read_only: false,
+        destructive: false,
+    },
+    Tool {
+        name: "set_song_info",
+        title: "Set song info",
+        description: "Sets the credits and identifiers written into exported WAV and MP3 files: title, artist, composer, producer, label, ISRC, UPC/EAN barcode, ISWC, the copyright (c) and phonogram (p) lines, release date, language and the explicit flag. Only the fields you give are changed (an empty string clears one). Identifiers are checked: a bad ISRC, barcode, ISWC or date is refused. Tempo and key come from the song. Not an undo step.",
+        properties: props!(
+            r#""title": { "type": "string" }"#,
+            r#""artist": { "type": "string" }"#,
+            r#""album_artist": { "type": "string" }"#,
+            r#""album": { "type": "string" }"#,
+            r#""track_number": { "type": "integer", "minimum": 0, "description": "0 clears it" }"#,
+            r#""track_total": { "type": "integer", "minimum": 0 }"#,
+            r#""release_date": { "type": "string", "description": "YYYY, YYYY-MM or YYYY-MM-DD" }"#,
+            r#""genre": { "type": "string" }"#,
+            r#""composer": { "type": "string" }"#,
+            r#""lyricist": { "type": "string" }"#,
+            r#""producer": { "type": "string" }"#,
+            r#""mixer": { "type": "string" }"#,
+            r#""label": { "type": "string" }"#,
+            r#""isrc": { "type": "string", "description": "Like US-RC1-26-00001" }"#,
+            r#""upc": { "type": "string", "description": "A 12-digit UPC or 13-digit EAN barcode" }"#,
+            r#""iswc": { "type": "string", "description": "Like T-034.524.680-1" }"#,
+            r#""copyright": { "type": "string", "description": "The (c) line: the year, then the owner, like 2026 Jane Doe" }"#,
+            r#""phonogram": { "type": "string", "description": "The (p) line: the year, then the owner of the recording" }"#,
+            r#""language": { "type": "string", "description": "Three letters, like eng" }"#,
+            r#""explicit": { "type": "string", "enum": ["unspecified", "not_explicit", "explicit", "clean"] }"#,
+            r#""comment": { "type": "string" }"#
+        ),
+        required: &[],
         read_only: false,
         destructive: false,
     },
@@ -718,6 +799,49 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
             let name = s.session.project().tracks[a.track].name.clone();
             Ok(done(s, &changes, json!({ "track": a.track, "name": name })))
         }
+        "group_track" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                name: Option<String>,
+            }
+            let a: Args = parse(arguments)?;
+            let name = a.name.unwrap_or_else(|| "Group".into());
+            let (group, changes) = s
+                .session
+                .group_track(a.track, &name)
+                .map_err(|e| e.to_string())?;
+            Ok(done(s, &changes, json!({ "group": group, "name": name })))
+        }
+        "move_to_group" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                group: Option<usize>,
+            }
+            let a: Args = parse(arguments)?;
+            let (track, changes) = s
+                .session
+                .move_to_group(a.track, a.group)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": track, "group": a.group }),
+            ))
+        }
+        "ungroup" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                group: usize,
+            }
+            let a: Args = parse(arguments)?;
+            let changes = s.session.ungroup(a.group).map_err(|e| e.to_string())?;
+            Ok(done(s, &changes, json!({ "ungrouped": a.group })))
+        }
         "set_instrument" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -866,6 +990,36 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 json!({ "track": a.track, "volume": f32_out(mix.volume), "pan": f32_out(mix.pan), "mute": mix.mute, "solo": mix.solo }),
             ))
         }
+        "set_clip_fades" => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                track: usize,
+                clip: usize,
+                fade_in: Option<f64>,
+                fade_out: Option<f64>,
+            }
+            let a: Args = parse(arguments)?;
+            let at = ClipRef {
+                track: a.track,
+                clip: a.clip,
+            };
+            let current = s
+                .session
+                .clip(at)
+                .ok_or_else(|| format!("track {} has no clip {}", a.track, a.clip))?;
+            let fade_in = a.fade_in.unwrap_or(current.fade_in);
+            let fade_out = a.fade_out.unwrap_or(current.fade_out);
+            let changes = s
+                .session
+                .set_clip_fades(at, fade_in, fade_out)
+                .map_err(|e| e.to_string())?;
+            Ok(done(
+                s,
+                &changes,
+                json!({ "track": a.track, "clip": a.clip, "fade_in": fade_in, "fade_out": fade_out }),
+            ))
+        }
         "add_clip" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -885,6 +1039,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 muted: false,
                 notes: notes(a.notes)?,
                 audio: None,
+                ..Default::default()
             };
             let count = clip.notes.len();
             let (at, changes) = s
@@ -1239,6 +1394,70 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 json!({ "track": a.track, "arp": serde_json::to_value(settings).unwrap_or_default() }),
             ))
         }
+        "set_song_info" => {
+            // Only the fields given change; the rest of the song's info stays.
+            let mut info = s.session.project().metadata.clone();
+            let args = arguments
+                .as_object()
+                .ok_or("the arguments have to be an object")?;
+            for (key, value) in args {
+                let text = || {
+                    value
+                        .as_str()
+                        .map(str::to_string)
+                        .ok_or_else(|| format!("{key} has to be text"))
+                };
+                let number = || {
+                    value
+                        .as_u64()
+                        .and_then(|n| u32::try_from(n).ok())
+                        .ok_or_else(|| format!("{key} has to be a whole number"))
+                };
+                match key.as_str() {
+                    "title" => info.title = text()?,
+                    "artist" => info.artist = text()?,
+                    "album_artist" => info.album_artist = text()?,
+                    "album" => info.album = text()?,
+                    "track_number" => info.track_number = number()?,
+                    "track_total" => info.track_total = number()?,
+                    "release_date" => info.release_date = text()?,
+                    "genre" => info.genre = text()?,
+                    "composer" => info.composer = text()?,
+                    "lyricist" => info.lyricist = text()?,
+                    "producer" => info.producer = text()?,
+                    "mixer" => info.mixer = text()?,
+                    "label" => info.label = text()?,
+                    "isrc" => info.isrc = text()?,
+                    "upc" => info.upc = text()?,
+                    "iswc" => info.iswc = text()?,
+                    "copyright" => info.copyright = text()?,
+                    "phonogram" => info.phonogram = text()?,
+                    "language" => info.language = text()?,
+                    "comment" => info.comment = text()?,
+                    "explicit" => {
+                        info.explicit = match text()?.as_str() {
+                            "unspecified" => Explicit::Unspecified,
+                            "not_explicit" => Explicit::NotExplicit,
+                            "explicit" => Explicit::Explicit,
+                            "clean" => Explicit::Clean,
+                            other => {
+                                return Err(format!(
+                                    "unknown explicit value \"{other}\"; use unspecified, not_explicit, explicit or clean"
+                                ));
+                            }
+                        }
+                    }
+                    other => return Err(format!("unknown field \"{other}\"")),
+                }
+            }
+            let changes = s.session.set_metadata(info).map_err(|e| e.to_string())?;
+            let saved = s.session.project().metadata.clone();
+            Ok(done(
+                s,
+                &changes,
+                json!({ "song_info": serde_json::to_value(&saved).unwrap_or_default() }),
+            ))
+        }
         "set_key" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -1417,11 +1636,12 @@ fn project_summary(s: &Ctx<'_>) -> Value {
                 .iter()
                 .enumerate()
                 .map(|(j, c)| {
-                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "notes": c.notes.len(), "audio": audio_of(c) })
+                    json!({ "clip": j, "name": c.name, "start": c.start, "length": c.length, "muted": c.muted, "fade_in": c.fade_in, "fade_out": c.fade_out, "notes": c.notes.len(), "audio": audio_of(c) })
                 })
                 .collect();
             json!({
-                "track": i, "name": t.name, "instrument": describe(t.instrument.as_ref()),
+                "track": i, "name": t.name, "group": t.group, "in_group": p.parent_of(i),
+                "instrument": describe(t.instrument.as_ref()),
                 "arp": serde_json::to_value(t.arp).unwrap_or_default(),
                 "instrument_params": instrument_params_of(t),
                 "effects": effects_of(t), "volume": f32_out(t.volume), "pan": f32_out(t.pan), "mute": t.mute, "solo": t.solo, "clips": clips,
