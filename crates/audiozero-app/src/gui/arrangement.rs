@@ -44,6 +44,7 @@ enum ClipAction {
 enum TrackAction {
     Devices(usize),
     Rename(usize),
+    Bounce(usize),
     Delete(usize),
     Add,
     SetInstrument(usize, &'static str),
@@ -278,6 +279,10 @@ impl App {
                     if ui.button("Devices and effects…").clicked() {
                         track_action = Some(TrackAction::Devices(index));
                     }
+                    if ui.button("Bounce to WAV…").clicked() {
+                        track_action = Some(TrackAction::Bounce(index));
+                        ui.close();
+                    }
                     ui.separator();
                     ui.label("Instrument");
                     for (id, name) in BUILTINS {
@@ -323,6 +328,7 @@ impl App {
                 self.selected_track = Some(index);
                 self.ask_rename(index);
             }
+            Some(TrackAction::Bounce(index)) => self.open_track_bounce(index),
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
             Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
