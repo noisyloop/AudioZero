@@ -133,6 +133,8 @@ enum ClipAction {
 enum TrackAction {
     Devices(usize),
     Rename(usize),
+    /// Bounce to WAV: export just this track as a file.
+    BounceFile(usize),
     Delete(usize),
     Add,
     SetInstrument(usize, &'static str),
@@ -465,6 +467,16 @@ impl App {
                         track_action = Some(TrackAction::ReverseTrack(index));
                         ui.close();
                     }
+                    if ui
+                        .button("Bounce to WAV…")
+                        .on_hover_text(
+                            "Exports just this track, with its volume, pan and effects, as a WAV or MP3 file",
+                        )
+                        .clicked()
+                    {
+                        track_action = Some(TrackAction::BounceFile(index));
+                        ui.close();
+                    }
                     ui.separator();
                     if ui.button("Copy  (Ctrl+C)").clicked() {
                         track_action = Some(TrackAction::Copy(index));
@@ -574,6 +586,7 @@ impl App {
                 self.selected_track = Some(index);
                 self.ask_rename(index);
             }
+            Some(TrackAction::BounceFile(index)) => self.open_track_bounce(index),
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
             Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
