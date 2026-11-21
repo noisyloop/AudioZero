@@ -252,6 +252,8 @@ For now the server and the window are separate. Open the saved project in the wi
 
 Every build is manual for now: pushes, pull requests and merges don't start any workflow. To build, open **Actions**, pick a workflow, click **Run workflow** and choose the branch.
 
+A release first runs `scripts/check-release.sh`, which refuses one that would go backwards: a tag that already exists or isn't the newest, a version in `Cargo.toml` that isn't the tag's, a commit that doesn't contain every earlier release, or one that leaves out `main`. See [docs/RELEASING.md](docs/RELEASING.md).
+
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
 | `rust.yml` | Linux, Windows (+ macOS on request) | **The Rust app:** format check, Clippy, tests, demo render, and release builds uploaded as downloads or published as a release (see [Download a build](#download-a-build)) |
