@@ -9,6 +9,7 @@
 mod arrangement;
 mod audio_settings;
 mod audio_tools;
+mod chords;
 mod devices;
 mod export_audio;
 mod live;
@@ -204,6 +205,8 @@ struct App {
     audio_export: Option<export_audio::AudioExportDialog>,
     audio_job: Option<export_audio::AudioExportJob>,
     tune: Option<tune::TuneWindow>,
+    /// The chord pack's settings, and the chord pad being held.
+    chords: chords::ChordUi,
     export_job: Option<visuals::ExportJob>,
     /// A bounce, reverse, audio-to-MIDI or stem job that's running.
     tool_job: Option<audio_tools::ToolJob>,
@@ -259,6 +262,7 @@ impl App {
             audio_export: None,
             audio_job: None,
             tune: None,
+            chords: chords::ChordUi::default(),
             tool_job: None,
             export_job: None,
         };
@@ -829,6 +833,22 @@ impl App {
                 self.beats_menu(ui, "Add drum track with beat", |id| beat = Some(id));
                 if let Some(id) = beat {
                     self.insert_beat(None, id);
+                    ui.close();
+                }
+                let mut progression = None;
+                self.chords_menu(ui, "Add chord track with progression", |id| {
+                    progression = Some(id)
+                });
+                if let Some(id) = progression {
+                    self.insert_chords(None, audiozero_engine::session::ChordSource::Library(id));
+                    ui.close();
+                }
+                if ui
+                    .button("Add chord track with random progression")
+                    .on_hover_text("A random progression in the song's key; click again for another")
+                    .clicked()
+                {
+                    self.insert_random_chords(None);
                     ui.close();
                 }
             });

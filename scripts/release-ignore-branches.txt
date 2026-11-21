@@ -1,0 +1,12 @@
+# Remote branches the release check doesn't warn about: finished, or replaced by newer work.
+# One name per line (without "origin/"). Review these before adding anything here.
+#
+# The October 2026 C++ prototype stack (PRs #1 to #6). Its work reached main through PR #7
+# (tests, SmokeSynth) and PR #8 (the DAW, which replaced the prototype's window). The only file
+# main lacks is its macOS test workflow, which main's own CI replaced. Merging these would bring
+# the old prototype window back.
+feature/builtin-smokesynth
+feature/mac-vst3-host-spike
+feature/smokesynth-fm
+feature/smokesynth-keyboard
+feature/vst3-ci-smoke-test

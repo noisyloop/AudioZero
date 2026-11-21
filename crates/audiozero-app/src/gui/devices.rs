@@ -169,6 +169,9 @@ impl App {
             if drums {
                 self.pad_grid(ui, index);
             }
+            if instrument_id == Some("chords") {
+                self.chords_panel(ui, index);
+            }
         }
         ui.add_space(4.0);
 

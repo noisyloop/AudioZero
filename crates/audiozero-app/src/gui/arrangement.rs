@@ -124,6 +124,7 @@ enum ClipAction {
     Stems(ClipRef),
     Edit(ClipRef),
     Tune(ClipRef),
+    Bass(ClipRef, audiozero_engine::chords::BassStyle),
     Duplicate(ClipRef),
     ToggleMute(ClipRef),
     Delete(ClipRef),
@@ -132,6 +133,8 @@ enum ClipAction {
 enum TrackAction {
     Devices(usize),
     Rename(usize),
+    /// Bounce to WAV: export just this track as a file.
+    BounceFile(usize),
     Delete(usize),
     Add,
     SetInstrument(usize, &'static str),
@@ -464,6 +467,16 @@ impl App {
                         track_action = Some(TrackAction::ReverseTrack(index));
                         ui.close();
                     }
+                    if ui
+                        .button("Bounce to WAV…")
+                        .on_hover_text(
+                            "Exports just this track, with its volume, pan and effects, as a WAV or MP3 file",
+                        )
+                        .clicked()
+                    {
+                        track_action = Some(TrackAction::BounceFile(index));
+                        ui.close();
+                    }
                     ui.separator();
                     if ui.button("Copy  (Ctrl+C)").clicked() {
                         track_action = Some(TrackAction::Copy(index));
@@ -573,6 +586,7 @@ impl App {
                 self.selected_track = Some(index);
                 self.ask_rename(index);
             }
+            Some(TrackAction::BounceFile(index)) => self.open_track_bounce(index),
             Some(TrackAction::Add) => self.add_track(),
             Some(TrackAction::Delete(index)) => self.delete_track(index),
             Some(TrackAction::SetInstrument(index, id)) => self.set_instrument(index, id),
@@ -935,6 +949,18 @@ impl App {
                     action = Some(ClipAction::Tune(at));
                     ui.close();
                 }
+                if !is_audio {
+                    ui.menu_button("Add bass line", |ui| {
+                        for style in audiozero_engine::chords::BassStyle::ALL {
+                            if ui.button(style.name()).clicked() {
+                                action = Some(ClipAction::Bass(at, style));
+                                ui.close();
+                            }
+                        }
+                    })
+                    .response
+                    .on_hover_text("Writes a bass part under this clip's chords, on a new track below");
+                }
                 if ui.button("Duplicate").clicked() {
                     action = Some(ClipAction::Duplicate(at));
                 }
@@ -1032,6 +1058,7 @@ impl App {
             }
             Some(ClipAction::Edit(at)) => self.open_roll(at),
             Some(ClipAction::Tune(at)) => self.open_tune(at),
+            Some(ClipAction::Bass(at, style)) => self.add_bass(at, style),
             Some(ClipAction::Duplicate(at)) => self.duplicate_clip(at),
             Some(ClipAction::ToggleMute(at)) => self.toggle_clip_mute(at),
             Some(ClipAction::Delete(at)) => self.delete_clip(at),

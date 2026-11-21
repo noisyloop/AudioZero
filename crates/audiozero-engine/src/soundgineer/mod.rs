@@ -923,6 +923,34 @@ impl Soundgineer {
         }
     }
 
+    /// The index of a parameter by name. Panics if there's no such parameter, so use it for
+    /// names written in the code.
+    pub fn param_index(name: &str) -> usize {
+        find(name)
+    }
+
+    /// Every parameter's value for a factory preset: the defaults, with the preset's on top.
+    pub fn preset_values(name: &str) -> Box<[f32; PARAM_COUNT]> {
+        let mut values = Box::new([0.0; PARAM_COUNT]);
+        for (value, param) in values.iter_mut().zip(PARAMS.iter()) {
+            *value = param.default;
+        }
+        for &(param, value) in preset(name).unwrap_or_default() {
+            if let Some(i) = PARAMS.iter().position(|p| p.name == param) {
+                values[i] = PARAMS[i].fit(value);
+            }
+        }
+        values
+    }
+
+    /// Replaces every parameter at once from [`Soundgineer::preset_values`]. Voices keep playing.
+    /// It copies and rebuilds a few small tables, and doesn't allocate.
+    pub fn load_values(&mut self, values: &[f32; PARAM_COUNT]) {
+        self.sh.values.copy_from_slice(values);
+        self.sh.rebuild_slots();
+        (0..8).for_each(|l| self.sh.rebuild_shape(l));
+    }
+
     /// How many voices are sounding.
     pub fn active_voices(&self) -> usize {
         self.voices.iter().filter(|v| v.active()).count()

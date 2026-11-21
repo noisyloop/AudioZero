@@ -14,7 +14,23 @@ on:
 permissions:
   contents: read
 jobs:
+  # For a release: refuse one that would go backwards or doesn't match its tag, before spending
+  # any build minutes. See scripts/check-release.sh.
+  guard:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        if: inputs.release != ''
+        with:
+          fetch-depth: 0
+      - name: Check the release
+        if: inputs.release != ''
+        env:
+          TAG: ${{ inputs.release }}
+        run: bash scripts/check-release.sh "$TAG"
+
   linux:
+    needs: guard
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +47,7 @@ jobs:
 
   # Release builds of the app, uploaded as downloadable artifacts.
   build:
+    needs: guard
     strategy:
       fail-fast: false
       matrix:

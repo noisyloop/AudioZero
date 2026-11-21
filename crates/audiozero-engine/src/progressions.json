@@ -1,0 +1,7202 @@
+[
+{
+"id": "techno-001",
+"genre": "techno",
+"name": "i – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVII:8"
+},
+{
+"id": "techno-002",
+"genre": "techno",
+"name": "i – iv – bVII – bIII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVII:8 bIII:8"
+},
+{
+"id": "techno-003",
+"genre": "techno",
+"name": "i – bIII – bVII – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bIII:8 bVII:8 iv:8"
+},
+{
+"id": "techno-004",
+"genre": "techno",
+"name": "i – iv – v – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 v:4 i:4"
+},
+{
+"id": "techno-005",
+"genre": "techno",
+"name": "I – IV – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 IV:8 ii:8 V:8"
+},
+{
+"id": "techno-006",
+"genre": "techno",
+"name": "i – bVI – bVII – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVI:8 bVII:8 i:8"
+},
+{
+"id": "techno-007",
+"genre": "techno",
+"name": "i – iv – i – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 i:4 V:4"
+},
+{
+"id": "techno-008",
+"genre": "techno",
+"name": "iv – i – bVII – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "iv:8 i:8 bVII:8 bVI:8"
+},
+{
+"id": "techno-009",
+"genre": "techno",
+"name": "i – iv – bVII – bIII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVII:4 bIII:4"
+},
+{
+"id": "techno-010",
+"genre": "techno",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 v:4 bVI:4 iv:4"
+},
+{
+"id": "techno-011",
+"genre": "techno",
+"name": "bVI – bVII – i – v",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:4 v:4"
+},
+{
+"id": "techno-012",
+"genre": "techno",
+"name": "i – iv7 – V – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv7:8 V:8 i:8"
+},
+{
+"id": "techno-013",
+"genre": "techno",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 v:8 bVI:8 iv:8"
+},
+{
+"id": "techno-014",
+"genre": "techno",
+"name": "bVII – bVI – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVII:4 bVI:4 i:4 i:4"
+},
+{
+"id": "techno-015",
+"genre": "techno",
+"name": "i – iv – V – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 i:4"
+},
+{
+"id": "techno-016",
+"genre": "techno",
+"name": "i – iv – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVI:8 bVII:8"
+},
+{
+"id": "techno-017",
+"genre": "techno",
+"name": "i – v7 – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 v7:4 bVI:4 iv:4"
+},
+{
+"id": "techno-018",
+"genre": "techno",
+"name": "bVI – bVII – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:4 i:4"
+},
+{
+"id": "techno-019",
+"genre": "techno",
+"name": "i – bVII – bVI – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVII:8 bVI:8 V:8"
+},
+{
+"id": "techno-020",
+"genre": "techno",
+"name": "i – bIII – iv – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 iv:4 bVII:4"
+},
+{
+"id": "techno-021",
+"genre": "techno",
+"name": "i – bVII – bVI – bVII – i – bVII – bVI – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bVI:4 bVII:4 i:4 bVII:4 bVI:4 V:4"
+},
+{
+"id": "techno-022",
+"genre": "techno",
+"name": "i – bVI – bVII – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 i:4"
+},
+{
+"id": "techno-023",
+"genre": "techno",
+"name": "I – iii – vi – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 iii:4 vi:4 IV:4"
+},
+{
+"id": "techno-024",
+"genre": "techno",
+"name": "i – iv – i – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 i:8 V:8"
+},
+{
+"id": "techno-025",
+"genre": "techno",
+"name": "i – bIII – bVII – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVII:4 iv:4"
+},
+{
+"id": "techno-026",
+"genre": "techno",
+"name": "iv – Vsus4 – i – v",
+"tag": "Dark",
+"mood": "minor",
+"chords": "iv:8 Vsus4:8 i:8 v:8"
+},
+{
+"id": "techno-027",
+"genre": "techno",
+"name": "i – bVI – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:8 bVIIsus2:4"
+},
+{
+"id": "techno-028",
+"genre": "techno",
+"name": "Imaj7 – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj7:16 V:16"
+},
+{
+"id": "techno-029",
+"genre": "techno",
+"name": "i",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16"
+},
+{
+"id": "techno-030",
+"genre": "techno",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 V:16"
+},
+{
+"id": "techno-031",
+"genre": "techno",
+"name": "i – bVIIsus2 – i",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVIIsus2:4 i:4"
+},
+{
+"id": "techno-032",
+"genre": "techno",
+"name": "i – bVImaj7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVImaj7:8"
+},
+{
+"id": "techno-033",
+"genre": "techno",
+"name": "i7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:16"
+},
+{
+"id": "techno-034",
+"genre": "techno",
+"name": "i – bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVI:16"
+},
+{
+"id": "techno-035",
+"genre": "techno",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVII:16"
+},
+{
+"id": "techno-036",
+"genre": "techno",
+"name": "i – Vsus4 – i – V",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 Vsus4:4 i:4 V:4"
+},
+{
+"id": "techno-037",
+"genre": "techno",
+"name": "i – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVII:8"
+},
+{
+"id": "techno-038",
+"genre": "techno",
+"name": "i – bIII – i – bVIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:8 i:8 bVIsus2:8"
+},
+{
+"id": "techno-039",
+"genre": "techno",
+"name": "i – v – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:4 bVII:8"
+},
+{
+"id": "techno-040",
+"genre": "techno",
+"name": "bVImaj7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVImaj7:16"
+},
+{
+"id": "techno-041",
+"genre": "techno",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 V:8"
+},
+{
+"id": "techno-042",
+"genre": "techno",
+"name": "i – iv – bVII – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVII:4 v:4"
+},
+{
+"id": "techno-043",
+"genre": "techno",
+"name": "iv",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16"
+},
+{
+"id": "techno-044",
+"genre": "techno",
+"name": "bVI – iv – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 iv:8 i:8 V:8"
+},
+{
+"id": "techno-045",
+"genre": "techno",
+"name": "iv – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16 V:16"
+},
+{
+"id": "techno-046",
+"genre": "techno",
+"name": "i – bVII – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 bIII:8 bVII:8"
+},
+{
+"id": "techno-047",
+"genre": "techno",
+"name": "i7 – bVIsus2",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:16 bVIsus2:16"
+},
+{
+"id": "techno-048",
+"genre": "techno",
+"name": "bVI – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:16 v:16"
+},
+{
+"id": "techno-049",
+"genre": "techno",
+"name": "i – bIII – bVIIsus2 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVIIsus2:4 V:4"
+},
+{
+"id": "techno-050",
+"genre": "techno",
+"name": "i – iv – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVI:8"
+},
+{
+"id": "techno-051",
+"genre": "techno",
+"name": "i – bVI – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 V:4"
+},
+{
+"id": "techno-052",
+"genre": "techno",
+"name": "i – bIII – bVI – iv",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVI:4 iv:4"
+},
+{
+"id": "techno-053",
+"genre": "techno",
+"name": "i – bVIsus2",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVIsus2:8"
+},
+{
+"id": "techno-054",
+"genre": "techno",
+"name": "bVI – bVII – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:8"
+},
+{
+"id": "techno-055",
+"genre": "techno",
+"name": "I – IV",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:16 IV:16"
+},
+{
+"id": "techno-056",
+"genre": "techno",
+"name": "i – bVII – bIII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:8 bIII:4"
+},
+{
+"id": "techno-057",
+"genre": "techno",
+"name": "I – vi – ii – I",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:8 vi:8 ii:8 I:8"
+},
+{
+"id": "techno-058",
+"genre": "techno",
+"name": "i – V – i",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:4 V:8 i:4"
+},
+{
+"id": "techno-059",
+"genre": "techno",
+"name": "i – V7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 V7:8"
+},
+{
+"id": "techno-060",
+"genre": "techno",
+"name": "i – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:8 bVII:4"
+},
+{
+"id": "techno-061",
+"genre": "techno",
+"name": "iv – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16 bVII:16"
+},
+{
+"id": "techno-062",
+"genre": "techno",
+"name": "i – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVII7:16"
+},
+{
+"id": "techno-063",
+"genre": "techno",
+"name": "vi – IV",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi:16 IV:16"
+},
+{
+"id": "techno-064",
+"genre": "techno",
+"name": "i – V – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:8 bVII:4"
+},
+{
+"id": "techno-065",
+"genre": "techno",
+"name": "i – bVIIsus2",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVIIsus2:8"
+},
+{
+"id": "techno-066",
+"genre": "techno",
+"name": "i – V – i – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:4 i:4 bVIIsus2:4"
+},
+{
+"id": "techno-067",
+"genre": "techno",
+"name": "i – bIII – bVII – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVII:4 i:4"
+},
+{
+"id": "techno-068",
+"genre": "techno",
+"name": "i – bVIIsus2 – i7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVIIsus2:8 i7:4"
+},
+{
+"id": "techno-069",
+"genre": "techno",
+"name": "vi – iii7 – vi – Vsus4",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:8 iii7:8 vi:8 Vsus4:8"
+},
+{
+"id": "techno-070",
+"genre": "techno",
+"name": "i – bVII – i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i:4 bVII:4"
+},
+{
+"id": "techno-071",
+"genre": "techno",
+"name": "Isus4",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Isus4:16"
+},
+{
+"id": "techno-072",
+"genre": "techno",
+"name": "i7 – bVII – bIII – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 bIII:4 bVIIsus2:4"
+},
+{
+"id": "techno-073",
+"genre": "techno",
+"name": "iv – i – v – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:8 i:8 v:8 bVIIsus2:8"
+},
+{
+"id": "techno-074",
+"genre": "techno",
+"name": "bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:16"
+},
+{
+"id": "techno-075",
+"genre": "techno",
+"name": "i – iv – V – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 bVII:4"
+},
+{
+"id": "techno-076",
+"genre": "techno",
+"name": "iv7 – bVII – iv – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 bVII:4 iv:4 V:4"
+},
+{
+"id": "techno-077",
+"genre": "techno",
+"name": "I – iii – IV – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 iii:4 IV:4 V:4"
+},
+{
+"id": "techno-078",
+"genre": "techno",
+"name": "iv7 – bVII – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:8 bVII:4 v:4"
+},
+{
+"id": "techno-079",
+"genre": "techno",
+"name": "i – v – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:4 bVIIsus2:8"
+},
+{
+"id": "techno-080",
+"genre": "techno",
+"name": "i – bVI – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:8 v:4"
+},
+{
+"id": "techno-081",
+"genre": "techno",
+"name": "iv – bVIIsus2 – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 bVIIsus2:4 bIII:4 bVII:4"
+},
+{
+"id": "techno-082",
+"genre": "techno",
+"name": "i – bVII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:4 bVI:4"
+},
+{
+"id": "techno-083",
+"genre": "techno",
+"name": "bVI – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:8 bVII:8"
+},
+{
+"id": "techno-084",
+"genre": "techno",
+"name": "bVI – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:8 v:8"
+},
+{
+"id": "techno-085",
+"genre": "techno",
+"name": "i – iv – V",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 iv:4 V:8"
+},
+{
+"id": "techno-086",
+"genre": "techno",
+"name": "i – bVII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:8 bVI:4"
+},
+{
+"id": "techno-087",
+"genre": "techno",
+"name": "bVIsus2 – bIII – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVIsus2:8 bIII:4 bVIIsus2:4"
+},
+{
+"id": "techno-088",
+"genre": "techno",
+"name": "i – iv – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVIIsus2:8"
+},
+{
+"id": "techno-089",
+"genre": "techno",
+"name": "iv – V – i",
+"tag": "Dark",
+"mood": "minor",
+"chords": "iv:8 V:4 i:4"
+},
+{
+"id": "techno-090",
+"genre": "techno",
+"name": "i – iv – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:8 i:8 bVII:8"
+},
+{
+"id": "techno-091",
+"genre": "techno",
+"name": "i – iv – Vsus4 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:8 Vsus4:8 bVII:8"
+},
+{
+"id": "techno-092",
+"genre": "techno",
+"name": "i7 – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 bVII:8"
+},
+{
+"id": "techno-093",
+"genre": "techno",
+"name": "i – bIII – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:8 i:8 bVI:8"
+},
+{
+"id": "techno-094",
+"genre": "techno",
+"name": "i – iv – bVIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:8 bVIsus2:4"
+},
+{
+"id": "techno-095",
+"genre": "techno",
+"name": "i7 – Vsus4 – i",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i7:8 Vsus4:4 i:4"
+},
+{
+"id": "techno-096",
+"genre": "techno",
+"name": "iv – i – bVIsus2 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 i:4 bVIsus2:4 bVII:4"
+},
+{
+"id": "techno-097",
+"genre": "techno",
+"name": "vi – ii – IV",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 ii:4 IV:8"
+},
+{
+"id": "techno-098",
+"genre": "techno",
+"name": "i – iv – bVII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVII:8 bVI:8"
+},
+{
+"id": "techno-099",
+"genre": "techno",
+"name": "i – bIII – bVIIsus2 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:8 bVIIsus2:8 V:8"
+},
+{
+"id": "techno-100",
+"genre": "techno",
+"name": "iv – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:8 V:8"
+},
+{
+"id": "house-001",
+"genre": "house",
+"name": "I – IV – vi – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 IV:8 vi:8 V:8"
+},
+{
+"id": "house-002",
+"genre": "house",
+"name": "Imaj7 – IV – V7 – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "Imaj7:8 IV:8 V7:8 IV:8"
+},
+{
+"id": "house-003",
+"genre": "house",
+"name": "IVmaj7 – V7 – iii7 – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj7:8 V7:8 iii7:8 vi:8"
+},
+{
+"id": "house-004",
+"genre": "house",
+"name": "I – vi – IV – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 vi:8 IV:8 V:8"
+},
+{
+"id": "house-005",
+"genre": "house",
+"name": "I – ii – iii – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 ii:4 iii:4 IV:4"
+},
+{
+"id": "house-006",
+"genre": "house",
+"name": "I – vi7 – ii – V9",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 vi7:4 ii:4 V9:4"
+},
+{
+"id": "house-007",
+"genre": "house",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 v:8 bVI:8 iv:8"
+},
+{
+"id": "house-008",
+"genre": "house",
+"name": "I – iii – IV – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 iii:4 IV:4 V:4"
+},
+{
+"id": "house-009",
+"genre": "house",
+"name": "I – IV – V – I",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 IV:4 V:4 I:4"
+},
+{
+"id": "house-010",
+"genre": "house",
+"name": "ii9 – V7 – Imaj7 – vi7",
+"tag": "Classic",
+"mood": "major",
+"chords": "ii9:4 V7:4 Imaj7:4 vi7:4"
+},
+{
+"id": "house-011",
+"genre": "house",
+"name": "i – bIII – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVI:4 bVII:4"
+},
+{
+"id": "house-012",
+"genre": "house",
+"name": "I – vi – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 vi:4 ii:4 V:4"
+},
+{
+"id": "house-013",
+"genre": "house",
+"name": "vi7 – IVmaj7 – I – V7",
+"tag": "Classic",
+"mood": "major",
+"chords": "vi7:4 IVmaj7:4 I:4 V7:4"
+},
+{
+"id": "house-014",
+"genre": "house",
+"name": "i7 – bIII – iv7 – bVII7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bIII:4 iv7:4 bVII7:4"
+},
+{
+"id": "house-015",
+"genre": "house",
+"name": "bVI – bVII – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:4 i:4"
+},
+{
+"id": "house-016",
+"genre": "house",
+"name": "I – vi7 – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 vi7:4 ii:4 V:4"
+},
+{
+"id": "house-017",
+"genre": "house",
+"name": "IVmaj7 – V9 – vi7",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj7:8 V9:4 vi7:4"
+},
+{
+"id": "house-018",
+"genre": "house",
+"name": "I – IVmaj7 – V – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 IVmaj7:4 V:4 IV:4"
+},
+{
+"id": "house-019",
+"genre": "house",
+"name": "IVmaj7 – V9 – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj7:8 V9:4 vi:4"
+},
+{
+"id": "house-020",
+"genre": "house",
+"name": "IV – V – iii – vi7",
+"tag": "Classic",
+"mood": "major",
+"chords": "IV:4 V:4 iii:4 vi7:4"
+},
+{
+"id": "house-021",
+"genre": "house",
+"name": "i – bVI – bIII – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bIII:4 bVII:4"
+},
+{
+"id": "house-022",
+"genre": "house",
+"name": "I – vi – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 vi:8 ii:8 V:8"
+},
+{
+"id": "house-023",
+"genre": "house",
+"name": "i – iv – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVI:8 bVII:8"
+},
+{
+"id": "house-024",
+"genre": "house",
+"name": "IVmaj7 – Imaj7 – vi – V9",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj7:8 Imaj7:8 vi:8 V9:8"
+},
+{
+"id": "house-025",
+"genre": "house",
+"name": "ii7 – V7 – Imaj7 – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "ii7:4 V7:4 Imaj7:4 vi:4"
+},
+{
+"id": "house-026",
+"genre": "house",
+"name": "i – bVI – bIII – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVI:8 bIII:8 bVII:8"
+},
+{
+"id": "house-027",
+"genre": "house",
+"name": "i – bIII – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bIII:8 bVI:8 bVII:8"
+},
+{
+"id": "house-028",
+"genre": "house",
+"name": "i7 – v7 – bVImaj7 – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 v7:4 bVImaj7:4 iv:4"
+},
+{
+"id": "house-029",
+"genre": "house",
+"name": "I – vi – ii7 – V7",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 vi:4 ii7:4 V7:4"
+},
+{
+"id": "house-030",
+"genre": "house",
+"name": "IVmaj9 – Imaj7 – V – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj9:4 Imaj7:4 V:4 vi:4"
+},
+{
+"id": "house-031",
+"genre": "house",
+"name": "I – iii – IV – Imaj7 – V7 – I – vi7 – V7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 iii:4 IV:4 Imaj7:4 V7:4 I:4 vi7:4 V7:4"
+},
+{
+"id": "house-032",
+"genre": "house",
+"name": "Imaj9 – IV",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj9:8 IV:8"
+},
+{
+"id": "house-033",
+"genre": "house",
+"name": "i7 – v7 – bVImaj7 – V7 – bVI – V – i7 – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 v7:4 bVImaj7:4 V7:4 bVI:4 V:4 i7:4 bVII7:4"
+},
+{
+"id": "house-034",
+"genre": "house",
+"name": "i7 – bIII – bVImaj9 – bVII7 – i7 – bVII9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bIII:4 bVImaj9:2 bVII7:2 i7:2 bVII9:2"
+},
+{
+"id": "house-035",
+"genre": "house",
+"name": "Imaj7 – IV – ii – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 IV:4 ii:4 V:4"
+},
+{
+"id": "house-036",
+"genre": "house",
+"name": "vi7 – V – I – IVmaj7",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi7:4 V:4 I:4 IVmaj7:4"
+},
+{
+"id": "house-037",
+"genre": "house",
+"name": "Imaj9 – IV – vi – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj9:4 IV:4 vi:4 V:4"
+},
+{
+"id": "house-038",
+"genre": "house",
+"name": "vi – ii7 – V7 – vi9 – V – IVmaj7",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 ii7:4 V7:2 vi9:2 V:2 IVmaj7:2"
+},
+{
+"id": "house-039",
+"genre": "house",
+"name": "I – V7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:8 V7:8"
+},
+{
+"id": "house-040",
+"genre": "house",
+"name": "IVmaj7 – Imaj7 – bVII7 – Imaj7 – I7 – IVmaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "IVmaj7:4 Imaj7:4 bVII7:2 Imaj7:2 I7:2 IVmaj7:2"
+},
+{
+"id": "house-041",
+"genre": "house",
+"name": "i7 – bIIImaj7 – iv7 – v7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 bIIImaj7:8 iv7:8 v7:8"
+},
+{
+"id": "house-042",
+"genre": "house",
+"name": "i – bIIImaj7 – bVII7 – i7 – iv – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIIImaj7:4 bVII7:2 i7:2 iv:2 V:2"
+},
+{
+"id": "house-043",
+"genre": "house",
+"name": "Imaj7 – IV",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj7:8 IV:8"
+},
+{
+"id": "house-044",
+"genre": "house",
+"name": "i – bIII – bVI – bIII – bVII – i – v7 – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVI:4 bIII:4 bVII:4 i:4 v7:4 i:4"
+},
+{
+"id": "house-045",
+"genre": "house",
+"name": "vi – IVmaj7 – iv7 – Imaj9 – IVmaj9 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi:4 IVmaj7:2 iv7:2 Imaj9:4 IVmaj9:2 Imaj9:2"
+},
+{
+"id": "house-046",
+"genre": "house",
+"name": "iv7 – bVII7 – i7 – iv – i9 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 bVII7:4 i7:2 iv:2 i9:2 V:2"
+},
+{
+"id": "house-047",
+"genre": "house",
+"name": "Imaj7 – vi – IVmaj7 – vi9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 vi:4 IVmaj7:4 vi9:4"
+},
+{
+"id": "house-048",
+"genre": "house",
+"name": "vi7 – V – Imaj7 – V7 – IVsus2 – V7",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi7:4 V:4 Imaj7:2 V7:2 IVsus2:2 V7:2"
+},
+{
+"id": "house-049",
+"genre": "house",
+"name": "i7 – bVII9",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 bVII9:8"
+},
+{
+"id": "house-050",
+"genre": "house",
+"name": "i – bVImaj7 – V7 – i – iv – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 V7:2 i:2 iv:2 v:2"
+},
+{
+"id": "house-051",
+"genre": "house",
+"name": "vi7 – IV – ii – viidim – iii7 – Imaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "vi7:4 IV:2 ii:2 viidim:4 iii7:2 Imaj7:2"
+},
+{
+"id": "house-052",
+"genre": "house",
+"name": "i7 – iv7 – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv7:4 i:4 bVII:4"
+},
+{
+"id": "house-053",
+"genre": "house",
+"name": "i – bVII – i7 – bVI – bIIImaj9 – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:2 i7:2 bVI:4 bIIImaj9:2 bVII7:2"
+},
+{
+"id": "house-054",
+"genre": "house",
+"name": "iv – i – bVII7 – i9 – iv – bVII9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 i:2 bVII7:2 i9:4 iv:2 bVII9:2"
+},
+{
+"id": "house-055",
+"genre": "house",
+"name": "vi7 – ii7 – IV – V",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi7:4 ii7:4 IV:4 V:4"
+},
+{
+"id": "house-056",
+"genre": "house",
+"name": "iv7 – bVI – i9 – bVII – iv7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 bVI:2 i9:2 bVII:4 iv7:2 bVII:2"
+},
+{
+"id": "house-057",
+"genre": "house",
+"name": "I – IV – V7 – vi7 – IVmaj7 – ii – IV – vi",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 IV:4 V7:4 vi7:4 IVmaj7:4 ii:4 IV:4 vi:4"
+},
+{
+"id": "house-058",
+"genre": "house",
+"name": "i7 – bVImaj7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 bVImaj7:8"
+},
+{
+"id": "house-059",
+"genre": "house",
+"name": "IVmaj7 – ii – V9 – I – V – vi7 – ii7 – IVmaj7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "IVmaj7:4 ii:4 V9:4 I:4 V:4 vi7:4 ii7:4 IVmaj7:4"
+},
+{
+"id": "house-060",
+"genre": "house",
+"name": "i7 – bVI – bIIImaj7 – iv – bVII – bIIImaj9 – iv – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVI:4 bIIImaj7:4 iv:4 bVII:4 bIIImaj9:4 iv:4 bVImaj7:4"
+},
+{
+"id": "house-061",
+"genre": "house",
+"name": "i – bIII – bVI – V7 – i7 – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:2 bVI:2 V7:4 i7:2 V7:2"
+},
+{
+"id": "house-062",
+"genre": "house",
+"name": "i7 – bIIImaj7 – iv – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 iv:4 v:4"
+},
+{
+"id": "house-063",
+"genre": "house",
+"name": "i7 – iv7 – V7 – i – bVImaj7 – bVII – iv – bVImaj9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv7:4 V7:4 i:4 bVImaj7:4 bVII:4 iv:4 bVImaj9:4"
+},
+{
+"id": "house-064",
+"genre": "house",
+"name": "i – bVImaj7 – V7 – i – bVII – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:2 V7:2 i:4 bVII:2 bVImaj7:2"
+},
+{
+"id": "house-065",
+"genre": "house",
+"name": "i – bVImaj9 – i7 – iv – bVII – bIII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj9:4 i7:2 iv:2 bVII:2 bIII:2"
+},
+{
+"id": "house-066",
+"genre": "house",
+"name": "I – V7 – vi9 – V – I7 – IVmaj7 – V7 – IVmaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "I:4 V7:4 vi9:4 V:4 I7:4 IVmaj7:4 V7:4 IVmaj7:4"
+},
+{
+"id": "house-067",
+"genre": "house",
+"name": "IVmaj7 – ii – Imaj7 – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "IVmaj7:8 ii:8 Imaj7:8 V:8"
+},
+{
+"id": "house-068",
+"genre": "house",
+"name": "Imaj9 – vi7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj9:8 vi7:8"
+},
+{
+"id": "house-069",
+"genre": "house",
+"name": "i – iv7 – bVII7 – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv7:4 bVII7:4 bVI:4"
+},
+{
+"id": "house-070",
+"genre": "house",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII:8"
+},
+{
+"id": "house-071",
+"genre": "house",
+"name": "i9 – bVI – bVII – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i9:8 bVI:8 bVII:8 V7:8"
+},
+{
+"id": "house-072",
+"genre": "house",
+"name": "bVImaj9 – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVImaj9:8 bVII7:8"
+},
+{
+"id": "house-073",
+"genre": "house",
+"name": "i7 – bVImaj7 – iv – bVII – VI7 – V7",
+"tag": "Tension",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:2 iv:2 bVII:4 VI7:2 V7:2"
+},
+{
+"id": "house-074",
+"genre": "house",
+"name": "i – bVImaj7 – V7 – bVImaj7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 V7:4 bVImaj7:4"
+},
+{
+"id": "house-075",
+"genre": "house",
+"name": "Imaj7 – V7 – vi7 – V7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 V7:4 vi7:4 V7:4"
+},
+{
+"id": "house-076",
+"genre": "house",
+"name": "I – iii – ii7 – Imaj9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 iii:4 ii7:4 Imaj9:4"
+},
+{
+"id": "house-077",
+"genre": "house",
+"name": "i7 – bVIIsus2 – bIII – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVIIsus2:4 bIII:4 bVImaj7:4"
+},
+{
+"id": "house-078",
+"genre": "house",
+"name": "i7 – bVII – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 i:4 bVII:4"
+},
+{
+"id": "house-079",
+"genre": "house",
+"name": "iv9 – V9 – bVImaj7 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "iv9:4 V9:4 bVImaj7:4 V7:4"
+},
+{
+"id": "house-080",
+"genre": "house",
+"name": "vi – ii – V7 – IVmaj9 – V7 – vi7",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 ii:4 V7:2 IVmaj9:2 V7:2 vi7:2"
+},
+{
+"id": "house-081",
+"genre": "house",
+"name": "Imaj7 – ii7 – viidim – V7",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj7:4 ii7:4 viidim:4 V7:4"
+},
+{
+"id": "house-082",
+"genre": "house",
+"name": "i – iv – V – bVI – i – bVII – bIIImaj7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 bVI:4 i:4 bVII:4 bIIImaj7:4 V:4"
+},
+{
+"id": "house-083",
+"genre": "house",
+"name": "I – bVII – I – V7 – Imaj7 – V7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 bVII:4 I:2 V7:2 Imaj7:2 V7:2"
+},
+{
+"id": "house-084",
+"genre": "house",
+"name": "I – IVmaj7 – I – iii7 – vi7 – IVmaj7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 IVmaj7:2 I:2 iii7:4 vi7:2 IVmaj7:2"
+},
+{
+"id": "house-085",
+"genre": "house",
+"name": "i7 – v7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 v7:8"
+},
+{
+"id": "house-086",
+"genre": "house",
+"name": "Imaj7 – iii – IV – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:8 iii:8 IV:8 V:8"
+},
+{
+"id": "house-087",
+"genre": "house",
+"name": "I – vi – ii – V7 – Imaj7 – vi7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 vi:2 ii:2 V7:4 Imaj7:2 vi7:2"
+},
+{
+"id": "house-088",
+"genre": "house",
+"name": "bVI – iv7 – V7 – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 iv7:8 V7:8 i:8"
+},
+{
+"id": "house-089",
+"genre": "house",
+"name": "i – bVII – i9 – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i9:4 bVImaj7:4"
+},
+{
+"id": "house-090",
+"genre": "house",
+"name": "IVmaj9 – V – vi – ii7 – V9 – IV – V – I",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "IVmaj9:4 V:4 vi:4 ii7:4 V9:4 IV:4 V:4 I:4"
+},
+{
+"id": "house-091",
+"genre": "house",
+"name": "Imaj9 – vi",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj9:8 vi:8"
+},
+{
+"id": "house-092",
+"genre": "house",
+"name": "bVI – V7 – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 V7:4 i:4 bVII:4"
+},
+{
+"id": "house-093",
+"genre": "house",
+"name": "i – bVII – i7 – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i7:4 v:4"
+},
+{
+"id": "house-094",
+"genre": "house",
+"name": "I – iii – ii – Imaj9 – V7 – vi",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 iii:2 ii:2 Imaj9:4 V7:2 vi:2"
+},
+{
+"id": "house-095",
+"genre": "house",
+"name": "Imaj7 – ii – V – III7 – vi7 – ii – I – IVmaj9",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj7:4 ii:4 V:4 III7:4 vi7:4 ii:4 I:4 IVmaj9:4"
+},
+{
+"id": "house-096",
+"genre": "house",
+"name": "Imaj7 – IV – V9 – vi – iii7 – I",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 IV:2 V9:2 vi:4 iii7:2 I:2"
+},
+{
+"id": "house-097",
+"genre": "house",
+"name": "i7 – bIII – bVImaj9 – iv – V9 – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bIII:4 bVImaj9:2 iv:2 V9:2 i:2"
+},
+{
+"id": "house-098",
+"genre": "house",
+"name": "I – V7 – VI7 – V7",
+"tag": "Tension",
+"mood": "major",
+"chords": "I:8 V7:8 VI7:8 V7:8"
+},
+{
+"id": "house-099",
+"genre": "house",
+"name": "i – iv7 – bVII7 – i7 – bVII7 – i7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i:4 iv7:4 bVII7:2 i7:2 bVII7:2 i7:2"
+},
+{
+"id": "house-100",
+"genre": "house",
+"name": "Imaj9 – IV – V9 – VI7 – V7 – IVmaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj9:4 IV:4 V9:2 VI7:2 V7:2 IVmaj7:2"
+},
+{
+"id": "dubstep-001",
+"genre": "dubstep",
+"name": "i – bVI – iv – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 iv:4 V:4"
+},
+{
+"id": "dubstep-002",
+"genre": "dubstep",
+"name": "i – iv – i – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 i:4 V:4"
+},
+{
+"id": "dubstep-003",
+"genre": "dubstep",
+"name": "bVI – bVII – i – v",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:4 v:4"
+},
+{
+"id": "dubstep-004",
+"genre": "dubstep",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 v:4 bVI:4 iv:4"
+},
+{
+"id": "dubstep-005",
+"genre": "dubstep",
+"name": "bVI – bVII – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:8 bVII:8 i:8 i:8"
+},
+{
+"id": "dubstep-006",
+"genre": "dubstep",
+"name": "i – bVI – bIII – bVII – i – bVI – iv – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bIII:4 bVII:4 i:4 bVI:4 iv:4 V:4"
+},
+{
+"id": "dubstep-007",
+"genre": "dubstep",
+"name": "i7 – bIII – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bIII:4 bVI:4 bVII:4"
+},
+{
+"id": "dubstep-008",
+"genre": "dubstep",
+"name": "i – bVII – bVI – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bVI:4 V:4"
+},
+{
+"id": "dubstep-009",
+"genre": "dubstep",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 v:8 bVI:8 iv:8"
+},
+{
+"id": "dubstep-010",
+"genre": "dubstep",
+"name": "i – iv – bVII – bIII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVII:8 bIII:8"
+},
+{
+"id": "dubstep-011",
+"genre": "dubstep",
+"name": "i – bVImaj7 – iv – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 iv:4 V:4"
+},
+{
+"id": "dubstep-012",
+"genre": "dubstep",
+"name": "i – v – bVI – iv7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 v:8 bVI:8 iv7:8"
+},
+{
+"id": "dubstep-013",
+"genre": "dubstep",
+"name": "i – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVI:8"
+},
+{
+"id": "dubstep-014",
+"genre": "dubstep",
+"name": "iv – i – bVII – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "iv:8 i:8 bVII:8 bVI:8"
+},
+{
+"id": "dubstep-015",
+"genre": "dubstep",
+"name": "i – bVII – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bVI:4 bVII:4"
+},
+{
+"id": "dubstep-016",
+"genre": "dubstep",
+"name": "bVI – bVII – i – v",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:8 bVII:8 i:8 v:8"
+},
+{
+"id": "dubstep-017",
+"genre": "dubstep",
+"name": "bVII – bVI – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVII:4 bVI:4 i:4 i:4"
+},
+{
+"id": "dubstep-018",
+"genre": "dubstep",
+"name": "i – bIII – iv – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 iv:4 bVII:4"
+},
+{
+"id": "dubstep-019",
+"genre": "dubstep",
+"name": "bVI – bVII7 – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:8 bVII7:8 i:8 i:8"
+},
+{
+"id": "dubstep-020",
+"genre": "dubstep",
+"name": "i – bVII7 – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVII7:4 bVI:4 bVII:4"
+},
+{
+"id": "dubstep-021",
+"genre": "dubstep",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVII:16"
+},
+{
+"id": "dubstep-022",
+"genre": "dubstep",
+"name": "iv – i7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:8 i7:4 bVII:4"
+},
+{
+"id": "dubstep-023",
+"genre": "dubstep",
+"name": "vi – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi:16 V:16"
+},
+{
+"id": "dubstep-024",
+"genre": "dubstep",
+"name": "i – bVII – i",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:4 bVII:8 i:4"
+},
+{
+"id": "dubstep-025",
+"genre": "dubstep",
+"name": "i – bIII – iv – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:8 iv:8 V:8"
+},
+{
+"id": "dubstep-026",
+"genre": "dubstep",
+"name": "i – bVIsus2 – V – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVIsus2:8 V:8 v:8"
+},
+{
+"id": "dubstep-027",
+"genre": "dubstep",
+"name": "i – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 v:16"
+},
+{
+"id": "dubstep-028",
+"genre": "dubstep",
+"name": "iv – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:8 V:8"
+},
+{
+"id": "dubstep-029",
+"genre": "dubstep",
+"name": "bVI – bVII – bIII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 bIII:4 V:4"
+},
+{
+"id": "dubstep-030",
+"genre": "dubstep",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 V:8"
+},
+{
+"id": "dubstep-031",
+"genre": "dubstep",
+"name": "i – bVI – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:8 bVII:8 V:8"
+},
+{
+"id": "dubstep-032",
+"genre": "dubstep",
+"name": "i – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:8 bVII:4"
+},
+{
+"id": "dubstep-033",
+"genre": "dubstep",
+"name": "i – bVI – bVII – iv",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:8 bVII:8 iv:8"
+},
+{
+"id": "dubstep-034",
+"genre": "dubstep",
+"name": "i – bVII – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 i:8 bVI:8"
+},
+{
+"id": "dubstep-035",
+"genre": "dubstep",
+"name": "bVI – bIII – iv – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bIII:4 iv:4 bVI:4"
+},
+{
+"id": "dubstep-036",
+"genre": "dubstep",
+"name": "iv – bVI – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 bVI:4 v:8"
+},
+{
+"id": "dubstep-037",
+"genre": "dubstep",
+"name": "bVI – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:16 bVII:16"
+},
+{
+"id": "dubstep-038",
+"genre": "dubstep",
+"name": "i – bVII – i – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 i:8 v:8"
+},
+{
+"id": "dubstep-039",
+"genre": "dubstep",
+"name": "i – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII7:8"
+},
+{
+"id": "dubstep-040",
+"genre": "dubstep",
+"name": "bVI – V – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 V:4 i:4 bVII:4"
+},
+{
+"id": "dubstep-041",
+"genre": "dubstep",
+"name": "i – bVI – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 i:4 V:4"
+},
+{
+"id": "dubstep-042",
+"genre": "dubstep",
+"name": "i – bVII – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 bIII:8 bVII:8"
+},
+{
+"id": "dubstep-043",
+"genre": "dubstep",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII:8"
+},
+{
+"id": "dubstep-044",
+"genre": "dubstep",
+"name": "i – bVIsus2",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVIsus2:8"
+},
+{
+"id": "dubstep-045",
+"genre": "dubstep",
+"name": "i – v – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:4 i:4 bVII:4"
+},
+{
+"id": "dubstep-046",
+"genre": "dubstep",
+"name": "i – iv – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 i:4 bVII:4"
+},
+{
+"id": "dubstep-047",
+"genre": "dubstep",
+"name": "i – bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVI:16"
+},
+{
+"id": "dubstep-048",
+"genre": "dubstep",
+"name": "i – v7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 v7:16"
+},
+{
+"id": "dubstep-049",
+"genre": "dubstep",
+"name": "i – iv – V – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:8 V:8 bVII:8"
+},
+{
+"id": "dubstep-050",
+"genre": "dubstep",
+"name": "i – V – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:4 bVII:8"
+},
+{
+"id": "dubstep-051",
+"genre": "dubstep",
+"name": "i – V – bVI – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:4 bVI:4 i:4"
+},
+{
+"id": "dubstep-052",
+"genre": "dubstep",
+"name": "i – iv – bVI – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVI:8 v:8"
+},
+{
+"id": "dubstep-053",
+"genre": "dubstep",
+"name": "i – bVII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bVI:8"
+},
+{
+"id": "dubstep-054",
+"genre": "dubstep",
+"name": "i – v – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 v:4 bVI:4"
+},
+{
+"id": "dubstep-055",
+"genre": "dubstep",
+"name": "i – bIIImaj7 – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIIImaj7:8 iv:8 bVII:8"
+},
+{
+"id": "dubstep-056",
+"genre": "dubstep",
+"name": "i – iv – V – i",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 i:4"
+},
+{
+"id": "dubstep-057",
+"genre": "dubstep",
+"name": "i – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:8 bVII:4"
+},
+{
+"id": "dubstep-058",
+"genre": "dubstep",
+"name": "I – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:8 V:8"
+},
+{
+"id": "dubstep-059",
+"genre": "dubstep",
+"name": "i – bIII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:8 bVI:4"
+},
+{
+"id": "dubstep-060",
+"genre": "dubstep",
+"name": "i – bVI – bVII – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 i:4"
+},
+{
+"id": "dubstep-061",
+"genre": "dubstep",
+"name": "i – bIII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:4 bVI:4"
+},
+{
+"id": "dubstep-062",
+"genre": "dubstep",
+"name": "bVI – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:8 V:8"
+},
+{
+"id": "dubstep-063",
+"genre": "dubstep",
+"name": "i – bVII – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 iv:8 bVII:8"
+},
+{
+"id": "dubstep-064",
+"genre": "dubstep",
+"name": "bVImaj7 – i – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj7:8 i:8 iv:8 bVII:8"
+},
+{
+"id": "dubstep-065",
+"genre": "dubstep",
+"name": "i – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 v:8"
+},
+{
+"id": "dubstep-066",
+"genre": "dubstep",
+"name": "i – bVI – V – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:8 V:8 bVI:8"
+},
+{
+"id": "dubstep-067",
+"genre": "dubstep",
+"name": "iv – bVII7 – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:8 bVII7:8 i:8 bVII:8"
+},
+{
+"id": "dubstep-068",
+"genre": "dubstep",
+"name": "i – v – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:4 bVII:8"
+},
+{
+"id": "dubstep-069",
+"genre": "dubstep",
+"name": "vi – IV – I – vi",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:8 IV:8 I:8 vi:8"
+},
+{
+"id": "dubstep-070",
+"genre": "dubstep",
+"name": "i – bVI – V – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 V:4 i:4"
+},
+{
+"id": "dubstep-071",
+"genre": "dubstep",
+"name": "bVI – iv – bVII – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 iv:8 bVII:8 v:8"
+},
+{
+"id": "dubstep-072",
+"genre": "dubstep",
+"name": "i – bVII – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i:4 V:4"
+},
+{
+"id": "dubstep-073",
+"genre": "dubstep",
+"name": "i – bVI – bVII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 bVI:4"
+},
+{
+"id": "dubstep-074",
+"genre": "dubstep",
+"name": "i – bVII – i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII:8 i:8 bVII:8"
+},
+{
+"id": "dubstep-075",
+"genre": "dubstep",
+"name": "i7 – V – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 V:4 i:4 bVII:4"
+},
+{
+"id": "dubstep-076",
+"genre": "dubstep",
+"name": "bVI – V – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 V:8 i:8 bVI:8"
+},
+{
+"id": "dubstep-077",
+"genre": "dubstep",
+"name": "i – bVI – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 V:4"
+},
+{
+"id": "dubstep-078",
+"genre": "dubstep",
+"name": "bVI – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:16 v:16"
+},
+{
+"id": "dubstep-079",
+"genre": "dubstep",
+"name": "Isus4 – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Isus4:8 V:8"
+},
+{
+"id": "dubstep-080",
+"genre": "dubstep",
+"name": "i – bIIImaj7 – iv – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIIImaj7:4 iv:4 V:4"
+},
+{
+"id": "dubstep-081",
+"genre": "dubstep",
+"name": "vi – ii – V",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 ii:8 V:4"
+},
+{
+"id": "dubstep-082",
+"genre": "dubstep",
+"name": "i7 – bVII – i – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 i:4 v:4"
+},
+{
+"id": "dubstep-083",
+"genre": "dubstep",
+"name": "i – bVII – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bIII:4 bVII:4"
+},
+{
+"id": "dubstep-084",
+"genre": "dubstep",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 V:16"
+},
+{
+"id": "dubstep-085",
+"genre": "dubstep",
+"name": "i – bVII – bIII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bIII:4 V:4"
+},
+{
+"id": "dubstep-086",
+"genre": "dubstep",
+"name": "bVI – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 i:4 bVII:4"
+},
+{
+"id": "dubstep-087",
+"genre": "dubstep",
+"name": "i – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:4 bVII:4"
+},
+{
+"id": "dubstep-088",
+"genre": "dubstep",
+"name": "i – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVII7:16"
+},
+{
+"id": "dubstep-089",
+"genre": "dubstep",
+"name": "iv7 – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv7:16 bVII:16"
+},
+{
+"id": "dubstep-090",
+"genre": "dubstep",
+"name": "bVI – i7 – V – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 i7:4 V:4 i:4"
+},
+{
+"id": "dubstep-091",
+"genre": "dubstep",
+"name": "vi – V – I – V",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:8 V:8 I:8 V:8"
+},
+{
+"id": "dubstep-092",
+"genre": "dubstep",
+"name": "bVI – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 i:8 V:4"
+},
+{
+"id": "dubstep-093",
+"genre": "dubstep",
+"name": "i – bVII – iv – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 iv:8 bVI:8"
+},
+{
+"id": "dubstep-094",
+"genre": "dubstep",
+"name": "iv – bVII – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:8 bVII:8 i:8 bVI:8"
+},
+{
+"id": "dubstep-095",
+"genre": "dubstep",
+"name": "i – iv – v",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 iv:8 v:4"
+},
+{
+"id": "dubstep-096",
+"genre": "dubstep",
+"name": "iv – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16 v:16"
+},
+{
+"id": "dubstep-097",
+"genre": "dubstep",
+"name": "i – bIII – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:8 v:4"
+},
+{
+"id": "dubstep-098",
+"genre": "dubstep",
+"name": "i – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:8 bVII:4"
+},
+{
+"id": "dubstep-099",
+"genre": "dubstep",
+"name": "i – bVII – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 i:8 V:8"
+},
+{
+"id": "dubstep-100",
+"genre": "dubstep",
+"name": "i – bIII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:8 V:4"
+},
+{
+"id": "hiphop-001",
+"genre": "hiphop",
+"name": "I – iii – vi – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 iii:4 vi:4 IV:4"
+},
+{
+"id": "hiphop-002",
+"genre": "hiphop",
+"name": "i9 – bIIImaj7 – bVI – bVII7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i9:4 bIIImaj7:4 bVI:4 bVII7:4"
+},
+{
+"id": "hiphop-003",
+"genre": "hiphop",
+"name": "i7 – iv7 – i9 – V9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 iv7:4 i9:4 V9:4"
+},
+{
+"id": "hiphop-004",
+"genre": "hiphop",
+"name": "i – bVII9 – bVI – V9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVII9:4 bVI:4 V9:4"
+},
+{
+"id": "hiphop-005",
+"genre": "hiphop",
+"name": "Imaj9 – bVII – IV – Imaj9",
+"tag": "Classic",
+"mood": "major",
+"chords": "Imaj9:4 bVII:4 IV:4 Imaj9:4"
+},
+{
+"id": "hiphop-006",
+"genre": "hiphop",
+"name": "I – IVmaj7 – V7 – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 IVmaj7:4 V7:4 IV:4"
+},
+{
+"id": "hiphop-007",
+"genre": "hiphop",
+"name": "ii9 – V7 – I – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "ii9:4 V7:4 I:4 vi:4"
+},
+{
+"id": "hiphop-008",
+"genre": "hiphop",
+"name": "i9 – bVII9 – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i9:4 bVII9:4 bVI:4 bVII:4"
+},
+{
+"id": "hiphop-009",
+"genre": "hiphop",
+"name": "I – V – vi – IV – I – V – IV – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 V:4 vi:4 IV:4 I:4 V:4 IV:4 V:4"
+},
+{
+"id": "hiphop-010",
+"genre": "hiphop",
+"name": "I – vi7 – IVmaj9 – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 vi7:4 IVmaj9:4 V:4"
+},
+{
+"id": "hiphop-011",
+"genre": "hiphop",
+"name": "i – bVImaj7 – bIIImaj9 – bVII7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 bIIImaj9:4 bVII7:4"
+},
+{
+"id": "hiphop-012",
+"genre": "hiphop",
+"name": "i – iv – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVI:4 bVII:4"
+},
+{
+"id": "hiphop-013",
+"genre": "hiphop",
+"name": "I – ii7 – iii – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 ii7:4 iii:4 IV:4"
+},
+{
+"id": "hiphop-014",
+"genre": "hiphop",
+"name": "i – bVImaj9 – bIIImaj7 – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVImaj9:4 bIIImaj7:4 bVII:4"
+},
+{
+"id": "hiphop-015",
+"genre": "hiphop",
+"name": "I – V – vi – iii – IV – I – IV – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 V:4 vi:4 iii:4 IV:4 I:4 IV:4 V:4"
+},
+{
+"id": "hiphop-016",
+"genre": "hiphop",
+"name": "I – IV – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 IV:4 ii:4 V:4"
+},
+{
+"id": "hiphop-017",
+"genre": "hiphop",
+"name": "Imaj9 – V7 – vi7 – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "Imaj9:8 V7:8 vi7:8 IV:8"
+},
+{
+"id": "hiphop-018",
+"genre": "hiphop",
+"name": "i7 – iv – v7 – i9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:8 iv:8 v7:8 i9:8"
+},
+{
+"id": "hiphop-019",
+"genre": "hiphop",
+"name": "I – iii – vi – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 iii:8 vi:8 IV:8"
+},
+{
+"id": "hiphop-020",
+"genre": "hiphop",
+"name": "vi9 – ii9 – V – I",
+"tag": "Classic",
+"mood": "major",
+"chords": "vi9:8 ii9:8 V:8 I:8"
+},
+{
+"id": "hiphop-021",
+"genre": "hiphop",
+"name": "i7 – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:8 bVI:8"
+},
+{
+"id": "hiphop-022",
+"genre": "hiphop",
+"name": "I – V – IV – I",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 V:4 IV:4 I:4"
+},
+{
+"id": "hiphop-023",
+"genre": "hiphop",
+"name": "i – bIIImaj7 – bVI – bVII9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIIImaj7:4 bVI:4 bVII9:4"
+},
+{
+"id": "hiphop-024",
+"genre": "hiphop",
+"name": "i7 – iv7 – bVII7 – bIII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 iv7:4 bVII7:4 bIII:4"
+},
+{
+"id": "hiphop-025",
+"genre": "hiphop",
+"name": "i – iv – V – i9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 i9:4"
+},
+{
+"id": "hiphop-026",
+"genre": "hiphop",
+"name": "I – bVII7 – Imaj7 – vi7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "I:8 bVII7:8 Imaj7:8 vi7:8"
+},
+{
+"id": "hiphop-027",
+"genre": "hiphop",
+"name": "Imaj7 – V7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj7:8 V7:8"
+},
+{
+"id": "hiphop-028",
+"genre": "hiphop",
+"name": "Imaj7 – V7 – IVmaj9 – vi7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 V7:4 IVmaj9:4 vi7:4"
+},
+{
+"id": "hiphop-029",
+"genre": "hiphop",
+"name": "i7 – V7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 V7:8"
+},
+{
+"id": "hiphop-030",
+"genre": "hiphop",
+"name": "Imaj9 – iii7 – vi – V7 – Imaj7 – IV",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj9:4 iii7:4 vi:2 V7:2 Imaj7:2 IV:2"
+},
+{
+"id": "hiphop-031",
+"genre": "hiphop",
+"name": "Imaj7 – IV – ii7 – V7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "Imaj7:4 IV:4 ii7:4 V7:4"
+},
+{
+"id": "hiphop-032",
+"genre": "hiphop",
+"name": "i7 – bVII7 – i – V9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVII7:4 i:4 V9:4"
+},
+{
+"id": "hiphop-033",
+"genre": "hiphop",
+"name": "i7 – bVI – bIIImaj9 – v7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVI:4 bIIImaj9:4 v7:4"
+},
+{
+"id": "hiphop-034",
+"genre": "hiphop",
+"name": "i9 – V – i7 – bVImaj9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 V:4 i7:4 bVImaj9:4"
+},
+{
+"id": "hiphop-035",
+"genre": "hiphop",
+"name": "i9 – bVII9",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i9:8 bVII9:8"
+},
+{
+"id": "hiphop-036",
+"genre": "hiphop",
+"name": "Imaj7 – ii7 – V7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "Imaj7:4 ii7:4 V7:8"
+},
+{
+"id": "hiphop-037",
+"genre": "hiphop",
+"name": "iv7 – bVII – i7 – bVII – bIIImaj7 – bVII9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 bVII:2 i7:2 bVII:4 bIIImaj7:2 bVII9:2"
+},
+{
+"id": "hiphop-038",
+"genre": "hiphop",
+"name": "Imaj7 – IVmaj7 – I – V – IVmaj7 – I",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 IVmaj7:2 I:2 V:4 IVmaj7:2 I:2"
+},
+{
+"id": "hiphop-039",
+"genre": "hiphop",
+"name": "i9 – bIIImaj7 – i7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 bIIImaj7:4 i7:4 bVII7:4"
+},
+{
+"id": "hiphop-040",
+"genre": "hiphop",
+"name": "vi7 – IV",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi7:8 IV:8"
+},
+{
+"id": "hiphop-041",
+"genre": "hiphop",
+"name": "i – iv – i7 – V9",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:8 iv:8 i7:8 V9:8"
+},
+{
+"id": "hiphop-042",
+"genre": "hiphop",
+"name": "vi – iii – vi – IV – ii7 – V7",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 iii:2 vi:2 IV:4 ii7:2 V7:2"
+},
+{
+"id": "hiphop-043",
+"genre": "hiphop",
+"name": "i7 – iv7 – V7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 iv7:4 V7:4 bVII7:4"
+},
+{
+"id": "hiphop-044",
+"genre": "hiphop",
+"name": "i7 – iv – V – i7 – iv – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv:2 V:2 i7:4 iv:2 bVI:2"
+},
+{
+"id": "hiphop-045",
+"genre": "hiphop",
+"name": "iv7 – V – i – bVII7 – bIIImaj9 – V9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 V:2 i:2 bVII7:4 bIIImaj9:2 V9:2"
+},
+{
+"id": "hiphop-046",
+"genre": "hiphop",
+"name": "i7 – bVII – i – bVI – bVII7 – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 i:2 bVI:2 bVII7:2 i:2"
+},
+{
+"id": "hiphop-047",
+"genre": "hiphop",
+"name": "i7 – bVI – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 bVI:4 bVII7:4"
+},
+{
+"id": "hiphop-048",
+"genre": "hiphop",
+"name": "bVImaj9 – iv – i – v – bVImaj9 – bVII9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj9:4 iv:4 i:2 v:2 bVImaj9:2 bVII9:2"
+},
+{
+"id": "hiphop-049",
+"genre": "hiphop",
+"name": "Imaj7 – ii7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj7:8 ii7:8"
+},
+{
+"id": "hiphop-050",
+"genre": "hiphop",
+"name": "vi – V7 – Imaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "vi:4 V7:4 Imaj7:8"
+},
+{
+"id": "hiphop-051",
+"genre": "hiphop",
+"name": "I – vi7 – V7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "I:8 vi7:4 V7:4"
+},
+{
+"id": "hiphop-052",
+"genre": "hiphop",
+"name": "Imaj7 – V – Imaj7 – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 V:8 Imaj7:8 V9:8"
+},
+{
+"id": "hiphop-053",
+"genre": "hiphop",
+"name": "i9 – bIIImaj7 – bVII – i – bIII – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i9:4 bIIImaj7:2 bVII:2 i:4 bIII:2 v7:2"
+},
+{
+"id": "hiphop-054",
+"genre": "hiphop",
+"name": "Imaj7 – IV – V – Imaj9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 IV:4 V:4 Imaj9:4"
+},
+{
+"id": "hiphop-055",
+"genre": "hiphop",
+"name": "i7 – bVII – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 v:8"
+},
+{
+"id": "hiphop-056",
+"genre": "hiphop",
+"name": "bVImaj7 – iv7 – bVII7 – V9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 iv7:4 bVII7:4 V9:4"
+},
+{
+"id": "hiphop-057",
+"genre": "hiphop",
+"name": "bVImaj7 – bIII – bVImaj7 – bIII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVImaj7:8 bIII:8 bVImaj7:8 bIII:8"
+},
+{
+"id": "hiphop-058",
+"genre": "hiphop",
+"name": "Imaj7 – V9 – Imaj7 – V9 – Imaj7 – V",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 V9:4 Imaj7:2 V9:2 Imaj7:2 V:2"
+},
+{
+"id": "hiphop-059",
+"genre": "hiphop",
+"name": "Imaj7 – IV",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj7:8 IV:8"
+},
+{
+"id": "hiphop-060",
+"genre": "hiphop",
+"name": "I – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:8 V:8"
+},
+{
+"id": "hiphop-061",
+"genre": "hiphop",
+"name": "i9 – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i9:8 bVII:8"
+},
+{
+"id": "hiphop-062",
+"genre": "hiphop",
+"name": "iv7 – bVII – bIIImaj7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:8 bVII:8 bIIImaj7:8 V:8"
+},
+{
+"id": "hiphop-063",
+"genre": "hiphop",
+"name": "bVI – iv – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 iv:8 bVII7:4"
+},
+{
+"id": "hiphop-064",
+"genre": "hiphop",
+"name": "I – vi7 – V – vi – ii9 – I",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 vi7:2 V:2 vi:4 ii9:2 I:2"
+},
+{
+"id": "hiphop-065",
+"genre": "hiphop",
+"name": "Imaj7 – iii – vi7 – V7 – I – V9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 iii:2 vi7:2 V7:4 I:2 V9:2"
+},
+{
+"id": "hiphop-066",
+"genre": "hiphop",
+"name": "bVImaj7 – i7 – bVI",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 i7:4 bVI:8"
+},
+{
+"id": "hiphop-067",
+"genre": "hiphop",
+"name": "i7 – bVII7 – bIII – bVImaj7 – bVII7 – i7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVII7:2 bIII:2 bVImaj7:4 bVII7:2 i7:2"
+},
+{
+"id": "hiphop-068",
+"genre": "hiphop",
+"name": "i7 – iv7 – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv7:4 i:4 bVI:4"
+},
+{
+"id": "hiphop-069",
+"genre": "hiphop",
+"name": "i7 – V7 – i7 – V",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 V7:8 i7:8 V:8"
+},
+{
+"id": "hiphop-070",
+"genre": "hiphop",
+"name": "i – bVImaj7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i:4 bVImaj7:8 bVII7:4"
+},
+{
+"id": "hiphop-071",
+"genre": "hiphop",
+"name": "vi7 – iii – vi – V7 – I – V7",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi7:4 iii:4 vi:2 V7:2 I:2 V7:2"
+},
+{
+"id": "hiphop-072",
+"genre": "hiphop",
+"name": "i9 – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i9:8 bVII7:8"
+},
+{
+"id": "hiphop-073",
+"genre": "hiphop",
+"name": "i – bVImaj7 – bVII9 – bVI – bIII – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 bVII9:2 bVI:2 bIII:2 bVImaj7:2"
+},
+{
+"id": "hiphop-074",
+"genre": "hiphop",
+"name": "Imaj7 – V7 – IVmaj7 – V",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 V7:4 IVmaj7:4 V:4"
+},
+{
+"id": "hiphop-075",
+"genre": "hiphop",
+"name": "Imaj7 – IVmaj7 – I – vi9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 IVmaj7:8 I:8 vi9:8"
+},
+{
+"id": "hiphop-076",
+"genre": "hiphop",
+"name": "vi – Imaj7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi:8 Imaj7:8"
+},
+{
+"id": "hiphop-077",
+"genre": "hiphop",
+"name": "Imaj9 – V7 – I – vi",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj9:8 V7:8 I:8 vi:8"
+},
+{
+"id": "hiphop-078",
+"genre": "hiphop",
+"name": "I – vi9 – Imaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "I:8 vi9:4 Imaj7:4"
+},
+{
+"id": "hiphop-079",
+"genre": "hiphop",
+"name": "Imaj7 – V7 – Imaj7 – bVII",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 V7:8 Imaj7:8 bVII:8"
+},
+{
+"id": "hiphop-080",
+"genre": "hiphop",
+"name": "i – bVImaj7 – bVII7 – i – iv – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 bVII7:2 i:2 iv:2 V:2"
+},
+{
+"id": "hiphop-081",
+"genre": "hiphop",
+"name": "i9 – v – bVImaj9 – i7 – bVII7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i9:4 v:2 bVImaj9:2 i7:4 bVII7:2 V:2"
+},
+{
+"id": "hiphop-082",
+"genre": "hiphop",
+"name": "Imaj7 – vi9 – ii7 – V7 – IVmaj7 – V7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "Imaj7:4 vi9:4 ii7:2 V7:2 IVmaj7:2 V7:2"
+},
+{
+"id": "hiphop-083",
+"genre": "hiphop",
+"name": "bVI – bIII – i – iv – bVII7 – iv",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bIII:2 i:2 iv:4 bVII7:2 iv:2"
+},
+{
+"id": "hiphop-084",
+"genre": "hiphop",
+"name": "I – I7 – IVmaj7 – I",
+"tag": "Tension",
+"mood": "major",
+"chords": "I:4 I7:4 IVmaj7:4 I:4"
+},
+{
+"id": "hiphop-085",
+"genre": "hiphop",
+"name": "i – bVII – i7 – VI7 – V7 – v7",
+"tag": "Tension",
+"mood": "minor",
+"chords": "i:4 bVII:2 i7:2 VI7:4 V7:2 v7:2"
+},
+{
+"id": "hiphop-086",
+"genre": "hiphop",
+"name": "i – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:4 bVII:4"
+},
+{
+"id": "hiphop-087",
+"genre": "hiphop",
+"name": "i7 – bVII – i9 – iv – V – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:2 i9:2 iv:4 V:2 bVI:2"
+},
+{
+"id": "hiphop-088",
+"genre": "hiphop",
+"name": "bVImaj7 – V7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVImaj7:8 V7:8"
+},
+{
+"id": "hiphop-089",
+"genre": "hiphop",
+"name": "bVImaj7 – bVII9 – bIII – iv – i – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj7:4 bVII9:4 bIII:2 iv:2 i:2 bVII7:2"
+},
+{
+"id": "hiphop-090",
+"genre": "hiphop",
+"name": "bVImaj9 – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj9:4 i:8 bVII:4"
+},
+{
+"id": "hiphop-091",
+"genre": "hiphop",
+"name": "IVmaj7 – iv7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "IVmaj7:8 iv7:8"
+},
+{
+"id": "hiphop-092",
+"genre": "hiphop",
+"name": "i – v – bVI – bVII7 – bIII – V9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:4 bVI:2 bVII7:2 bIII:2 V9:2"
+},
+{
+"id": "hiphop-093",
+"genre": "hiphop",
+"name": "Imaj7 – bVII – I – IVmaj9 – ii9 – V9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 bVII:4 I:2 IVmaj9:2 ii9:2 V9:2"
+},
+{
+"id": "hiphop-094",
+"genre": "hiphop",
+"name": "i – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII7:8"
+},
+{
+"id": "hiphop-095",
+"genre": "hiphop",
+"name": "i7 – iv7 – v",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 iv7:8 v:4"
+},
+{
+"id": "hiphop-096",
+"genre": "hiphop",
+"name": "i7 – iv – V7 – bVImaj7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 iv:4 V7:4 bVImaj7:4"
+},
+{
+"id": "hiphop-097",
+"genre": "hiphop",
+"name": "I – IV – V7 – vi – ii7 – vi",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 IV:2 V7:2 vi:4 ii7:2 vi:2"
+},
+{
+"id": "hiphop-098",
+"genre": "hiphop",
+"name": "I – V7 – Imaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "I:4 V7:8 Imaj7:4"
+},
+{
+"id": "hiphop-099",
+"genre": "hiphop",
+"name": "i9 – bVImaj7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i9:8 bVImaj7:8"
+},
+{
+"id": "hiphop-100",
+"genre": "hiphop",
+"name": "Imaj7 – V9",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj7:8 V9:8"
+},
+{
+"id": "lofi-001",
+"genre": "lofi",
+"name": "i – bIII – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVI:4 bVII:4"
+},
+{
+"id": "lofi-002",
+"genre": "lofi",
+"name": "I – bVII – IV – I",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 bVII:8 IV:8 I:8"
+},
+{
+"id": "lofi-003",
+"genre": "lofi",
+"name": "Imaj9 – IVmaj9 – Imaj9 – V7",
+"tag": "Classic",
+"mood": "major",
+"chords": "Imaj9:4 IVmaj9:4 Imaj9:4 V7:4"
+},
+{
+"id": "lofi-004",
+"genre": "lofi",
+"name": "i7 – v7 – bVI – iv9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 v7:4 bVI:4 iv9:4"
+},
+{
+"id": "lofi-005",
+"genre": "lofi",
+"name": "iv9 – i7 – bVII7 – bVImaj9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "iv9:4 i7:4 bVII7:4 bVImaj9:4"
+},
+{
+"id": "lofi-006",
+"genre": "lofi",
+"name": "I – vi – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 vi:4 ii:4 V:4"
+},
+{
+"id": "lofi-007",
+"genre": "lofi",
+"name": "I – IV – V7 – Imaj7",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 IV:4 V7:4 Imaj7:4"
+},
+{
+"id": "lofi-008",
+"genre": "lofi",
+"name": "Imaj9 – IVmaj7 – V9 – IVmaj7",
+"tag": "Classic",
+"mood": "major",
+"chords": "Imaj9:4 IVmaj7:4 V9:4 IVmaj7:4"
+},
+{
+"id": "lofi-009",
+"genre": "lofi",
+"name": "i7 – bIIImaj7 – bVII7 – iv7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 bVII7:4 iv7:4"
+},
+{
+"id": "lofi-010",
+"genre": "lofi",
+"name": "IVmaj7 – Imaj7 – V7 – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj7:8 Imaj7:8 V7:8 vi:8"
+},
+{
+"id": "lofi-011",
+"genre": "lofi",
+"name": "i9 – v9 – bVImaj9 – iv7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i9:4 v9:4 bVImaj9:4 iv7:4"
+},
+{
+"id": "lofi-012",
+"genre": "lofi",
+"name": "i7 – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:8 bVI:8"
+},
+{
+"id": "lofi-013",
+"genre": "lofi",
+"name": "Imaj9 – vi7 – iii7 – IVmaj9",
+"tag": "Classic",
+"mood": "major",
+"chords": "Imaj9:4 vi7:4 iii7:4 IVmaj9:4"
+},
+{
+"id": "lofi-014",
+"genre": "lofi",
+"name": "IVmaj9 – V9 – iii7 – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj9:4 V9:4 iii7:4 vi:4"
+},
+{
+"id": "lofi-015",
+"genre": "lofi",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 v:8 bVI:8 iv:8"
+},
+{
+"id": "lofi-016",
+"genre": "lofi",
+"name": "i – iv – i – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 i:4 V:4"
+},
+{
+"id": "lofi-017",
+"genre": "lofi",
+"name": "i7 – bVImaj9 – bIIImaj9 – bVII7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bVImaj9:4 bIIImaj9:4 bVII7:4"
+},
+{
+"id": "lofi-018",
+"genre": "lofi",
+"name": "I – ii – iii – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 ii:8 iii:8 IV:8"
+},
+{
+"id": "lofi-019",
+"genre": "lofi",
+"name": "i9 – iv7 – i9 – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i9:8 iv7:8 i9:8 V:8"
+},
+{
+"id": "lofi-020",
+"genre": "lofi",
+"name": "I – vi – iii – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 vi:8 iii:8 IV:8"
+},
+{
+"id": "lofi-021",
+"genre": "lofi",
+"name": "i9 – bIIImaj9 – iv – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 bIIImaj9:4 iv:4 bVII7:4"
+},
+{
+"id": "lofi-022",
+"genre": "lofi",
+"name": "i7 – iv7 – bVImaj7 – v7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 iv7:8 bVImaj7:8 v7:8"
+},
+{
+"id": "lofi-023",
+"genre": "lofi",
+"name": "i7 – iv9 – bVII – v9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 iv9:4 bVII:4 v9:4"
+},
+{
+"id": "lofi-024",
+"genre": "lofi",
+"name": "Imaj9 – IVmaj7 – Imaj7 – V – Imaj7 – IV",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj9:4 IVmaj7:4 Imaj7:2 V:2 Imaj7:2 IV:2"
+},
+{
+"id": "lofi-025",
+"genre": "lofi",
+"name": "i7 – V – i9 – bVII9 – i9 – bVII7 – bVImaj9 – v7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 V:4 i9:4 bVII9:4 i9:4 bVII7:4 bVImaj9:4 v7:4"
+},
+{
+"id": "lofi-026",
+"genre": "lofi",
+"name": "iv – i9 – bIIImaj7 – iv7 – V – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 i9:4 bIIImaj7:2 iv7:2 V:2 v7:2"
+},
+{
+"id": "lofi-027",
+"genre": "lofi",
+"name": "Imaj9 – V7 – IVmaj9 – Imaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj9:4 V7:4 IVmaj9:4 Imaj7:4"
+},
+{
+"id": "lofi-028",
+"genre": "lofi",
+"name": "I – ii7 – vii7b5 – Imaj7 – V7 – vi – iii7 – V9",
+"tag": "Tension",
+"mood": "major",
+"chords": "I:4 ii7:4 vii7b5:4 Imaj7:4 V7:4 vi:4 iii7:4 V9:4"
+},
+{
+"id": "lofi-029",
+"genre": "lofi",
+"name": "i7 – bIIImaj7 – bVII7 – i7 – bVImaj7 – bVII9 – bVImaj7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 bVII7:4 i7:4 bVImaj7:4 bVII9:4 bVImaj7:4 bVII7:4"
+},
+{
+"id": "lofi-030",
+"genre": "lofi",
+"name": "Imaj7 – vi7 – IVmaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 vi7:8 IVmaj9:4"
+},
+{
+"id": "lofi-031",
+"genre": "lofi",
+"name": "Imaj7 – vi7 – ii7 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 vi7:4 ii7:4 Imaj9:4"
+},
+{
+"id": "lofi-032",
+"genre": "lofi",
+"name": "bVImaj7 – i7 – bVImaj9 – bVII7 – bVImaj7 – v",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 i7:4 bVImaj9:2 bVII7:2 bVImaj7:2 v:2"
+},
+{
+"id": "lofi-033",
+"genre": "lofi",
+"name": "Imaj9 – IVmaj9 – V9 – Imaj9 – vi7 – IVmaj7 – Imaj9 – vi",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj9:4 IVmaj9:4 V9:4 Imaj9:4 vi7:4 IVmaj7:4 Imaj9:4 vi:4"
+},
+{
+"id": "lofi-034",
+"genre": "lofi",
+"name": "iv7 – i7 – v9 – bIIImaj7 – bVImaj9 – V7 – i9 – bVImaj9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "iv7:4 i7:4 v9:4 bIIImaj7:4 bVImaj9:4 V7:4 i9:4 bVImaj9:4"
+},
+{
+"id": "lofi-035",
+"genre": "lofi",
+"name": "IVmaj9 – vi7 – ii7 – I – vi7 – IV – Imaj9 – IVmaj9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "IVmaj9:4 vi7:4 ii7:4 I:4 vi7:4 IV:4 Imaj9:4 IVmaj9:4"
+},
+{
+"id": "lofi-036",
+"genre": "lofi",
+"name": "Imaj7 – V7 – vi7 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 V7:8 vi7:8 Imaj9:8"
+},
+{
+"id": "lofi-037",
+"genre": "lofi",
+"name": "i7 – bVImaj7 – iv9 – V9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 iv9:4 V9:4"
+},
+{
+"id": "lofi-038",
+"genre": "lofi",
+"name": "i9 – iv9 – V7 – i7 – bVII9 – i7 – bIIImaj9 – bVImaj7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 iv9:4 V7:4 i7:4 bVII9:4 i7:4 bIIImaj9:4 bVImaj7:4"
+},
+{
+"id": "lofi-039",
+"genre": "lofi",
+"name": "Imaj7 – iii7 – vi9 – IVmaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 iii7:8 vi9:8 IVmaj9:8"
+},
+{
+"id": "lofi-040",
+"genre": "lofi",
+"name": "I – vi7 – ii – IVmaj9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:8 vi7:8 ii:8 IVmaj9:8"
+},
+{
+"id": "lofi-041",
+"genre": "lofi",
+"name": "i9 – bVImaj7 – bVII7 – iv7 – bVII9 – bVImaj9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 bVImaj7:4 bVII7:2 iv7:2 bVII9:2 bVImaj9:2"
+},
+{
+"id": "lofi-042",
+"genre": "lofi",
+"name": "vi9 – iii7 – IV – V7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi9:8 iii7:8 IV:8 V7:8"
+},
+{
+"id": "lofi-043",
+"genre": "lofi",
+"name": "i7 – bVImaj7 – V",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:8 V:4"
+},
+{
+"id": "lofi-044",
+"genre": "lofi",
+"name": "i9 – iv7 – V9 – i7 – bVImaj7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 iv7:4 V9:2 i7:2 bVImaj7:2 bVII7:2"
+},
+{
+"id": "lofi-045",
+"genre": "lofi",
+"name": "vi9 – IVmaj9 – V7 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi9:8 IVmaj9:8 V7:8 Imaj9:8"
+},
+{
+"id": "lofi-046",
+"genre": "lofi",
+"name": "IVsus2 – V7 – Imaj7 – iii9 – IVmaj7 – vi9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "IVsus2:4 V7:2 Imaj7:2 iii9:4 IVmaj7:2 vi9:2"
+},
+{
+"id": "lofi-047",
+"genre": "lofi",
+"name": "bVImaj7 – bIIImaj7 – bVII7 – i7 – bVII7 – i7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 bIIImaj7:4 bVII7:2 i7:2 bVII7:2 i7:2"
+},
+{
+"id": "lofi-048",
+"genre": "lofi",
+"name": "Imaj9 – VI7 – V7",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj9:8 VI7:4 V7:4"
+},
+{
+"id": "lofi-049",
+"genre": "lofi",
+"name": "IVmaj7 – V7 – Imaj7 – IVmaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "IVmaj7:8 V7:8 Imaj7:8 IVmaj9:8"
+},
+{
+"id": "lofi-050",
+"genre": "lofi",
+"name": "i9 – V7 – bVImaj9 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:8 V7:8 bVImaj9:8 V7:8"
+},
+{
+"id": "lofi-051",
+"genre": "lofi",
+"name": "Imaj9 – vi7 – ii7 – V9 – IVmaj9 – I",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "Imaj9:4 vi7:2 ii7:2 V9:4 IVmaj9:2 I:2"
+},
+{
+"id": "lofi-052",
+"genre": "lofi",
+"name": "Imaj9 – V9 – vi – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj9:8 V9:8 vi:8 V9:8"
+},
+{
+"id": "lofi-053",
+"genre": "lofi",
+"name": "i9 – bIIImaj7 – bVII – i9 – v7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 bIIImaj7:4 bVII:2 i9:2 v7:2 bVII7:2"
+},
+{
+"id": "lofi-054",
+"genre": "lofi",
+"name": "IVmaj7 – Imaj7 – V7 – IVmaj9 – I – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "IVmaj7:4 Imaj7:2 V7:2 IVmaj9:4 I:2 V9:2"
+},
+{
+"id": "lofi-055",
+"genre": "lofi",
+"name": "iv9 – i7 – bVII9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "iv9:4 i7:4 bVII9:8"
+},
+{
+"id": "lofi-056",
+"genre": "lofi",
+"name": "i7 – iv9 – i – iv7 – bVII – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv9:2 i:2 iv7:4 bVII:2 V7:2"
+},
+{
+"id": "lofi-057",
+"genre": "lofi",
+"name": "bVImaj7 – bVII7 – bIIImaj7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 bVII7:4 bIIImaj7:8"
+},
+{
+"id": "lofi-058",
+"genre": "lofi",
+"name": "IVmaj9 – ii7 – V7 – I",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "IVmaj9:4 ii7:4 V7:4 I:4"
+},
+{
+"id": "lofi-059",
+"genre": "lofi",
+"name": "Imaj7 – ii9 – Imaj7 – vi9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 ii9:8 Imaj7:8 vi9:8"
+},
+{
+"id": "lofi-060",
+"genre": "lofi",
+"name": "Imaj7 – III7 – vi7 – Imaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj7:4 III7:4 vi7:4 Imaj7:4"
+},
+{
+"id": "lofi-061",
+"genre": "lofi",
+"name": "I – IVmaj9 – V – Imaj9 – IVmaj7 – V9 – Imaj7 – V9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 IVmaj9:4 V:4 Imaj9:4 IVmaj7:4 V9:4 Imaj7:4 V9:4"
+},
+{
+"id": "lofi-062",
+"genre": "lofi",
+"name": "IVmaj7 – V7 – vi – iii7 – ii7 – Imaj7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "IVmaj7:4 V7:2 vi:2 iii7:4 ii7:2 Imaj7:2"
+},
+{
+"id": "lofi-063",
+"genre": "lofi",
+"name": "IVmaj9 – V – vi7 – V7 – vi7 – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "IVmaj9:4 V:4 vi7:2 V7:2 vi7:2 V9:2"
+},
+{
+"id": "lofi-064",
+"genre": "lofi",
+"name": "iv7 – V9 – i7 – v7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "iv7:8 V9:8 i7:8 v7:8"
+},
+{
+"id": "lofi-065",
+"genre": "lofi",
+"name": "i7 – bIIImaj7 – bVImaj7 – bIIImaj7 – i7 – V9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 bVImaj7:2 bIIImaj7:2 i7:2 V9:2"
+},
+{
+"id": "lofi-066",
+"genre": "lofi",
+"name": "i7 – bIIImaj7 – iv7 – i7 – V9 – i9 – iv9 – bVImaj9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 iv7:4 i7:4 V9:4 i9:4 iv9:4 bVImaj9:4"
+},
+{
+"id": "lofi-067",
+"genre": "lofi",
+"name": "bVImaj7 – bVII7 – bVImaj9 – bIIImaj9 – iv7 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 bVII7:2 bVImaj9:2 bIIImaj9:4 iv7:2 V7:2"
+},
+{
+"id": "lofi-068",
+"genre": "lofi",
+"name": "Imaj9 – V – IVmaj9 – V7 – VI7 – V7",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj9:4 V:2 IVmaj9:2 V7:4 VI7:2 V7:2"
+},
+{
+"id": "lofi-069",
+"genre": "lofi",
+"name": "Imaj7 – V7 – vi9 – ii7 – IVmaj7 – I",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "Imaj7:4 V7:2 vi9:2 ii7:4 IVmaj7:2 I:2"
+},
+{
+"id": "lofi-070",
+"genre": "lofi",
+"name": "i9 – bVII9 – i7 – bVII7 – i – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 bVII9:4 i7:2 bVII7:2 i:2 bVII7:2"
+},
+{
+"id": "lofi-071",
+"genre": "lofi",
+"name": "i – iv – i7 – iv7 – i7 – V7",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 iv:2 i7:2 iv7:4 i7:2 V7:2"
+},
+{
+"id": "lofi-072",
+"genre": "lofi",
+"name": "vi7 – V9 – vi9 – ii – V9 – vi7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi7:4 V9:2 vi9:2 ii:4 V9:2 vi7:2"
+},
+{
+"id": "lofi-073",
+"genre": "lofi",
+"name": "i7 – bVII7 – iv7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 bVII7:4 iv7:4"
+},
+{
+"id": "lofi-074",
+"genre": "lofi",
+"name": "Imaj9 – I7 – IVmaj7 – V7",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj9:8 I7:8 IVmaj7:8 V7:8"
+},
+{
+"id": "lofi-075",
+"genre": "lofi",
+"name": "i7 – bIIImaj9 – iv9 – V – bVI – i7 – iv7 – V9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bIIImaj9:4 iv9:4 V:4 bVI:4 i7:4 iv7:4 V9:4"
+},
+{
+"id": "lofi-076",
+"genre": "lofi",
+"name": "Imaj7 – IVmaj9 – V7 – Imaj9 – iii7 – vi9 – IVmaj9 – V7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 IVmaj9:4 V7:4 Imaj9:4 iii7:4 vi9:4 IVmaj9:4 V7:4"
+},
+{
+"id": "lofi-077",
+"genre": "lofi",
+"name": "IVmaj7 – VI7 – V7",
+"tag": "Tension",
+"mood": "major",
+"chords": "IVmaj7:4 VI7:4 V7:8"
+},
+{
+"id": "lofi-078",
+"genre": "lofi",
+"name": "vi9 – V7 – IVmaj7 – Imaj7 – IVmaj9 – V7 – vi7 – IVmaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi9:4 V7:4 IVmaj7:4 Imaj7:4 IVmaj9:4 V7:4 vi7:4 IVmaj7:4"
+},
+{
+"id": "lofi-079",
+"genre": "lofi",
+"name": "Imaj7 – IVmaj9 – Imaj9 – vi",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 IVmaj9:8 Imaj9:8 vi:8"
+},
+{
+"id": "lofi-080",
+"genre": "lofi",
+"name": "Imaj9 – V7 – IVmaj7 – iv7 – Imaj7 – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj9:4 V7:2 IVmaj7:2 iv7:4 Imaj7:2 V9:2"
+},
+{
+"id": "lofi-081",
+"genre": "lofi",
+"name": "vi7 – V7 – vi9 – Imaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi7:8 V7:8 vi9:8 Imaj7:8"
+},
+{
+"id": "lofi-082",
+"genre": "lofi",
+"name": "I – IVmaj9 – V9 – Imaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "I:8 IVmaj9:8 V9:8 Imaj7:8"
+},
+{
+"id": "lofi-083",
+"genre": "lofi",
+"name": "i7 – bVImaj7 – bVII7 – iv7 – bVII9 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:2 bVII7:2 iv7:4 bVII9:2 V7:2"
+},
+{
+"id": "lofi-084",
+"genre": "lofi",
+"name": "IVmaj7 – vi9 – ii – vii7b5 – Imaj9 – IVmaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "IVmaj7:4 vi9:2 ii:2 vii7b5:4 Imaj9:2 IVmaj7:2"
+},
+{
+"id": "lofi-085",
+"genre": "lofi",
+"name": "i7 – V7 – i9 – bVImaj7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 V7:8 i9:8 bVImaj7:8"
+},
+{
+"id": "lofi-086",
+"genre": "lofi",
+"name": "vi7 – iii7 – IVmaj9 – iv7 – Imaj7 – IV",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi7:4 iii7:4 IVmaj9:2 iv7:2 Imaj7:2 IV:2"
+},
+{
+"id": "lofi-087",
+"genre": "lofi",
+"name": "Imaj7 – IVmaj7 – Imaj9 – vi",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 IVmaj7:4 Imaj9:4 vi:4"
+},
+{
+"id": "lofi-088",
+"genre": "lofi",
+"name": "Imaj9 – V7 – IVmaj7 – V7 – vi7 – ii9 – V7 – vi7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj9:4 V7:4 IVmaj7:4 V7:4 vi7:4 ii9:4 V7:4 vi7:4"
+},
+{
+"id": "lofi-089",
+"genre": "lofi",
+"name": "Imaj7 – IVmaj7 – V7 – Imaj7 – ii9 – IVmaj7 – V7 – vi9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 IVmaj7:4 V7:4 Imaj7:4 ii9:4 IVmaj7:4 V7:4 vi9:4"
+},
+{
+"id": "lofi-090",
+"genre": "lofi",
+"name": "iv9 – bVII9 – iv9",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv9:4 bVII9:8 iv9:4"
+},
+{
+"id": "lofi-091",
+"genre": "lofi",
+"name": "i7 – iv7 – bVII7 – v",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 iv7:8 bVII7:8 v:8"
+},
+{
+"id": "lofi-092",
+"genre": "lofi",
+"name": "i7 – bIIImaj7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 bIIImaj7:4 bVII7:4"
+},
+{
+"id": "lofi-093",
+"genre": "lofi",
+"name": "Imaj7 – vi9 – IVmaj7 – I – ii7 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 vi9:4 IVmaj7:2 I:2 ii7:2 Imaj9:2"
+},
+{
+"id": "lofi-094",
+"genre": "lofi",
+"name": "Imaj7 – IVmaj7 – ii7 – vii7b5 – I – bVII7 – VI7 – V7",
+"tag": "Tension",
+"mood": "major",
+"chords": "Imaj7:4 IVmaj7:4 ii7:4 vii7b5:4 I:4 bVII7:4 VI7:4 V7:4"
+},
+{
+"id": "lofi-095",
+"genre": "lofi",
+"name": "iv7 – V – i9 – bVImaj7 – bIIImaj7 – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 V:2 i9:2 bVImaj7:4 bIIImaj7:2 v:2"
+},
+{
+"id": "lofi-096",
+"genre": "lofi",
+"name": "bVImaj7 – bVII – bVImaj7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:8 bVII:8 bVImaj7:8 bVII7:8"
+},
+{
+"id": "lofi-097",
+"genre": "lofi",
+"name": "i9 – V9 – i7 – bIIImaj7 – bVImaj9 – i",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 V9:2 i7:2 bIIImaj7:4 bVImaj9:2 i:2"
+},
+{
+"id": "lofi-098",
+"genre": "lofi",
+"name": "vi7 – ii7 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi7:4 ii7:4 Imaj9:8"
+},
+{
+"id": "lofi-099",
+"genre": "lofi",
+"name": "bVImaj7 – V9 – bVImaj9 – bVII7 – bVImaj7 – V9 – bVImaj7 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 V9:4 bVImaj9:4 bVII7:4 bVImaj7:4 V9:4 bVImaj7:4 V7:4"
+},
+{
+"id": "lofi-100",
+"genre": "lofi",
+"name": "bVImaj7 – V9 – bVImaj7 – bIIImaj7 – bVII7 – iv7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "bVImaj7:4 V9:4 bVImaj7:2 bIIImaj7:2 bVII7:2 iv7:2"
+},
+{
+"id": "trap-001",
+"genre": "trap",
+"name": "i – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVII:8"
+},
+{
+"id": "trap-002",
+"genre": "trap",
+"name": "bVI – bVII – i – v",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:4 v:4"
+},
+{
+"id": "trap-003",
+"genre": "trap",
+"name": "i – iv – V – i7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 V:8 i7:8"
+},
+{
+"id": "trap-004",
+"genre": "trap",
+"name": "i – iv – bVII – bIIImaj7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVII:8 bIIImaj7:8"
+},
+{
+"id": "trap-005",
+"genre": "trap",
+"name": "i – iv – i – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 i:4 V:4"
+},
+{
+"id": "trap-006",
+"genre": "trap",
+"name": "i – iv – v – i7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 v:4 i7:4"
+},
+{
+"id": "trap-007",
+"genre": "trap",
+"name": "i – bVI – bIII – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bIII:4 bVII:4"
+},
+{
+"id": "trap-008",
+"genre": "trap",
+"name": "i – iv – v – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 v:4 i:4"
+},
+{
+"id": "trap-009",
+"genre": "trap",
+"name": "i – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVI:8"
+},
+{
+"id": "trap-010",
+"genre": "trap",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 v:8 bVI:8 iv:8"
+},
+{
+"id": "trap-011",
+"genre": "trap",
+"name": "bVII – bVI – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVII:8 bVI:8 i:8 i:8"
+},
+{
+"id": "trap-012",
+"genre": "trap",
+"name": "I – IV – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 IV:8 ii:8 V:8"
+},
+{
+"id": "trap-013",
+"genre": "trap",
+"name": "i – iv – bVII – bIII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVII:8 bIII:8"
+},
+{
+"id": "trap-014",
+"genre": "trap",
+"name": "I – IV – vi – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 IV:8 vi:8 V:8"
+},
+{
+"id": "trap-015",
+"genre": "trap",
+"name": "i – iv – V – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 i:4"
+},
+{
+"id": "trap-016",
+"genre": "trap",
+"name": "i – bVI – bVII – i7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 i7:4"
+},
+{
+"id": "trap-017",
+"genre": "trap",
+"name": "i – bIII – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bIII:8 bVI:8 bVII:8"
+},
+{
+"id": "trap-018",
+"genre": "trap",
+"name": "i – bVII7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVII7:8"
+},
+{
+"id": "trap-019",
+"genre": "trap",
+"name": "i – bVII – bVI – bVII7 – i – bVII – bVI – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bVI:4 bVII7:4 i:4 bVII:4 bVI:4 V:4"
+},
+{
+"id": "trap-020",
+"genre": "trap",
+"name": "i7 – bVII – bVI – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 bVI:4 V:4"
+},
+{
+"id": "trap-021",
+"genre": "trap",
+"name": "i – V – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 V:4 bVI:4 bVII:4"
+},
+{
+"id": "trap-022",
+"genre": "trap",
+"name": "i – iv7 – i – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv7:4 i:4 V:4"
+},
+{
+"id": "trap-023",
+"genre": "trap",
+"name": "i – bVI – bVII – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 i:4"
+},
+{
+"id": "trap-024",
+"genre": "trap",
+"name": "i7 – V – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 V:4 bVI:4 bVII:4"
+},
+{
+"id": "trap-025",
+"genre": "trap",
+"name": "I – V – vi – IV – I – V7 – IV – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 V:4 vi:4 IV:4 I:4 V7:4 IV:4 V:4"
+},
+{
+"id": "trap-026",
+"genre": "trap",
+"name": "i – bVI – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 i:4 V:4"
+},
+{
+"id": "trap-027",
+"genre": "trap",
+"name": "i – v – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:4 bIII:4 bVII:4"
+},
+{
+"id": "trap-028",
+"genre": "trap",
+"name": "i – bVII – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 bIII:8 bVII:8"
+},
+{
+"id": "trap-029",
+"genre": "trap",
+"name": "iv – bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:8 bVI:8"
+},
+{
+"id": "trap-030",
+"genre": "trap",
+"name": "iv – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16 bVII:16"
+},
+{
+"id": "trap-031",
+"genre": "trap",
+"name": "iv – bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16 bVI:16"
+},
+{
+"id": "trap-032",
+"genre": "trap",
+"name": "bVI – bVII – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:4 bVII:4"
+},
+{
+"id": "trap-033",
+"genre": "trap",
+"name": "i – bVI – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:8 V:4"
+},
+{
+"id": "trap-034",
+"genre": "trap",
+"name": "iv – V – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:8 V:8 bVI:8 bVII:8"
+},
+{
+"id": "trap-035",
+"genre": "trap",
+"name": "i – iv – V",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 iv:4 V:8"
+},
+{
+"id": "trap-036",
+"genre": "trap",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVII:16"
+},
+{
+"id": "trap-037",
+"genre": "trap",
+"name": "bVI – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:8 bVII:8"
+},
+{
+"id": "trap-038",
+"genre": "trap",
+"name": "i – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 v:16"
+},
+{
+"id": "trap-039",
+"genre": "trap",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 V:16"
+},
+{
+"id": "trap-040",
+"genre": "trap",
+"name": "iv7 – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv7:8 bVII:8"
+},
+{
+"id": "trap-041",
+"genre": "trap",
+"name": "i – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 v:8"
+},
+{
+"id": "trap-042",
+"genre": "trap",
+"name": "i – bIII – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVI:4 bVII:4"
+},
+{
+"id": "trap-043",
+"genre": "trap",
+"name": "i – bIII – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:8 V7:4"
+},
+{
+"id": "trap-044",
+"genre": "trap",
+"name": "bVI – V7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:16 V7:16"
+},
+{
+"id": "trap-045",
+"genre": "trap",
+"name": "i – bVII – bIIImaj7 – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bIIImaj7:4 bVI:4"
+},
+{
+"id": "trap-046",
+"genre": "trap",
+"name": "vi – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi:16 V:16"
+},
+{
+"id": "trap-047",
+"genre": "trap",
+"name": "i – bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVI:16"
+},
+{
+"id": "trap-048",
+"genre": "trap",
+"name": "i – bIII – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:8 i:8 bVII:8"
+},
+{
+"id": "trap-049",
+"genre": "trap",
+"name": "i – iv – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv:8 bVI:8 bVII:8"
+},
+{
+"id": "trap-050",
+"genre": "trap",
+"name": "I – IV – iv – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 IV:4 iv:4 V:4"
+},
+{
+"id": "trap-051",
+"genre": "trap",
+"name": "I – V7 – vi",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 V7:8 vi:4"
+},
+{
+"id": "trap-052",
+"genre": "trap",
+"name": "i – bVI – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:8 i:8 bVII:8"
+},
+{
+"id": "trap-053",
+"genre": "trap",
+"name": "i7 – iv – V",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i7:4 iv:8 V:4"
+},
+{
+"id": "trap-054",
+"genre": "trap",
+"name": "i – iv – bVI – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVI:4 V:4"
+},
+{
+"id": "trap-055",
+"genre": "trap",
+"name": "i – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:8 bVII:4"
+},
+{
+"id": "trap-056",
+"genre": "trap",
+"name": "i – v – i – V",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 v:4 i:4 V:4"
+},
+{
+"id": "trap-057",
+"genre": "trap",
+"name": "iv – V – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 V:4 bVI:4 bVII:4"
+},
+{
+"id": "trap-058",
+"genre": "trap",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 V:8"
+},
+{
+"id": "trap-059",
+"genre": "trap",
+"name": "i – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:8"
+},
+{
+"id": "trap-060",
+"genre": "trap",
+"name": "i – bVII – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:4 v:4"
+},
+{
+"id": "trap-061",
+"genre": "trap",
+"name": "bVImaj7 – bVII – iv – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj7:8 bVII:8 iv:8 bVI:8"
+},
+{
+"id": "trap-062",
+"genre": "trap",
+"name": "iv – bVII7 – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 bVII7:4 i:4 V:4"
+},
+{
+"id": "trap-063",
+"genre": "trap",
+"name": "i – bVII – i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i:4 bVII:4"
+},
+{
+"id": "trap-064",
+"genre": "trap",
+"name": "bVI – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 i:8 bVII:4"
+},
+{
+"id": "trap-065",
+"genre": "trap",
+"name": "i – bVI – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII7:8"
+},
+{
+"id": "trap-066",
+"genre": "trap",
+"name": "iv – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:8 v:8"
+},
+{
+"id": "trap-067",
+"genre": "trap",
+"name": "i – bIII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:4 V:4"
+},
+{
+"id": "trap-068",
+"genre": "trap",
+"name": "bVI – bIII – bVII – iv",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bIII:4 bVII:4 iv:4"
+},
+{
+"id": "trap-069",
+"genre": "trap",
+"name": "bVI – V – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 V:4 bVII:8"
+},
+{
+"id": "trap-070",
+"genre": "trap",
+"name": "i – iv – V – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 bVII:4"
+},
+{
+"id": "trap-071",
+"genre": "trap",
+"name": "i – V – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:8 bVII:4"
+},
+{
+"id": "trap-072",
+"genre": "trap",
+"name": "i – bVI – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 V7:8"
+},
+{
+"id": "trap-073",
+"genre": "trap",
+"name": "i – iv – V – v",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:8 iv:8 V:8 v:8"
+},
+{
+"id": "trap-074",
+"genre": "trap",
+"name": "i – bVII – bIII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bIII:4 V:4"
+},
+{
+"id": "trap-075",
+"genre": "trap",
+"name": "iv – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16 V:16"
+},
+{
+"id": "trap-076",
+"genre": "trap",
+"name": "bVI – bIII – iv7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bIII:4 iv7:4 V:4"
+},
+{
+"id": "trap-077",
+"genre": "trap",
+"name": "bVI – i – iv – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 i:8 iv:8 bVI:8"
+},
+{
+"id": "trap-078",
+"genre": "trap",
+"name": "vi – I",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi:16 I:16"
+},
+{
+"id": "trap-079",
+"genre": "trap",
+"name": "bVI – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 bVII:4 V:4"
+},
+{
+"id": "trap-080",
+"genre": "trap",
+"name": "i – bVII7 – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII7:4 i:4 bVI:4"
+},
+{
+"id": "trap-081",
+"genre": "trap",
+"name": "i – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:4 bVII:4"
+},
+{
+"id": "trap-082",
+"genre": "trap",
+"name": "I – ii – IV – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:8 ii:8 IV:8 V:8"
+},
+{
+"id": "trap-083",
+"genre": "trap",
+"name": "i – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:8 V:4"
+},
+{
+"id": "trap-084",
+"genre": "trap",
+"name": "i – bVII – i7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i7:4 V:4"
+},
+{
+"id": "trap-085",
+"genre": "trap",
+"name": "i – V7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 V7:16"
+},
+{
+"id": "trap-086",
+"genre": "trap",
+"name": "bVImaj7 – bIII – bVI – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj7:8 bIII:8 bVI:8 bVII7:8"
+},
+{
+"id": "trap-087",
+"genre": "trap",
+"name": "i – bVImaj7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVImaj7:16"
+},
+{
+"id": "trap-088",
+"genre": "trap",
+"name": "i7 – bVImaj7 – bVII",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 bVII:8"
+},
+{
+"id": "trap-089",
+"genre": "trap",
+"name": "iv – V – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 V:4 i:4 bVII:4"
+},
+{
+"id": "trap-090",
+"genre": "trap",
+"name": "i – bVII – i – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 i:8 V:8"
+},
+{
+"id": "trap-091",
+"genre": "trap",
+"name": "i – bVII – bIII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 bIII:8 V:8"
+},
+{
+"id": "trap-092",
+"genre": "trap",
+"name": "i – bIIImaj7 – bVI – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIIImaj7:4 bVI:4 v:4"
+},
+{
+"id": "trap-093",
+"genre": "trap",
+"name": "i7 – bVII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:8 bVII:4 bVI:4"
+},
+{
+"id": "trap-094",
+"genre": "trap",
+"name": "i – V – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:4 i:4 bVI:4"
+},
+{
+"id": "trap-095",
+"genre": "trap",
+"name": "bVI – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVI:16 V:16"
+},
+{
+"id": "trap-096",
+"genre": "trap",
+"name": "iv – bVI – i7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:8 bVI:8 i7:8 bVII:8"
+},
+{
+"id": "trap-097",
+"genre": "trap",
+"name": "bVI – bIII – i7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:8 bIII:8 i7:8 bVII:8"
+},
+{
+"id": "trap-098",
+"genre": "trap",
+"name": "i – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVII:8"
+},
+{
+"id": "trap-099",
+"genre": "trap",
+"name": "i – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:8 bVII:4"
+},
+{
+"id": "trap-100",
+"genre": "trap",
+"name": "iv – i – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 i:4 bIII:4 bVII:4"
+},
+{
+"id": "dnb-001",
+"genre": "dnb",
+"name": "i7 – iv9 – bVII – bIIImaj9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 iv9:4 bVII:4 bIIImaj9:4"
+},
+{
+"id": "dnb-002",
+"genre": "dnb",
+"name": "i – V7 – bVImaj7 – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 V7:4 bVImaj7:4 bVII:4"
+},
+{
+"id": "dnb-003",
+"genre": "dnb",
+"name": "I – IV – ii – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 IV:4 ii:4 V:4"
+},
+{
+"id": "dnb-004",
+"genre": "dnb",
+"name": "i – iv7 – bVImaj7 – bVII7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv7:4 bVImaj7:4 bVII7:4"
+},
+{
+"id": "dnb-005",
+"genre": "dnb",
+"name": "IVmaj7 – Imaj7 – vi7 – V7",
+"tag": "Classic",
+"mood": "major",
+"chords": "IVmaj7:8 Imaj7:8 vi7:8 V7:8"
+},
+{
+"id": "dnb-006",
+"genre": "dnb",
+"name": "i – bVI – bIII – bVII – i – bVI – iv – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bIII:4 bVII:4 i:4 bVI:4 iv:4 V:4"
+},
+{
+"id": "dnb-007",
+"genre": "dnb",
+"name": "I – V – IV – I",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 V:4 IV:4 I:4"
+},
+{
+"id": "dnb-008",
+"genre": "dnb",
+"name": "I – IV – I – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 IV:4 I:4 V:4"
+},
+{
+"id": "dnb-009",
+"genre": "dnb",
+"name": "i – bIII – iv – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 iv:4 bVII:4"
+},
+{
+"id": "dnb-010",
+"genre": "dnb",
+"name": "i – v – bVI – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 v:4 bVI:4 iv:4"
+},
+{
+"id": "dnb-011",
+"genre": "dnb",
+"name": "i – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVI:8"
+},
+{
+"id": "dnb-012",
+"genre": "dnb",
+"name": "bVImaj9 – bVII – i7 – v",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVImaj9:4 bVII:4 i7:4 v:4"
+},
+{
+"id": "dnb-013",
+"genre": "dnb",
+"name": "i – iv – i – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 i:4 V:4"
+},
+{
+"id": "dnb-014",
+"genre": "dnb",
+"name": "i – bIII – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVI:4 bVII:4"
+},
+{
+"id": "dnb-015",
+"genre": "dnb",
+"name": "bVI – bVII7 – i – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "bVI:4 bVII7:4 i:4 i:4"
+},
+{
+"id": "dnb-016",
+"genre": "dnb",
+"name": "vi – V7 – IVmaj7 – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "vi:4 V7:4 IVmaj7:4 V:4"
+},
+{
+"id": "dnb-017",
+"genre": "dnb",
+"name": "i7 – bIIImaj7 – bVI – bVII7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 bVI:4 bVII7:4"
+},
+{
+"id": "dnb-018",
+"genre": "dnb",
+"name": "i7 – bVImaj7 – bIIImaj7 – bVII9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 bIIImaj7:4 bVII9:4"
+},
+{
+"id": "dnb-019",
+"genre": "dnb",
+"name": "i7 – bVI – bIII – bVII7 – i7 – bVImaj9 – iv7 – V7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 bVI:4 bIII:4 bVII7:4 i7:4 bVImaj9:4 iv7:4 V7:4"
+},
+{
+"id": "dnb-020",
+"genre": "dnb",
+"name": "Imaj7 – iii7 – IVmaj7 – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "Imaj7:4 iii7:4 IVmaj7:4 V:4"
+},
+{
+"id": "dnb-021",
+"genre": "dnb",
+"name": "i – V – i – bVI – i – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:2 i:2 bVI:4 i:2 v:2"
+},
+{
+"id": "dnb-022",
+"genre": "dnb",
+"name": "i – bIII – bVIIsus2 – i9 – V7 – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVIIsus2:2 i9:2 V7:2 v:2"
+},
+{
+"id": "dnb-023",
+"genre": "dnb",
+"name": "i7 – bIIImaj7 – bVII – iv7 – i9 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 bVII:2 iv7:2 i9:2 bVII:2"
+},
+{
+"id": "dnb-024",
+"genre": "dnb",
+"name": "i – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 v:8"
+},
+{
+"id": "dnb-025",
+"genre": "dnb",
+"name": "i9 – v – bIIImaj9 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 v:4 bIIImaj9:4 bVII7:4"
+},
+{
+"id": "dnb-026",
+"genre": "dnb",
+"name": "Imaj7 – vi7 – ii7 – V7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "Imaj7:8 vi7:8 ii7:8 V7:8"
+},
+{
+"id": "dnb-027",
+"genre": "dnb",
+"name": "i – v7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 v7:8"
+},
+{
+"id": "dnb-028",
+"genre": "dnb",
+"name": "i – v9",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 v9:8"
+},
+{
+"id": "dnb-029",
+"genre": "dnb",
+"name": "iv9 – V – i – v7",
+"tag": "Dark",
+"mood": "minor",
+"chords": "iv9:4 V:4 i:4 v7:4"
+},
+{
+"id": "dnb-030",
+"genre": "dnb",
+"name": "i – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII7:8"
+},
+{
+"id": "dnb-031",
+"genre": "dnb",
+"name": "i7 – bVII – bVI – i7 – iv7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 bVI:2 i7:2 iv7:2 bVII:2"
+},
+{
+"id": "dnb-032",
+"genre": "dnb",
+"name": "i – v – bVImaj7 – V – bVI – bVII9 – bIII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:4 bVImaj7:4 V:4 bVI:4 bVII9:4 bIII:4 bVI:4"
+},
+{
+"id": "dnb-033",
+"genre": "dnb",
+"name": "i – bVImaj7 – V7 – i9 – bVII7 – bIII – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 V7:4 i9:4 bVII7:4 bIII:4 iv:4 bVII:4"
+},
+{
+"id": "dnb-034",
+"genre": "dnb",
+"name": "IVmaj7 – I – vi9 – ii – vii7b5 – I – IV – vi",
+"tag": "Tension",
+"mood": "major",
+"chords": "IVmaj7:4 I:4 vi9:4 ii:4 vii7b5:4 I:4 IV:4 vi:4"
+},
+{
+"id": "dnb-035",
+"genre": "dnb",
+"name": "i – bVII7 – bIII – bVII – i7 – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII7:4 bIII:2 bVII:2 i7:2 V7:2"
+},
+{
+"id": "dnb-036",
+"genre": "dnb",
+"name": "i9 – bVImaj7 – i – bVII7 – bIII – bVII9 – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i9:4 bVImaj7:4 i:4 bVII7:4 bIII:4 bVII9:4 bVI:4 bVII:4"
+},
+{
+"id": "dnb-037",
+"genre": "dnb",
+"name": "i – bVImaj7 – iv – bVImaj9 – bVII – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:2 iv:2 bVImaj9:4 bVII:2 V7:2"
+},
+{
+"id": "dnb-038",
+"genre": "dnb",
+"name": "bVI – bVII – i – v9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 bVII:4 i:4 v9:4"
+},
+{
+"id": "dnb-039",
+"genre": "dnb",
+"name": "i – bVII – i – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i:4 v:4"
+},
+{
+"id": "dnb-040",
+"genre": "dnb",
+"name": "I – IVmaj9 – ii – viidim – I – IVmaj7",
+"tag": "Tension",
+"mood": "major",
+"chords": "I:4 IVmaj9:2 ii:2 viidim:4 I:2 IVmaj7:2"
+},
+{
+"id": "dnb-041",
+"genre": "dnb",
+"name": "i – bVI – V – bVII9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:8 V:8 bVII9:8"
+},
+{
+"id": "dnb-042",
+"genre": "dnb",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 V:8"
+},
+{
+"id": "dnb-043",
+"genre": "dnb",
+"name": "i – v – bVI – bVII7 – bIIImaj7 – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:2 bVI:2 bVII7:4 bIIImaj7:2 bVI:2"
+},
+{
+"id": "dnb-044",
+"genre": "dnb",
+"name": "I – IV – Imaj7 – IV",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 IV:4 Imaj7:4 IV:4"
+},
+{
+"id": "dnb-045",
+"genre": "dnb",
+"name": "i7 – bVII – i7 – bVI – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII:4 i7:2 bVI:2 i:2 bVII:2"
+},
+{
+"id": "dnb-046",
+"genre": "dnb",
+"name": "i7 – V – i – bVII7 – iv7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 V:2 i:2 bVII7:4 iv7:2 V:2"
+},
+{
+"id": "dnb-047",
+"genre": "dnb",
+"name": "iv7 – bVImaj7 – bIII – i7 – bVII7 – iv",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 bVImaj7:2 bIII:2 i7:4 bVII7:2 iv:2"
+},
+{
+"id": "dnb-048",
+"genre": "dnb",
+"name": "i7 – bIIImaj9 – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bIIImaj9:4 bVII:4 V:4"
+},
+{
+"id": "dnb-049",
+"genre": "dnb",
+"name": "vi – V7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi:8 V7:8"
+},
+{
+"id": "dnb-050",
+"genre": "dnb",
+"name": "i7 – bVImaj7 – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:8 bVImaj7:8 bIII:8 bVII:8"
+},
+{
+"id": "dnb-051",
+"genre": "dnb",
+"name": "i – bVII7 – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII7:8 bVI:8 bVII:8"
+},
+{
+"id": "dnb-052",
+"genre": "dnb",
+"name": "i9 – bVImaj7 – bIIImaj7 – V",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:8 bVImaj7:8 bIIImaj7:8 V:8"
+},
+{
+"id": "dnb-053",
+"genre": "dnb",
+"name": "i – v – i9 – bVI – bIII – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:2 i9:2 bVI:4 bIII:2 bVII7:2"
+},
+{
+"id": "dnb-054",
+"genre": "dnb",
+"name": "vi7 – ii – viidim – iii – IVsus2 – V",
+"tag": "Tension",
+"mood": "major",
+"chords": "vi7:4 ii:4 viidim:2 iii:2 IVsus2:2 V:2"
+},
+{
+"id": "dnb-055",
+"genre": "dnb",
+"name": "i7 – bVI – bIII – i – bIIImaj9 – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVI:4 bIII:2 i:2 bIIImaj9:2 bVI:2"
+},
+{
+"id": "dnb-056",
+"genre": "dnb",
+"name": "i – bVII – i7 – iv7 – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:2 i7:2 iv7:4 bVII:2 V:2"
+},
+{
+"id": "dnb-057",
+"genre": "dnb",
+"name": "vi – ii7 – V – Isus4",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 ii7:4 V:4 Isus4:4"
+},
+{
+"id": "dnb-058",
+"genre": "dnb",
+"name": "i7 – v – i7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:8 v:8 i7:8 bVII:8"
+},
+{
+"id": "dnb-059",
+"genre": "dnb",
+"name": "i – bVImaj9 – iv – i9 – iv – bVII7 – i7 – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj9:4 iv:4 i9:4 iv:4 bVII7:4 i7:4 v7:4"
+},
+{
+"id": "dnb-060",
+"genre": "dnb",
+"name": "i9 – bIIImaj7 – i – V7 – i – V9 – i7 – bVImaj9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i9:4 bIIImaj7:4 i:4 V7:4 i:4 V9:4 i7:4 bVImaj9:4"
+},
+{
+"id": "dnb-061",
+"genre": "dnb",
+"name": "i – iv – bVI – i – V – i – iv – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVI:4 i:4 V:4 i:4 iv:4 v7:4"
+},
+{
+"id": "dnb-062",
+"genre": "dnb",
+"name": "I – V7 – V7 – Imaj7 – IVmaj7 – vi",
+"tag": "Tension",
+"mood": "major",
+"chords": "I:4 V7:4 V7:2 Imaj7:2 IVmaj7:2 vi:2"
+},
+{
+"id": "dnb-063",
+"genre": "dnb",
+"name": "i7 – V7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 V7:8"
+},
+{
+"id": "dnb-064",
+"genre": "dnb",
+"name": "i7 – V9 – i7 – bVI",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 V9:8 i7:8 bVI:8"
+},
+{
+"id": "dnb-065",
+"genre": "dnb",
+"name": "i7 – bVI – iv – bVImaj7 – bVII7 – i7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVI:2 iv:2 bVImaj7:4 bVII7:2 i7:2"
+},
+{
+"id": "dnb-066",
+"genre": "dnb",
+"name": "Imaj7 – vi – ii – V7 – IV – I",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 vi:2 ii:2 V7:4 IV:2 I:2"
+},
+{
+"id": "dnb-067",
+"genre": "dnb",
+"name": "i7 – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 bVII:8"
+},
+{
+"id": "dnb-068",
+"genre": "dnb",
+"name": "i7 – bVII7 – bIII – i – bVI – bIII – bVImaj7 – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVII7:4 bIII:4 i:4 bVI:4 bIII:4 bVImaj7:4 bVII7:4"
+},
+{
+"id": "dnb-069",
+"genre": "dnb",
+"name": "i – bVII7 – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII7:8 iv:8 bVII:8"
+},
+{
+"id": "dnb-070",
+"genre": "dnb",
+"name": "i – bIII – bVImaj7 – i – bVII7 – i7 – iv – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVImaj7:4 i:4 bVII7:4 i7:4 iv:4 V:4"
+},
+{
+"id": "dnb-071",
+"genre": "dnb",
+"name": "i7 – bVImaj7 – bVII – i – iv – V – i – V9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 bVII:4 i:4 iv:4 V:4 i:4 V9:4"
+},
+{
+"id": "dnb-072",
+"genre": "dnb",
+"name": "i – bVII – i – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:8 i:8 bVII7:8"
+},
+{
+"id": "dnb-073",
+"genre": "dnb",
+"name": "bVI – iv – V – i7 – iv – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 iv:2 V:2 i7:4 iv:2 bVI:2"
+},
+{
+"id": "dnb-074",
+"genre": "dnb",
+"name": "i7 – bVI – bVII – bIII – i7 – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVI:2 bVII:2 bIII:4 i7:2 bVII7:2"
+},
+{
+"id": "dnb-075",
+"genre": "dnb",
+"name": "i7 – v",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 v:8"
+},
+{
+"id": "dnb-076",
+"genre": "dnb",
+"name": "Imaj7 – IVmaj7 – I – IVmaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 IVmaj7:4 I:4 IVmaj7:4"
+},
+{
+"id": "dnb-077",
+"genre": "dnb",
+"name": "i – iv – bVII – i7 – bVII7 – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVII:2 i7:2 bVII7:2 bVI:2"
+},
+{
+"id": "dnb-078",
+"genre": "dnb",
+"name": "i – bIII – iv – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 iv:4 v:4"
+},
+{
+"id": "dnb-079",
+"genre": "dnb",
+"name": "i7 – iv – bVI – bVII9 – bIIImaj7 – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv:4 bVI:2 bVII9:2 bIIImaj7:2 bVImaj7:2"
+},
+{
+"id": "dnb-080",
+"genre": "dnb",
+"name": "i7 – bVI – bVII7 – bIII – bVII – i7 – v7 – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 bVI:4 bVII7:4 bIII:4 bVII:4 i7:4 v7:4 bVII7:4"
+},
+{
+"id": "dnb-081",
+"genre": "dnb",
+"name": "I – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:8 V:8"
+},
+{
+"id": "dnb-082",
+"genre": "dnb",
+"name": "i7 – v7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 v7:8"
+},
+{
+"id": "dnb-083",
+"genre": "dnb",
+"name": "I – ii – V7 – vi7 – V – Imaj7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 ii:2 V7:2 vi7:4 V:2 Imaj7:2"
+},
+{
+"id": "dnb-084",
+"genre": "dnb",
+"name": "iv – i – iv – V7",
+"tag": "Dark",
+"mood": "minor",
+"chords": "iv:4 i:4 iv:4 V7:4"
+},
+{
+"id": "dnb-085",
+"genre": "dnb",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII:8"
+},
+{
+"id": "dnb-086",
+"genre": "dnb",
+"name": "i9 – iv – V – i – iv7 – bVIIsus2",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i9:4 iv:4 V:2 i:2 iv7:2 bVIIsus2:2"
+},
+{
+"id": "dnb-087",
+"genre": "dnb",
+"name": "vi7 – V9",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi7:8 V9:8"
+},
+{
+"id": "dnb-088",
+"genre": "dnb",
+"name": "bVI – i – bVII – i7 – bVI – bIII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVI:4 i:2 bVII:2 i7:4 bVI:2 bIII:2"
+},
+{
+"id": "dnb-089",
+"genre": "dnb",
+"name": "i7 – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 bVII7:8"
+},
+{
+"id": "dnb-090",
+"genre": "dnb",
+"name": "vi – IVmaj7 – Imaj9 – vi7 – ii7 – Imaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi:4 IVmaj7:4 Imaj9:2 vi7:2 ii7:2 Imaj7:2"
+},
+{
+"id": "dnb-091",
+"genre": "dnb",
+"name": "i7 – bVImaj7 – iv – bVImaj7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 iv:4 bVImaj7:4"
+},
+{
+"id": "dnb-092",
+"genre": "dnb",
+"name": "i7 – iv – bVII – bIIImaj7 – iv – bVII – bVI – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv:4 bVII:4 bIIImaj7:4 iv:4 bVII:4 bVI:4 v:4"
+},
+{
+"id": "dnb-093",
+"genre": "dnb",
+"name": "iv – V – i7 – bVI – iv7 – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 V:4 i7:2 bVI:2 iv7:2 V7:2"
+},
+{
+"id": "dnb-094",
+"genre": "dnb",
+"name": "iv7 – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv7:8 V:8"
+},
+{
+"id": "dnb-095",
+"genre": "dnb",
+"name": "i – bVI – V – i – bVI – v9",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 V:2 i:2 bVI:2 v9:2"
+},
+{
+"id": "dnb-096",
+"genre": "dnb",
+"name": "i – V7 – i7 – bVII9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i:8 V7:8 i7:8 bVII9:8"
+},
+{
+"id": "dnb-097",
+"genre": "dnb",
+"name": "i – bVImaj7 – V – bVImaj7 – iv – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVImaj7:2 V:2 bVImaj7:4 iv:2 V:2"
+},
+{
+"id": "dnb-098",
+"genre": "dnb",
+"name": "i – iv – bVII7 – bIII – iv7 – bVImaj7 – bVII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVII7:4 bIII:4 iv7:4 bVImaj7:4 bVII:4 V:4"
+},
+{
+"id": "dnb-099",
+"genre": "dnb",
+"name": "bVImaj7 – bIIImaj7 – bVII – iv7 – bVII – i7 – bVII – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj7:4 bIIImaj7:4 bVII:4 iv7:4 bVII:4 i7:4 bVII:4 bVImaj7:4"
+},
+{
+"id": "dnb-100",
+"genre": "dnb",
+"name": "i7 – iv9 – V9 – i – iv – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv9:4 V9:2 i:2 iv:2 bVImaj7:2"
+},
+{
+"id": "halftime-001",
+"genre": "halftime",
+"name": "i7 – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:8 bVII:8"
+},
+{
+"id": "halftime-002",
+"genre": "halftime",
+"name": "i – V – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 V:8 bVI:8 bVII:8"
+},
+{
+"id": "halftime-003",
+"genre": "halftime",
+"name": "i – iv – bVI – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVI:4 bVII:4"
+},
+{
+"id": "halftime-004",
+"genre": "halftime",
+"name": "iv – i – bVII – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "iv:4 i:4 bVII:4 bVI:4"
+},
+{
+"id": "halftime-005",
+"genre": "halftime",
+"name": "i7 – bVI – iv7 – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:8 bVI:8 iv7:8 V:8"
+},
+{
+"id": "halftime-006",
+"genre": "halftime",
+"name": "IV – V – iii – vi",
+"tag": "Classic",
+"mood": "major",
+"chords": "IV:4 V:4 iii:4 vi:4"
+},
+{
+"id": "halftime-007",
+"genre": "halftime",
+"name": "iv – i7 – bVII7 – bVImaj9",
+"tag": "Classic",
+"mood": "minor",
+"chords": "iv:8 i7:8 bVII7:8 bVImaj9:8"
+},
+{
+"id": "halftime-008",
+"genre": "halftime",
+"name": "i7 – iv – V – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i7:4 iv:4 V:4 i:4"
+},
+{
+"id": "halftime-009",
+"genre": "halftime",
+"name": "i – bVI",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bVI:8"
+},
+{
+"id": "halftime-010",
+"genre": "halftime",
+"name": "i – bIII – bVII – iv",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:8 bIII:8 bVII:8 iv:8"
+},
+{
+"id": "halftime-011",
+"genre": "halftime",
+"name": "i – bVII – bVI – bVII – i – bVII – bVI – V",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVII:4 bVI:4 bVII:4 i:4 bVII:4 bVI:4 V:4"
+},
+{
+"id": "halftime-012",
+"genre": "halftime",
+"name": "i – iv – V – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 V:4 i:4"
+},
+{
+"id": "halftime-013",
+"genre": "halftime",
+"name": "i – bVI – bVII – i",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:4 i:4"
+},
+{
+"id": "halftime-014",
+"genre": "halftime",
+"name": "IV – Imaj7 – vi7 – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "IV:4 Imaj7:4 vi7:4 V:4"
+},
+{
+"id": "halftime-015",
+"genre": "halftime",
+"name": "i – bIII – iv – bVII",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 bIII:4 iv:4 bVII:4"
+},
+{
+"id": "halftime-016",
+"genre": "halftime",
+"name": "vi7 – IVmaj7 – I – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "vi7:8 IVmaj7:8 I:8 V:8"
+},
+{
+"id": "halftime-017",
+"genre": "halftime",
+"name": "i – iv – bVII – bIIImaj7",
+"tag": "Classic",
+"mood": "minor",
+"chords": "i:4 iv:4 bVII:4 bIIImaj7:4"
+},
+{
+"id": "halftime-018",
+"genre": "halftime",
+"name": "I – IV – I – V7",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 IV:8 I:8 V7:8"
+},
+{
+"id": "halftime-019",
+"genre": "halftime",
+"name": "I – V – vi – IV",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:8 V:8 vi:8 IV:8"
+},
+{
+"id": "halftime-020",
+"genre": "halftime",
+"name": "I – iii – IV – V",
+"tag": "Classic",
+"mood": "major",
+"chords": "I:4 iii:4 IV:4 V:4"
+},
+{
+"id": "halftime-021",
+"genre": "halftime",
+"name": "i – bVI – iv – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:8 iv:8 bVII7:8"
+},
+{
+"id": "halftime-022",
+"genre": "halftime",
+"name": "i – bIIImaj7 – iv7 – bVII7 – i – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIIImaj7:2 iv7:2 bVII7:4 i:2 bVImaj7:2"
+},
+{
+"id": "halftime-023",
+"genre": "halftime",
+"name": "i – bIIImaj7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIIImaj7:8 V:4"
+},
+{
+"id": "halftime-024",
+"genre": "halftime",
+"name": "i – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVII:8"
+},
+{
+"id": "halftime-025",
+"genre": "halftime",
+"name": "i – iv – bVII – bVI – i7 – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv:2 bVII:2 bVI:4 i7:2 V:2"
+},
+{
+"id": "halftime-026",
+"genre": "halftime",
+"name": "i – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVII7:16"
+},
+{
+"id": "halftime-027",
+"genre": "halftime",
+"name": "iv – bVII7 – bIIImaj7 – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 bVII7:4 bIIImaj7:4 bVI:4"
+},
+{
+"id": "halftime-028",
+"genre": "halftime",
+"name": "Imaj7 – vi – I",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 vi:4 I:8"
+},
+{
+"id": "halftime-029",
+"genre": "halftime",
+"name": "i7 – bVI – bVII7 – bIII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:8 bVI:8 bVII7:8 bIII:8"
+},
+{
+"id": "halftime-030",
+"genre": "halftime",
+"name": "i – bVI – bIIImaj7 – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVI:8 bIIImaj7:8 bVImaj7:8"
+},
+{
+"id": "halftime-031",
+"genre": "halftime",
+"name": "vi – ii7 – V7 – vi7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "vi:8 ii7:8 V7:8 vi7:8"
+},
+{
+"id": "halftime-032",
+"genre": "halftime",
+"name": "i – bVII7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII7:8"
+},
+{
+"id": "halftime-033",
+"genre": "halftime",
+"name": "iv – bVII7 – i – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv:4 bVII7:4 i:4 v7:4"
+},
+{
+"id": "halftime-034",
+"genre": "halftime",
+"name": "i7 – V – i7 – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:4 V:4 i7:4 V:4"
+},
+{
+"id": "halftime-035",
+"genre": "halftime",
+"name": "vi – IVmaj7 – ii – V – I – V",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 IVmaj7:2 ii:2 V:4 I:2 V:2"
+},
+{
+"id": "halftime-036",
+"genre": "halftime",
+"name": "iv7 – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv7:16 bVII:16"
+},
+{
+"id": "halftime-037",
+"genre": "halftime",
+"name": "i – bVII7 – bIII – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII7:4 bIII:4 bVII:4"
+},
+{
+"id": "halftime-038",
+"genre": "halftime",
+"name": "Imaj9 – bVII – IV – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj9:4 bVII:4 IV:4 V:4"
+},
+{
+"id": "halftime-039",
+"genre": "halftime",
+"name": "I – IV – Imaj9",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 IV:4 Imaj9:8"
+},
+{
+"id": "halftime-040",
+"genre": "halftime",
+"name": "vi – IVmaj7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "vi:8 IVmaj7:8"
+},
+{
+"id": "halftime-041",
+"genre": "halftime",
+"name": "I – IV",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:16 IV:16"
+},
+{
+"id": "halftime-042",
+"genre": "halftime",
+"name": "i9 – v – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i9:4 v:4 bVI:4 bVII:4"
+},
+{
+"id": "halftime-043",
+"genre": "halftime",
+"name": "i7 – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:8 V:8"
+},
+{
+"id": "halftime-044",
+"genre": "halftime",
+"name": "i – v – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 v:8 bVII7:4"
+},
+{
+"id": "halftime-045",
+"genre": "halftime",
+"name": "IV – ii7 – IV – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "IV:4 ii7:4 IV:4 V:4"
+},
+{
+"id": "halftime-046",
+"genre": "halftime",
+"name": "i7 – iv9 – i7 – iv7 – V – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 iv9:2 i7:2 iv7:4 V:2 bVII7:2"
+},
+{
+"id": "halftime-047",
+"genre": "halftime",
+"name": "i – bVI – V7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 V7:8"
+},
+{
+"id": "halftime-048",
+"genre": "halftime",
+"name": "i – V – i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:4 V:4 i:4 V:4"
+},
+{
+"id": "halftime-049",
+"genre": "halftime",
+"name": "I – bVII – I – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 bVII:4 I:4 V:4"
+},
+{
+"id": "halftime-050",
+"genre": "halftime",
+"name": "iv7 – bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv7:8 bVI:8"
+},
+{
+"id": "halftime-051",
+"genre": "halftime",
+"name": "i7 – iv7 – bVII",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 iv7:4 bVII:4"
+},
+{
+"id": "halftime-052",
+"genre": "halftime",
+"name": "i – v9",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 v9:16"
+},
+{
+"id": "halftime-053",
+"genre": "halftime",
+"name": "i7 – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:16 V:16"
+},
+{
+"id": "halftime-054",
+"genre": "halftime",
+"name": "i – V – i – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 V:4 i:4 bVII:4"
+},
+{
+"id": "halftime-055",
+"genre": "halftime",
+"name": "i – bVI",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVI:16"
+},
+{
+"id": "halftime-056",
+"genre": "halftime",
+"name": "bVImaj7 – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVImaj7:8 V:8"
+},
+{
+"id": "halftime-057",
+"genre": "halftime",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 bVII:8"
+},
+{
+"id": "halftime-058",
+"genre": "halftime",
+"name": "i – bVI – bVIIsus2 – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 bVIIsus2:4 i:4"
+},
+{
+"id": "halftime-059",
+"genre": "halftime",
+"name": "Imaj7 – IV – Imaj7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "Imaj7:8 IV:4 Imaj7:4"
+},
+{
+"id": "halftime-060",
+"genre": "halftime",
+"name": "i – V9 – i – V7",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 V9:4 i:4 V7:4"
+},
+{
+"id": "halftime-061",
+"genre": "halftime",
+"name": "i – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 bVII:16"
+},
+{
+"id": "halftime-062",
+"genre": "halftime",
+"name": "i7 – V – bVImaj7 – bVII – bIIImaj7 – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 V:2 bVImaj7:2 bVII:4 bIIImaj7:2 bVII7:2"
+},
+{
+"id": "halftime-063",
+"genre": "halftime",
+"name": "i – iv7 – V – bVII7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 iv7:8 V:8 bVII7:8"
+},
+{
+"id": "halftime-064",
+"genre": "halftime",
+"name": "I – V – vi",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 V:4 vi:8"
+},
+{
+"id": "halftime-065",
+"genre": "halftime",
+"name": "i – bVII – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bVII:4 bVI:4"
+},
+{
+"id": "halftime-066",
+"genre": "halftime",
+"name": "i – bVImaj7 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i:4 bVImaj7:4 V7:8"
+},
+{
+"id": "halftime-067",
+"genre": "halftime",
+"name": "i – bIII – bVII7 – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 bVII7:4 v7:4"
+},
+{
+"id": "halftime-068",
+"genre": "halftime",
+"name": "bVImaj7 – i – bVImaj7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "bVImaj7:8 i:8 bVImaj7:8 bVII:8"
+},
+{
+"id": "halftime-069",
+"genre": "halftime",
+"name": "IV – I",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "IV:16 I:16"
+},
+{
+"id": "halftime-070",
+"genre": "halftime",
+"name": "i – bIII – iv – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 iv:4 v7:4"
+},
+{
+"id": "halftime-071",
+"genre": "halftime",
+"name": "I – IVmaj7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:16 IVmaj7:16"
+},
+{
+"id": "halftime-072",
+"genre": "halftime",
+"name": "i – bIII – bVII7 – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIII:8 bVII7:8 bVImaj7:8"
+},
+{
+"id": "halftime-073",
+"genre": "halftime",
+"name": "Imaj7 – V – I – V7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 V:4 I:4 V7:4"
+},
+{
+"id": "halftime-074",
+"genre": "halftime",
+"name": "i7 – v7 – bVI – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 v7:4 bVI:4 V:4"
+},
+{
+"id": "halftime-075",
+"genre": "halftime",
+"name": "iv7 – i7 – bIII – iv7 – V7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "iv7:4 i7:2 bIII:2 iv7:4 V7:2 bVII:2"
+},
+{
+"id": "halftime-076",
+"genre": "halftime",
+"name": "i – bVII9 – iv – V – i – v7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII9:2 iv:2 V:4 i:2 v7:2"
+},
+{
+"id": "halftime-077",
+"genre": "halftime",
+"name": "I – V7 – vi – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 V7:4 vi:4 V:4"
+},
+{
+"id": "halftime-078",
+"genre": "halftime",
+"name": "i7 – iv – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i7:4 iv:4 bVII:8"
+},
+{
+"id": "halftime-079",
+"genre": "halftime",
+"name": "vi – IV – V7 – I",
+"tag": "Bright",
+"mood": "major",
+"chords": "vi:4 IV:4 V7:4 I:4"
+},
+{
+"id": "halftime-080",
+"genre": "halftime",
+"name": "I – vi – V7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:4 vi:8 V7:4"
+},
+{
+"id": "halftime-081",
+"genre": "halftime",
+"name": "I – V",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "I:8 V:8"
+},
+{
+"id": "halftime-082",
+"genre": "halftime",
+"name": "i – bVII – i7 – v",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII:4 i7:4 v:4"
+},
+{
+"id": "halftime-083",
+"genre": "halftime",
+"name": "i – iv7 – i7 – bVII7 – bVImaj7 – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 iv7:2 i7:2 bVII7:4 bVImaj7:2 bVII:2"
+},
+{
+"id": "halftime-084",
+"genre": "halftime",
+"name": "I – V7 – I – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "I:8 V7:8 I:8 V:8"
+},
+{
+"id": "halftime-085",
+"genre": "halftime",
+"name": "i – v7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:8 v7:8"
+},
+{
+"id": "halftime-086",
+"genre": "halftime",
+"name": "i7 – V7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:16 V7:16"
+},
+{
+"id": "halftime-087",
+"genre": "halftime",
+"name": "Imaj7 – vi – IV – Imaj7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:8 vi:8 IV:8 Imaj7:8"
+},
+{
+"id": "halftime-088",
+"genre": "halftime",
+"name": "Imaj7 – vi – V7 – vi7 – ii – V7",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 vi:2 V7:2 vi7:4 ii:2 V7:2"
+},
+{
+"id": "halftime-089",
+"genre": "halftime",
+"name": "i – bIII – V",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIII:4 V:8"
+},
+{
+"id": "halftime-090",
+"genre": "halftime",
+"name": "i7 – bVII7 – i",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVII7:8 i:4"
+},
+{
+"id": "halftime-091",
+"genre": "halftime",
+"name": "iv – v7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "iv:16 v7:16"
+},
+{
+"id": "halftime-092",
+"genre": "halftime",
+"name": "i – bIIImaj7 – bVI – bVII",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bIIImaj7:4 bVI:4 bVII:4"
+},
+{
+"id": "halftime-093",
+"genre": "halftime",
+"name": "i – bIIImaj7 – bVImaj7 – i",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:8 bIIImaj7:8 bVImaj7:8 i:8"
+},
+{
+"id": "halftime-094",
+"genre": "halftime",
+"name": "Imaj7 – V7 – Imaj7 – IVmaj7 – iv – V",
+"tag": "Uplifting",
+"mood": "major",
+"chords": "Imaj7:4 V7:2 Imaj7:2 IVmaj7:4 iv:2 V:2"
+},
+{
+"id": "halftime-095",
+"genre": "halftime",
+"name": "i – bVI – V7 – bVImaj7",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVI:4 V7:4 bVImaj7:4"
+},
+{
+"id": "halftime-096",
+"genre": "halftime",
+"name": "i – V",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i:16 V:16"
+},
+{
+"id": "halftime-097",
+"genre": "halftime",
+"name": "IV – Imaj7",
+"tag": "Hypnotic",
+"mood": "major",
+"chords": "IV:8 Imaj7:8"
+},
+{
+"id": "halftime-098",
+"genre": "halftime",
+"name": "bVImaj9 – bVII",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "bVImaj9:8 bVII:8"
+},
+{
+"id": "halftime-099",
+"genre": "halftime",
+"name": "i – bVII7 – i – iv – i – bVI",
+"tag": "Cinematic",
+"mood": "minor",
+"chords": "i:4 bVII7:2 i:2 iv:4 i:2 bVI:2"
+},
+{
+"id": "halftime-100",
+"genre": "halftime",
+"name": "i – v – V7",
+"tag": "Dark",
+"mood": "minor",
+"chords": "i:4 v:4 V7:8"
+},
+{
+"id": "jazz-001",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "ii7:4 V7:4 Imaj7:4 Imaj7:4"
+},
+{
+"id": "jazz-002",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "ii7:8 V7:8 Imaj7:8 Imaj7:8"
+},
+{
+"id": "jazz-003",
+"genre": "jazz",
+"name": "iii7 – vi7 – ii7 – V7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "iii7:4 vi7:4 ii7:4 V7:4 Imaj7:4"
+},
+{
+"id": "jazz-004",
+"genre": "jazz",
+"name": "Imaj7 – vi7 – ii7 – V7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:4 vi7:4 ii7:4 V7:4"
+},
+{
+"id": "jazz-005",
+"genre": "jazz",
+"name": "Imaj7 – vi7 – ii7 – V7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:8 vi7:8 ii7:8 V7:8"
+},
+{
+"id": "jazz-006",
+"genre": "jazz",
+"name": "Imaj7 – IVmaj7 – iii7 – vi7 – ii7 – V7 – Imaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:4 IVmaj7:4 iii7:4 vi7:4 ii7:4 V7:4 Imaj7:4 Imaj7:4"
+},
+{
+"id": "jazz-007",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – vi7",
+"tag": "Standards",
+"mood": "major",
+"chords": "ii7:4 V7:4 Imaj7:4 vi7:4"
+},
+{
+"id": "jazz-008",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – vi7",
+"tag": "Standards",
+"mood": "major",
+"chords": "ii7:8 V7:8 Imaj7:8 vi7:8"
+},
+{
+"id": "jazz-009",
+"genre": "jazz",
+"name": "Imaj7 – bIII7 – IVmaj7 – bVII7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:4 bIII7:4 IVmaj7:4 bVII7:4"
+},
+{
+"id": "jazz-010",
+"genre": "jazz",
+"name": "Imaj7 – bIII7 – IVmaj7 – bVII7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:8 bIII7:8 IVmaj7:8 bVII7:8"
+},
+{
+"id": "jazz-011",
+"genre": "jazz",
+"name": "Imaj7 – ii7 – iii7 – IVmaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:4 ii7:4 iii7:4 IVmaj7:4"
+},
+{
+"id": "jazz-012",
+"genre": "jazz",
+"name": "Imaj7 – ii7 – iii7 – IVmaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:8 ii7:8 iii7:8 IVmaj7:8"
+},
+{
+"id": "jazz-013",
+"genre": "jazz",
+"name": "IVmaj7 – bVII7 – Imaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "IVmaj7:4 bVII7:4 Imaj7:4 Imaj7:4"
+},
+{
+"id": "jazz-014",
+"genre": "jazz",
+"name": "IVmaj7 – bVII7 – Imaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "IVmaj7:8 bVII7:8 Imaj7:8 Imaj7:8"
+},
+{
+"id": "jazz-015",
+"genre": "jazz",
+"name": "ii7 – bII7 – Imaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "ii7:4 bII7:4 Imaj7:4 Imaj7:4"
+},
+{
+"id": "jazz-016",
+"genre": "jazz",
+"name": "ii7 – bII7 – Imaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "ii7:8 bII7:8 Imaj7:8 Imaj7:8"
+},
+{
+"id": "jazz-017",
+"genre": "jazz",
+"name": "Imaj7 – vi7 – IVmaj7 – V7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:4 vi7:4 IVmaj7:4 V7:4"
+},
+{
+"id": "jazz-018",
+"genre": "jazz",
+"name": "Imaj7 – vi7 – IVmaj7 – V7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:8 vi7:8 IVmaj7:8 V7:8"
+},
+{
+"id": "jazz-019",
+"genre": "jazz",
+"name": "iii7 – bIII7 – ii7 – V7",
+"tag": "Standards",
+"mood": "major",
+"chords": "iii7:4 bIII7:4 ii7:4 V7:4"
+},
+{
+"id": "jazz-020",
+"genre": "jazz",
+"name": "iii7 – bIII7 – ii7 – V7",
+"tag": "Standards",
+"mood": "major",
+"chords": "iii7:8 bIII7:8 ii7:8 V7:8"
+},
+{
+"id": "jazz-021",
+"genre": "jazz",
+"name": "Imaj7 – bVII7 – IVmaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:4 bVII7:4 IVmaj7:4 Imaj7:4"
+},
+{
+"id": "jazz-022",
+"genre": "jazz",
+"name": "Imaj7 – bVII7 – IVmaj7 – Imaj7",
+"tag": "Standards",
+"mood": "major",
+"chords": "Imaj7:8 bVII7:8 IVmaj7:8 Imaj7:8"
+},
+{
+"id": "jazz-023",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – i7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "ii7b5:4 V7:4 i7:4 i7:4"
+},
+{
+"id": "jazz-024",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – i7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "ii7b5:8 V7:8 i7:8 i7:8"
+},
+{
+"id": "jazz-025",
+"genre": "jazz",
+"name": "i7 – iv7 – bVII7 – bIIImaj7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:4 iv7:4 bVII7:4 bIIImaj7:4"
+},
+{
+"id": "jazz-026",
+"genre": "jazz",
+"name": "i7 – iv7 – bVII7 – bIIImaj7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:8 iv7:8 bVII7:8 bIIImaj7:8"
+},
+{
+"id": "jazz-027",
+"genre": "jazz",
+"name": "i7 – bVImaj7 – ii7b5 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 ii7b5:4 V7:4"
+},
+{
+"id": "jazz-028",
+"genre": "jazz",
+"name": "i7 – bVImaj7 – ii7b5 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:8 bVImaj7:8 ii7b5:8 V7:8"
+},
+{
+"id": "jazz-029",
+"genre": "jazz",
+"name": "iv7 – bVII7 – bIIImaj7 – bVImaj7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "iv7:4 bVII7:4 bIIImaj7:4 bVImaj7:4"
+},
+{
+"id": "jazz-030",
+"genre": "jazz",
+"name": "iv7 – bVII7 – bIIImaj7 – bVImaj7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "iv7:8 bVII7:8 bIIImaj7:8 bVImaj7:8"
+},
+{
+"id": "jazz-031",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – iv7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "ii7b5:4 V7:4 i7:4 iv7:4"
+},
+{
+"id": "jazz-032",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – iv7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "ii7b5:8 V7:8 i7:8 iv7:8"
+},
+{
+"id": "jazz-033",
+"genre": "jazz",
+"name": "i7 – bVII7 – bVImaj7 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:4 bVII7:4 bVImaj7:4 V7:4"
+},
+{
+"id": "jazz-034",
+"genre": "jazz",
+"name": "i7 – bVII7 – bVImaj7 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:8 bVII7:8 bVImaj7:8 V7:8"
+},
+{
+"id": "jazz-035",
+"genre": "jazz",
+"name": "i7 – iv7 – v7 – i7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:4 iv7:4 v7:4 i7:4"
+},
+{
+"id": "jazz-036",
+"genre": "jazz",
+"name": "i7 – iv7 – v7 – i7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:8 iv7:8 v7:8 i7:8"
+},
+{
+"id": "jazz-037",
+"genre": "jazz",
+"name": "bIIImaj7 – bVImaj7 – ii7b5 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "bIIImaj7:4 bVImaj7:4 ii7b5:4 V7:4"
+},
+{
+"id": "jazz-038",
+"genre": "jazz",
+"name": "bIIImaj7 – bVImaj7 – ii7b5 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "bIIImaj7:8 bVImaj7:8 ii7b5:8 V7:8"
+},
+{
+"id": "jazz-039",
+"genre": "jazz",
+"name": "i7 – i7 – iv7 – iv7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:4 i7:4 iv7:4 iv7:4"
+},
+{
+"id": "jazz-040",
+"genre": "jazz",
+"name": "i7 – i7 – iv7 – iv7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:8 i7:8 iv7:8 iv7:8"
+},
+{
+"id": "jazz-041",
+"genre": "jazz",
+"name": "i7 – bIIImaj7 – iv7 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 iv7:4 V7:4"
+},
+{
+"id": "jazz-042",
+"genre": "jazz",
+"name": "i7 – bIIImaj7 – iv7 – V7",
+"tag": "Standards",
+"mood": "minor",
+"chords": "i7:8 bIIImaj7:8 iv7:8 V7:8"
+},
+{
+"id": "jazz-043",
+"genre": "jazz",
+"name": "bVImaj7 – ii7b5 – V7 – i7 – ii7b5 – bVImaj7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "bVImaj7:4 ii7b5:4 V7:2 i7:2 ii7b5:2 bVImaj7:2"
+},
+{
+"id": "jazz-044",
+"genre": "jazz",
+"name": "i7 – bIIImaj7 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 bIIImaj7:4 V7:4"
+},
+{
+"id": "jazz-045",
+"genre": "jazz",
+"name": "ii7 – V7 – VI7 – V7 – iii7 – Imaj7 – iii7 – iii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "ii7:4 V7:4 VI7:4 V7:4 iii7:4 Imaj7:4 iii7:4 iii7:4"
+},
+{
+"id": "jazz-046",
+"genre": "jazz",
+"name": "i7 – bVImaj9 – bVII9 – bVImaj7 – bIIImaj9 – v7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj9:2 bVII9:2 bVImaj7:4 bIIImaj9:2 v7:2"
+},
+{
+"id": "jazz-047",
+"genre": "jazz",
+"name": "V7 – i7 – bVImaj7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "V7:8 i7:4 bVImaj7:4"
+},
+{
+"id": "jazz-048",
+"genre": "jazz",
+"name": "vi7 – ii7 – V7 – Imaj7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "vi7:4 ii7:4 V7:4 Imaj7:4"
+},
+{
+"id": "jazz-049",
+"genre": "jazz",
+"name": "vi7 – ii7 – V7 – Imaj7 – iii7 – vi7 – iii7 – iii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "vi7:4 ii7:4 V7:4 Imaj7:4 iii7:4 vi7:4 iii7:4 iii7:4"
+},
+{
+"id": "jazz-050",
+"genre": "jazz",
+"name": "V7 – i7 – ii7b5 – ii7b5 – i7 – i7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "V7:4 i7:2 ii7b5:2 ii7b5:4 i7:2 i7:2"
+},
+{
+"id": "jazz-051",
+"genre": "jazz",
+"name": "iv9 – bVII7 – bVImaj7 – bVII9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "iv9:4 bVII7:4 bVImaj7:4 bVII9:4"
+},
+{
+"id": "jazz-052",
+"genre": "jazz",
+"name": "Imaj7 – IVmaj7 – V7 – IVmaj7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 IVmaj7:8 V7:8 IVmaj7:8"
+},
+{
+"id": "jazz-053",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – ii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "ii7:4 V7:4 Imaj7:4 ii7:4"
+},
+{
+"id": "jazz-054",
+"genre": "jazz",
+"name": "Imaj7 – bVII9 – IVmaj9 – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:8 bVII9:8 IVmaj9:8 V9:8"
+},
+{
+"id": "jazz-055",
+"genre": "jazz",
+"name": "V7 – VI7 – ii7 – iii7 – iii7 – iii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "V7:4 VI7:2 ii7:2 iii7:4 iii7:2 iii7:2"
+},
+{
+"id": "jazz-056",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "ii7:4 V7:4 Imaj7:8"
+},
+{
+"id": "jazz-057",
+"genre": "jazz",
+"name": "i7 – bVImaj9 – bVII9 – bIIImaj9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 bVImaj9:8 bVII9:8 bIIImaj9:8"
+},
+{
+"id": "jazz-058",
+"genre": "jazz",
+"name": "i9 – bVII7 – bIIImaj7 – V9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:8 bVII7:8 bIIImaj7:8 V9:8"
+},
+{
+"id": "jazz-059",
+"genre": "jazz",
+"name": "Imaj7 – V7 – vi9 – IVmaj7 – Imaj7 – V7",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 V7:2 vi9:2 IVmaj7:4 Imaj7:2 V7:2"
+},
+{
+"id": "jazz-060",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – iii7 – V7 – Imaj7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "ii7:4 V7:4 Imaj7:2 iii7:2 V7:2 Imaj7:2"
+},
+{
+"id": "jazz-061",
+"genre": "jazz",
+"name": "i9 – iv7 – V7 – i9 – iv9 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 iv7:4 V7:2 i9:2 iv9:2 bVII7:2"
+},
+{
+"id": "jazz-062",
+"genre": "jazz",
+"name": "i9 – bVII7 – iv9 – bVII9 – i7 – v9 – bIIImaj9 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i9:4 bVII7:4 iv9:4 bVII9:4 i7:4 v9:4 bIIImaj9:4 bVII7:4"
+},
+{
+"id": "jazz-063",
+"genre": "jazz",
+"name": "vi7 – ii7 – V7 – Imaj7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "vi7:8 ii7:8 V7:8 Imaj7:8"
+},
+{
+"id": "jazz-064",
+"genre": "jazz",
+"name": "I – ii7 – V9 – Imaj7 – vi7 – ii9",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "I:4 ii7:4 V9:2 Imaj7:2 vi7:2 ii9:2"
+},
+{
+"id": "jazz-065",
+"genre": "jazz",
+"name": "IVmaj7 – ii9 – vii7b5 – iii9 – IVmaj7 – vi9",
+"tag": "Tension",
+"mood": "major",
+"chords": "IVmaj7:4 ii9:2 vii7b5:2 iii9:4 IVmaj7:2 vi9:2"
+},
+{
+"id": "jazz-066",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – ii7b5 – ii7b5 – ii7b5",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "ii7b5:4 V7:2 i7:2 ii7b5:4 ii7b5:2 ii7b5:2"
+},
+{
+"id": "jazz-067",
+"genre": "jazz",
+"name": "bVImaj7 – ii7b5 – V7 – i7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "bVImaj7:4 ii7b5:4 V7:4 i7:4"
+},
+{
+"id": "jazz-068",
+"genre": "jazz",
+"name": "i7 – bVII7 – bIIImaj7 – V9",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVII7:4 bIIImaj7:4 V9:4"
+},
+{
+"id": "jazz-069",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – bVImaj7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "ii7b5:8 V7:8 i7:8 bVImaj7:8"
+},
+{
+"id": "jazz-070",
+"genre": "jazz",
+"name": "V7 – Imaj7 – vi7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "V7:8 Imaj7:4 vi7:4"
+},
+{
+"id": "jazz-071",
+"genre": "jazz",
+"name": "vi7 – ii7 – V7 – Imaj7 – VI7 – ii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "vi7:4 ii7:4 V7:2 Imaj7:2 VI7:2 ii7:2"
+},
+{
+"id": "jazz-072",
+"genre": "jazz",
+"name": "vi7 – IVmaj7 – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "vi7:4 IVmaj7:4 V9:8"
+},
+{
+"id": "jazz-073",
+"genre": "jazz",
+"name": "V7 – i7 – i7 – i7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "V7:4 i7:4 i7:4 i7:4"
+},
+{
+"id": "jazz-074",
+"genre": "jazz",
+"name": "i7 – bVII7 – i7 – bIIImaj9 – bVII9 – i9 – bVII7 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVII7:4 i7:4 bIIImaj9:4 bVII9:4 i9:4 bVII7:4 V7:4"
+},
+{
+"id": "jazz-075",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – ii7 – V7 – V7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "ii7:4 V7:2 Imaj7:2 ii7:4 V7:2 V7:2"
+},
+{
+"id": "jazz-076",
+"genre": "jazz",
+"name": "IVmaj7 – vi9 – V9 – Imaj7 – bVII9 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "IVmaj7:4 vi9:4 V9:2 Imaj7:2 bVII9:2 Imaj9:2"
+},
+{
+"id": "jazz-077",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – bVImaj7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "ii7b5:4 V7:4 i7:4 bVImaj7:4"
+},
+{
+"id": "jazz-078",
+"genre": "jazz",
+"name": "i7 – bVImaj7 – bVII7 – iv7 – V7 – i7 – bVII7 – i7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 bVII7:4 iv7:4 V7:4 i7:4 bVII7:4 i7:4"
+},
+{
+"id": "jazz-079",
+"genre": "jazz",
+"name": "V7 – i7 – bVImaj7 – bVImaj7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "V7:8 i7:8 bVImaj7:8 bVImaj7:8"
+},
+{
+"id": "jazz-080",
+"genre": "jazz",
+"name": "i7 – bVII7 – i7 – v9 – bVImaj7 – i7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVII7:2 i7:2 v9:4 bVImaj7:2 i7:2"
+},
+{
+"id": "jazz-081",
+"genre": "jazz",
+"name": "IVmaj7 – Imaj7 – V9 – vi7 – ii7 – Imaj7 – vi9 – IVmaj7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "IVmaj7:4 Imaj7:4 V9:4 vi7:4 ii7:4 Imaj7:4 vi9:4 IVmaj7:4"
+},
+{
+"id": "jazz-082",
+"genre": "jazz",
+"name": "i7 – bVImaj7 – iv7 – V7 – i7 – bVII7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bVImaj7:4 iv7:2 V7:2 i7:2 bVII7:2"
+},
+{
+"id": "jazz-083",
+"genre": "jazz",
+"name": "i7 – bIIImaj7 – iv7 – i9 – bVII7 – i9 – bVImaj9 – v7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:4 bIIImaj7:4 iv7:4 i9:4 bVII7:4 i9:4 bVImaj9:4 v7:4"
+},
+{
+"id": "jazz-084",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – i7 – i7 – i7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "ii7b5:4 V7:2 i7:2 i7:4 i7:2 i7:2"
+},
+{
+"id": "jazz-085",
+"genre": "jazz",
+"name": "Imaj9 – IVmaj7 – Imaj7 – vi9 – ii7 – V7",
+"tag": "Jazzy",
+"mood": "major",
+"chords": "Imaj9:4 IVmaj7:4 Imaj7:2 vi9:2 ii7:2 V7:2"
+},
+{
+"id": "jazz-086",
+"genre": "jazz",
+"name": "Imaj7 – bVII7 – IVmaj9 – V7 – vi9 – Imaj9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj7:4 bVII7:2 IVmaj9:2 V7:4 vi9:2 Imaj9:2"
+},
+{
+"id": "jazz-087",
+"genre": "jazz",
+"name": "V7 – i7 – ii7b5 – V7 – i7 – ii7b5 – bVImaj7 – ii7b5",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "V7:4 i7:4 ii7b5:4 V7:4 i7:4 ii7b5:4 bVImaj7:4 ii7b5:4"
+},
+{
+"id": "jazz-088",
+"genre": "jazz",
+"name": "i7 – bVI – i7",
+"tag": "Hypnotic",
+"mood": "minor",
+"chords": "i7:4 bVI:8 i7:4"
+},
+{
+"id": "jazz-089",
+"genre": "jazz",
+"name": "vi7 – ii7 – V7 – Imaj7 – iii7 – iii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "vi7:4 ii7:4 V7:2 Imaj7:2 iii7:2 iii7:2"
+},
+{
+"id": "jazz-090",
+"genre": "jazz",
+"name": "V7 – Imaj7 – V7 – V7 – V7 – iii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "V7:4 Imaj7:2 V7:2 V7:4 V7:2 iii7:2"
+},
+{
+"id": "jazz-091",
+"genre": "jazz",
+"name": "vi7 – ii7 – V7 – Imaj7 – iii7 – vi7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "vi7:4 ii7:2 V7:2 Imaj7:4 iii7:2 vi7:2"
+},
+{
+"id": "jazz-092",
+"genre": "jazz",
+"name": "ii7b5 – V7 – i7 – bVImaj7 – ii7b5 – i7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "ii7b5:4 V7:2 i7:2 bVImaj7:4 ii7b5:2 i7:2"
+},
+{
+"id": "jazz-093",
+"genre": "jazz",
+"name": "iii7 – vi7 – ii7 – V7 – Imaj7 – ii7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "iii7:4 vi7:2 ii7:2 V7:4 Imaj7:2 ii7:2"
+},
+{
+"id": "jazz-094",
+"genre": "jazz",
+"name": "V7 – i7 – bVImaj7 – i7 – ii7b5 – V7 – V7 – V7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "V7:4 i7:4 bVImaj7:4 i7:4 ii7b5:4 V7:4 V7:4 V7:4"
+},
+{
+"id": "jazz-095",
+"genre": "jazz",
+"name": "ii7 – V7 – Imaj7 – Imaj7 – vi7 – V7",
+"tag": "Circle of fifths",
+"mood": "major",
+"chords": "ii7:4 V7:2 Imaj7:2 Imaj7:4 vi7:2 V7:2"
+},
+{
+"id": "jazz-096",
+"genre": "jazz",
+"name": "Imaj9 – iii7 – IVmaj7 – iv7 – Imaj9 – IV",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj9:4 iii7:4 IVmaj7:2 iv7:2 Imaj9:2 IV:2"
+},
+{
+"id": "jazz-097",
+"genre": "jazz",
+"name": "V7 – i7 – V7 – bVImaj7",
+"tag": "Circle of fifths",
+"mood": "minor",
+"chords": "V7:4 i7:4 V7:4 bVImaj7:4"
+},
+{
+"id": "jazz-098",
+"genre": "jazz",
+"name": "vi9 – iii7 – vi7 – VI7 – V7 – IVmaj9",
+"tag": "Tension",
+"mood": "major",
+"chords": "vi9:4 iii7:2 vi7:2 VI7:4 V7:2 IVmaj9:2"
+},
+{
+"id": "jazz-099",
+"genre": "jazz",
+"name": "Imaj9 – ii9 – IVmaj9 – Imaj7 – IVmaj9 – V7 – Imaj9 – V9",
+"tag": "Mellow",
+"mood": "major",
+"chords": "Imaj9:4 ii9:4 IVmaj9:4 Imaj7:4 IVmaj9:4 V7:4 Imaj9:4 V9:4"
+},
+{
+"id": "jazz-100",
+"genre": "jazz",
+"name": "i7 – V9 – i7 – V7",
+"tag": "Moody",
+"mood": "minor",
+"chords": "i7:8 V9:8 i7:8 V7:8"
+}
+]

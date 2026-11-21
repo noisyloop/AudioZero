@@ -22,6 +22,8 @@ pub(super) struct AudioExportDialog {
     meta: Metadata,
     /// Write them into the file.
     embed: bool,
+    /// Bounce only this track (its name is used for the file), or the whole song.
+    track: Option<usize>,
 }
 
 pub(super) struct AudioExportJob {
@@ -56,15 +58,68 @@ fn size_text(bytes: u64) -> String {
     }
 }
 
+/// `project` with every other track's clips removed, so only `track` is rendered.
+/// Its volume, pan and effects still apply; the song's end follows the track's own clips.
+fn only_track(project: &Project, track: Option<usize>) -> Project {
+    let mut project = project.clone();
+    if let Some(keep) = track {
+        for (i, t) in project.tracks.iter_mut().enumerate() {
+            if i != keep {
+                t.clips.clear();
+            } else {
+                t.mute = false;
+            }
+        }
+    }
+    project
+}
+
+/// A file-name-safe version of a track's name.
+fn safe_stem(name: &str) -> String {
+    let s: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, ' ' | '-' | '_') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let s = s.trim();
+    if s.is_empty() {
+        "Track".into()
+    } else {
+        s.to_owned()
+    }
+}
+
 impl App {
     pub(super) fn open_audio_export(&mut self) {
-        let stem = self
+        self.open_export_for(None);
+    }
+
+    /// Opens the export window for a single track ("Bounce to WAV").
+    pub(super) fn open_track_bounce(&mut self, track: usize) {
+        self.open_export_for(Some(track));
+    }
+
+    fn open_export_for(&mut self, track: Option<usize>) {
+        let song = self
             .file
             .as_ref()
             .and_then(|f| f.file_stem())
             .map_or("AudioZero song".into(), |s| {
                 s.to_string_lossy().into_owned()
             });
+        let track = track.filter(|&i| i < self.session.project().tracks.len());
+        let stem = match track {
+            Some(i) => format!(
+                "{song} - {}",
+                safe_stem(&self.session.project().tracks[i].name)
+            ),
+            None => song,
+        };
         let folder =
             crate::project_folder(self.file.as_deref()).unwrap_or_else(crate::default_folder);
         let format = Format::Wav16;
@@ -78,6 +133,7 @@ impl App {
             ffmpeg: export::has_ffmpeg(),
             meta: self.session.project().metadata.clone(),
             embed: true,
+            track,
         });
     }
 
@@ -128,11 +184,16 @@ impl App {
             },
             ..Default::default()
         };
-        let length = export::plan(project, &settings)
+        let scoped = only_track(project, dialog.track);
+        let title = match dialog.track.and_then(|i| project.tracks.get(i)) {
+            Some(t) => format!("Bounce track: {}", t.name),
+            None => "Export audio".to_owned(),
+        };
+        let length = export::plan(&scoped, &settings)
             .map(|(frames, _)| frames as f64 / f64::from(dialog.sample_rate));
         egui::Modal::new(egui::Id::unique("export-audio")).show(ctx, |ui| {
             ui.set_width(520.0);
-            ui.heading("Export audio");
+            ui.heading(&title);
             egui::Grid::new("export-audio-grid")
                 .num_columns(2)
                 .spacing([12.0, 8.0])
@@ -225,7 +286,7 @@ impl App {
                         ", with a 2 second tail for reverb and delays"
                     }
                 ),
-                None => "There's nothing to export yet: the song has no clips.".into(),
+                None => "There's nothing to export yet: no clips.".into(),
             }];
             if !dialog.ffmpeg {
                 notes.push("MP3 needs FFmpeg, which isn't installed. WAV works without it.".into());
@@ -282,6 +343,7 @@ impl App {
             ..Default::default()
         };
         let replace = dialog.replace;
+        let track = dialog.track;
         // The song info is part of the song: keep what was typed, so it's saved with the project.
         let mut meta = dialog.meta.clone();
         meta.sanitize();
@@ -292,7 +354,7 @@ impl App {
         if meta != self.session.project().metadata {
             self.set_without_undo(|p| p.metadata = meta);
         }
-        let project: Project = self.session.project().clone();
+        let project: Project = only_track(self.session.project(), track);
         let folder = crate::project_folder(self.file.as_deref());
         let (done, total, cancel) = (
             Arc::new(AtomicUsize::new(0)),
@@ -493,5 +555,16 @@ mod tests {
         m.track_number = 3;
         m.explicit = Explicit::Clean;
         assert_eq!(filled_fields(&m), 3);
+    }
+}
+
+#[cfg(test)]
+mod track_tests {
+    use super::*;
+
+    #[test]
+    fn stems_are_safe() {
+        assert_eq!(safe_stem("Lead/Bass:1"), "Lead_Bass_1");
+        assert_eq!(safe_stem("  "), "Track");
     }
 }

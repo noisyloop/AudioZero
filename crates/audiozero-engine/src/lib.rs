@@ -23,6 +23,8 @@
 
 pub mod arp;
 pub mod bounce;
+pub mod chord_pads;
+pub mod chords;
 pub mod control;
 pub mod demo;
 pub mod drums;
@@ -34,6 +36,7 @@ pub mod glitch;
 pub mod metadata;
 pub mod music;
 pub mod operator;
+pub mod progressions;
 pub mod project;
 pub mod sample;
 pub mod session;
