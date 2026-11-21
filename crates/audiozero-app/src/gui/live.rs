@@ -5,6 +5,7 @@
 //! track without one records audio from the input chosen in the audio settings.
 
 use super::App;
+use super::chords;
 use crate::input::AudioIn;
 use crate::record::{AudioTake, MidiTake, Take, take_file_name};
 use audiozero_engine::{AudioRegion, Clip, Command, LiveNote};
@@ -321,6 +322,33 @@ impl App {
             let Some(&(_, semitone)) = NOTE_KEYS.iter().find(|(k, _)| *k == key) else {
                 continue;
             };
+            if pressed && self.is_chord_track(track) {
+                // On the chord pads the white keys are the key's chords: A S D F G H J, and K
+                // is the first chord an octave up.
+                const PADS: [Key; chords::PAD_KEYS] = [
+                    Key::A,
+                    Key::S,
+                    Key::D,
+                    Key::F,
+                    Key::G,
+                    Key::H,
+                    Key::J,
+                    Key::K,
+                ];
+                let Some(degree) = PADS.iter().position(|k| *k == key) else {
+                    continue;
+                };
+                if self.keys.held.iter().any(|(k, _)| *k == key) {
+                    continue;
+                }
+                if let Some((_, pitches)) = self.chord_pad(track, degree) {
+                    for pitch in pitches {
+                        self.keys.held.push((key, pitch));
+                        self.play_note(track, pitch, self.keys.velocity, true);
+                    }
+                }
+                continue;
+            }
             if pressed {
                 // On a drum rack the keys are the pads, from the kick up, whatever the octave.
                 let drums = self.session.project().tracks.get(track).is_some_and(|t| {
@@ -343,9 +371,19 @@ impl App {
                 }
                 self.keys.held.push((key, pitch));
                 self.play_note(track, pitch, self.keys.velocity, true);
-            } else if let Some(i) = self.keys.held.iter().position(|(k, _)| *k == key) {
-                let (_, pitch) = self.keys.held.remove(i);
-                self.play_note(track, pitch, 0.0, false);
+            } else {
+                // A chord holds several notes under one key.
+                let released: Vec<u8> = self
+                    .keys
+                    .held
+                    .iter()
+                    .filter(|(k, _)| *k == key)
+                    .map(|&(_, pitch)| pitch)
+                    .collect();
+                self.keys.held.retain(|(k, _)| *k != key);
+                for pitch in released {
+                    self.play_note(track, pitch, 0.0, false);
+                }
             }
         }
     }

@@ -21,12 +21,13 @@ pub trait Instrument: Send {
 }
 
 /// Built-in instruments: project id and display name.
-pub const BUILTINS: [(&str, &str); 5] = [
+pub const BUILTINS: [(&str, &str); 6] = [
     ("sine", "Sine synth"),
     ("kick", "Kick Me (Nusick)"),
     ("operator", "Operator (FM synth)"),
     ("drums", "Drum rack"),
     ("soundgineer", "Soundgineer (wavetable synth)"),
+    ("chords", "Chord pads"),
 ];
 
 /// The parameters of a built-in instrument, or `None` if it has none (or `id` isn't one).
@@ -35,6 +36,7 @@ pub fn instrument_params(id: &str) -> Option<&'static [Param]> {
         "operator" => Some(&crate::operator::PARAMS),
         "drums" => Some(&crate::drums::PARAMS),
         "soundgineer" => Some(&crate::soundgineer::PARAMS),
+        "chords" => Some(&crate::chord_pads::PARAMS),
         _ => None,
     }
 }
@@ -46,6 +48,7 @@ pub fn instrument_sections(id: &str) -> &'static [(&'static str, std::ops::Range
         "operator" => &crate::operator::SECTIONS,
         "drums" => &crate::drums::SECTIONS,
         "soundgineer" => &crate::soundgineer::SECTIONS,
+        "chords" => &crate::chord_pads::SECTIONS,
         _ => &[],
     }
 }
@@ -56,6 +59,7 @@ pub fn instrument_presets(id: &str) -> &'static [&'static str] {
         "operator" => &crate::operator::PRESETS,
         "drums" => &crate::drums::PRESETS,
         "soundgineer" => &crate::soundgineer::PRESETS,
+        "chords" => &crate::chord_pads::PRESETS,
         _ => &[],
     }
 }
@@ -66,6 +70,7 @@ pub fn instrument_preset(id: &str, preset: &str) -> Option<&'static [(&'static s
         "operator" => crate::operator::preset(preset),
         "drums" => crate::drums::preset(preset),
         "soundgineer" => crate::soundgineer::preset(preset),
+        "chords" => crate::chord_pads::preset(preset),
         _ => None,
     }
 }
@@ -78,6 +83,7 @@ pub fn create_builtin(id: &str) -> Option<Box<dyn Instrument>> {
         "operator" => Some(Box::new(crate::operator::Operator::new())),
         "drums" => Some(Box::new(crate::drums::DrumRack::new())),
         "soundgineer" => Some(Box::new(crate::soundgineer::Soundgineer::new())),
+        "chords" => Some(Box::new(crate::chord_pads::ChordPads::new())),
         _ => None,
     }
 }

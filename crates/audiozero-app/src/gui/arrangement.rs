@@ -124,6 +124,7 @@ enum ClipAction {
     Stems(ClipRef),
     Edit(ClipRef),
     Tune(ClipRef),
+    Bass(ClipRef, audiozero_engine::chords::BassStyle),
     Duplicate(ClipRef),
     ToggleMute(ClipRef),
     Delete(ClipRef),
@@ -935,6 +936,18 @@ impl App {
                     action = Some(ClipAction::Tune(at));
                     ui.close();
                 }
+                if !is_audio {
+                    ui.menu_button("Add bass line", |ui| {
+                        for style in audiozero_engine::chords::BassStyle::ALL {
+                            if ui.button(style.name()).clicked() {
+                                action = Some(ClipAction::Bass(at, style));
+                                ui.close();
+                            }
+                        }
+                    })
+                    .response
+                    .on_hover_text("Writes a bass part under this clip's chords, on a new track below");
+                }
                 if ui.button("Duplicate").clicked() {
                     action = Some(ClipAction::Duplicate(at));
                 }
@@ -1032,6 +1045,7 @@ impl App {
             }
             Some(ClipAction::Edit(at)) => self.open_roll(at),
             Some(ClipAction::Tune(at)) => self.open_tune(at),
+            Some(ClipAction::Bass(at, style)) => self.add_bass(at, style),
             Some(ClipAction::Duplicate(at)) => self.duplicate_clip(at),
             Some(ClipAction::ToggleMute(at)) => self.toggle_clip_mute(at),
             Some(ClipAction::Delete(at)) => self.delete_clip(at),

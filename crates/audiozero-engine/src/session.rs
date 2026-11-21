@@ -1395,6 +1395,427 @@ fn check_note(note: &Note, clip_length: f64) -> Result<(), EditError> {
     check_range("velocity", f64::from(note.velocity), 0.0, 1.0)
 }
 
+/// Where a chord clip's chords come from.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChordSource {
+    /// A progression from the library, by id (see [`crate::progressions`]).
+    Library(String),
+    /// A random progression in the song's key. The same seed gives the same one.
+    Random {
+        seed: u64,
+        /// 2, 3, 4, 6 or 8 chords.
+        chords: usize,
+        bars: usize,
+        /// 0 plain triads to 3 sevenths, ninths, borrowed chords and secondary dominants.
+        spice: u8,
+        /// A genre (a drum kit's id) whose usual sound and pattern to use.
+        genre: Option<String>,
+    },
+}
+
+/// What [`Session::add_chords`] should add.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChordRequest {
+    pub source: ChordSource,
+    /// How many times the progression plays, 1 to 64.
+    pub repeats: usize,
+    /// Where it starts, in beats; by default after the track's last clip, on a bar line.
+    pub start: Option<f64>,
+    /// How the chords are played; by default the genre's usual pattern.
+    pub pattern: Option<crate::chords::Pattern>,
+    /// Seeds the small differences in how hard each note is played.
+    pub seed: u64,
+}
+
+impl Session {
+    /// Adds a chord progression as a clip of notes in the song's key. With a `track` (any
+    /// instrument will do) the clip goes there; with none, a new "Chords" track with the chord
+    /// pads, set to the genre's usual sound, is made. The voicing, bass note and register come
+    /// from the chord pads' settings. One undo step. Returns where the clip is and its name.
+    pub fn add_chords(
+        &mut self,
+        track: Option<usize>,
+        request: ChordRequest,
+    ) -> Result<((ClipRef, String), Changes), EditError> {
+        use crate::chords::{Comp, Mood, RandomSettings, Voicing, random_progression};
+        use crate::progressions;
+        if !(1..=64).contains(&request.repeats) {
+            return Err(EditError::Invalid(format!(
+                "repeats has to be 1 to 64, got {}",
+                request.repeats
+            )));
+        }
+        if let Some(start) = request.start {
+            check_beat("start", start)?;
+        }
+        self.try_edit(|p| {
+            let key = p.key % 12;
+            let scale = crate::music::scale_by_id(&p.scale);
+            let (steps, name, genre) = match &request.source {
+                ChordSource::Library(id) => {
+                    let found = progressions::by_id(id).ok_or_else(|| {
+                        EditError::Invalid(format!(
+                            "unknown progression \"{id}\"; ids look like \"lofi-007\" (genre, then 1 to 100)"
+                        ))
+                    })?;
+                    (found.steps_in(key), found.name.clone(), found.genre.clone())
+                }
+                ChordSource::Random {
+                    seed,
+                    chords,
+                    bars,
+                    spice,
+                    genre,
+                } => {
+                    if !matches!(chords, 2 | 3 | 4 | 6 | 8) {
+                        return Err(EditError::Invalid(format!(
+                            "chords has to be 2, 3, 4, 6 or 8, got {chords}"
+                        )));
+                    }
+                    if !(1..=16).contains(bars) || *spice > 3 {
+                        return Err(EditError::Invalid(
+                            "bars has to be 1 to 16 and spice 0 to 3".into(),
+                        ));
+                    }
+                    let numerals = random_progression(
+                        *seed,
+                        RandomSettings {
+                            mood: Mood::of_scale(scale),
+                            chords: *chords,
+                            bars: *bars,
+                            spice: *spice,
+                            beats_per_bar: p.beats_per_bar,
+                        },
+                    );
+                    let name = numerals
+                        .iter()
+                        .map(|(n, _)| n.text())
+                        .collect::<Vec<_>>()
+                        .join(" – ");
+                    let steps = numerals
+                        .iter()
+                        .map(|&(n, beats)| crate::chords::Step {
+                            chord: n.resolve(key),
+                            beats,
+                        })
+                        .collect();
+                    (steps, name, genre.clone().unwrap_or_default())
+                }
+            };
+            let style = progressions::genre_style(&genre);
+            let index = match track {
+                Some(index) => {
+                    check_track(p, index)?;
+                    if p.tracks[index].instrument.is_none() {
+                        return Err(EditError::Invalid(format!(
+                            "track {index} is an audio track; chords need an instrument"
+                        )));
+                    }
+                    index
+                }
+                None => {
+                    let mut device = Device::builtin("chords");
+                    if let Device::Builtin { params, .. } = &mut device {
+                        if let Some(sound) = crate::chord_pads::sound_index(style.sound) {
+                            params.insert("sound".into(), sound as f32);
+                        }
+                        let voicing = Voicing::ALL.iter().position(|v| *v == style.voicing);
+                        params.insert("voicing".into(), voicing.unwrap_or(1) as f32);
+                    }
+                    p.tracks.push(Track {
+                        name: "Chords".into(),
+                        instrument: Some(device),
+                        ..Default::default()
+                    });
+                    p.tracks.len() - 1
+                }
+            };
+            let device = p.tracks[index].instrument.as_ref();
+            let chord_pads = device.and_then(Device::builtin_id) == Some("chords");
+            let setting = |name: &str, default: f32| {
+                device
+                    .filter(|_| chord_pads)
+                    .and_then(|d| d.param(name))
+                    .unwrap_or(default)
+            };
+            let comp = Comp {
+                pattern: request.pattern.unwrap_or(style.pattern),
+                voicing: Voicing::ALL[setting("voicing", 1.0).round().clamp(0.0, 2.0) as usize],
+                register: setting("register", 60.0).round().clamp(48.0, 72.0) as u8,
+                bass_note: setting("bass", 0.0) >= 0.5,
+                seed: request.seed,
+            };
+            let bar = f64::from(p.beats_per_bar);
+            let start = request.start.unwrap_or_else(|| {
+                let end = p.tracks[index].clips.iter().map(Clip::end).fold(0.0, f64::max);
+                (end / bar).ceil() * bar
+            });
+            let clip = crate::chords::comp_clip(&name, &steps, request.repeats, start, p.beats_per_bar, comp);
+            check_clip_shape(&clip)?;
+            for note in &clip.notes {
+                check_note(note, clip.length)?;
+            }
+            let clips = &mut p.tracks[index].clips;
+            clips.push(clip);
+            let at = ClipRef {
+                track: index,
+                clip: clips.len() - 1,
+            };
+            Ok((at, name))
+        })
+    }
+
+    /// Adds a bass line under the chords in a clip of notes: a new "Bass" track just below the
+    /// clip's track, playing a Soundgineer bass (`sound` is a Soundgineer preset; by default one
+    /// that suits the style), with a clip the same length as the source that follows its chords.
+    /// One undo step. Returns where the new clip is.
+    pub fn add_bass_line(
+        &mut self,
+        source: ClipRef,
+        style: crate::chords::BassStyle,
+        seed: u64,
+        sound: Option<&str>,
+    ) -> Result<(ClipRef, Changes), EditError> {
+        let clip = self
+            .clip(source)
+            .ok_or_else(|| EditError::Invalid("no such clip".into()))?
+            .clone();
+        if clip.is_audio() {
+            return Err(EditError::Invalid(
+                "that clip is audio; a bass line needs a clip of notes".into(),
+            ));
+        }
+        let events = crate::chords::chord_events(&clip.notes, clip.length);
+        if events.is_empty() {
+            return Err(EditError::Invalid(
+                "no chords found in that clip (it needs notes that play together or arpeggios)"
+                    .into(),
+            ));
+        }
+        let notes = crate::chords::bass_line(&events, style, seed);
+        let sound = sound.unwrap_or_else(|| crate::progressions::bass_preset(style));
+        let values = crate::synth::instrument_preset("soundgineer", sound)
+            .ok_or_else(|| EditError::Invalid(format!("no Soundgineer preset \"{sound}\"")))?;
+        let mut device = Device::builtin("soundgineer");
+        if let Device::Builtin { params, .. } = &mut device {
+            *params = values.iter().map(|&(n, v)| (n.to_owned(), v)).collect();
+        }
+        for note in &notes {
+            check_note(note, clip.length)?;
+        }
+        let bass = Clip {
+            name: format!("Bass · {}", style.name()),
+            start: clip.start,
+            length: clip.length,
+            notes,
+            ..Default::default()
+        };
+        let (index, changes) = self.insert_below(
+            source.track,
+            vec![Track {
+                name: "Bass".into(),
+                instrument: Some(device),
+                clips: vec![bass],
+                ..Default::default()
+            }],
+        )?;
+        Ok((
+            ClipRef {
+                track: index,
+                clip: 0,
+            },
+            changes,
+        ))
+    }
+}
+
+#[cfg(test)]
+mod chord_tests {
+    use super::*;
+    use crate::chords::{BassStyle, Pattern};
+
+    fn request(source: ChordSource) -> ChordRequest {
+        ChordRequest {
+            source,
+            repeats: 2,
+            start: None,
+            pattern: None,
+            seed: 1,
+        }
+    }
+
+    #[test]
+    fn a_library_progression_makes_a_chords_track_in_the_songs_key() {
+        let mut s = Session::new(Project::default()).unwrap();
+        s.set_key(9, "minor").unwrap();
+        let ((at, name), changes) = s
+            .add_chords(None, request(ChordSource::Library("lofi-001".into())))
+            .unwrap();
+        assert!(changes.reload, "a new track means rebuilding the engine");
+        let track = &s.project().tracks[at.track];
+        assert_eq!(track.name, "Chords");
+        assert_eq!(
+            track.instrument.as_ref().and_then(Device::builtin_id),
+            Some("chords")
+        );
+        // The genre's sound was chosen.
+        assert_eq!(
+            track.instrument.as_ref().unwrap().param("sound"),
+            Some(6.0),
+            "Lo-fi keys"
+        );
+        let clip = &track.clips[at.clip];
+        assert_eq!(clip.name, name);
+        assert!(!clip.notes.is_empty() && clip.length % 4.0 == 0.0);
+        // lofi-001 is "i bIII bVI bVII": in A minor it begins on Am (A, C, E).
+        let first: Vec<u8> = clip
+            .notes
+            .iter()
+            .filter(|n| n.start < 0.3)
+            .map(|n| n.pitch % 12)
+            .collect();
+        assert!(
+            first.contains(&9) && first.contains(&0) && first.contains(&4),
+            "{first:?}"
+        );
+        // One undo step takes it all away.
+        s.undo().unwrap();
+        assert!(s.project().tracks.is_empty());
+    }
+
+    #[test]
+    fn chords_go_on_any_instrument_track_and_follow_its_pad_settings() {
+        let mut s = Session::new(Project::default()).unwrap();
+        s.add_drum_beat(None, "house-classic", 1, None).ok();
+        let ((first, _), _) = s
+            .add_chords(None, request(ChordSource::Library("house-005".into())))
+            .unwrap();
+        let track = first.track;
+        // A second progression goes on after the first, on the same track.
+        let ((second, _), _) = s
+            .add_chords(
+                Some(track),
+                request(ChordSource::Library("house-006".into())),
+            )
+            .unwrap();
+        assert_eq!(second.track, track);
+        let clips = &s.project().tracks[track].clips;
+        assert!(clips[1].start >= clips[0].end(), "after the first clip");
+        // With the bass note on, the lowest notes are bass notes.
+        s.set_instrument_param(track, "bass", 1.0).unwrap();
+        let ((third, _), _) = s
+            .add_chords(
+                Some(track),
+                request(ChordSource::Library("house-007".into())),
+            )
+            .unwrap();
+        let low = s
+            .clip(third)
+            .unwrap()
+            .notes
+            .iter()
+            .map(|n| n.pitch)
+            .min()
+            .unwrap();
+        assert!((36..48).contains(&low), "{low}");
+        // A drum track works too: it has an instrument. An audio track doesn't.
+        let (audio, _) = s.add_track(Track::default()).unwrap();
+        assert!(s.project().tracks[audio].instrument.is_none());
+        assert!(
+            s.add_chords(
+                Some(audio),
+                request(ChordSource::Library("house-005".into()))
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn random_chords_are_in_key_repeatable_and_checked() {
+        let mut s = Session::new(Project::default()).unwrap();
+        s.set_key(2, "major").unwrap();
+        let random = |seed, chords| {
+            request(ChordSource::Random {
+                seed,
+                chords,
+                bars: 4,
+                spice: 1,
+                genre: Some("jazz".into()),
+            })
+        };
+        let ((a, name_a), _) = s.add_chords(None, random(7, 4)).unwrap();
+        let ((b, name_b), _) = s.add_chords(None, random(7, 4)).unwrap();
+        assert_eq!(name_a, name_b, "the same seed, the same progression");
+        assert_eq!(s.clip(a).unwrap().notes, s.clip(b).unwrap().notes);
+        let ((_, name_c), _) = s.add_chords(None, random(8, 4)).unwrap();
+        let ((_, name_d), _) = s.add_chords(None, random(9, 4)).unwrap();
+        assert!(
+            name_a != name_c || name_a != name_d,
+            "different seeds differ"
+        );
+        assert!(
+            s.add_chords(None, random(1, 5)).is_err(),
+            "5 chords isn't allowed"
+        );
+        let bad = request(ChordSource::Random {
+            seed: 1,
+            chords: 4,
+            bars: 0,
+            spice: 0,
+            genre: None,
+        });
+        assert!(s.add_chords(None, bad).is_err());
+        assert!(
+            s.add_chords(None, request(ChordSource::Library("nope".into())))
+                .is_err()
+        );
+        let mut zero = request(ChordSource::Library("jazz-001".into()));
+        zero.repeats = 0;
+        assert!(s.add_chords(None, zero).is_err());
+        let mut late = request(ChordSource::Library("jazz-001".into()));
+        (late.start, late.pattern) = (Some(32.0), Some(Pattern::ArpUp));
+        let ((at, _), _) = s.add_chords(None, late).unwrap();
+        assert_eq!(s.clip(at).unwrap().start, 32.0);
+    }
+
+    #[test]
+    fn a_bass_line_goes_on_a_track_below_and_follows_the_chords() {
+        let mut s = Session::new(Project::default()).unwrap();
+        let ((at, _), _) = s
+            .add_chords(None, request(ChordSource::Library("hiphop-004".into())))
+            .unwrap();
+        let tracks_before = s.project().tracks.len();
+        let (bass, changes) = s.add_bass_line(at, BassStyle::Syncopated, 3, None).unwrap();
+        assert!(changes.reload);
+        assert_eq!(s.project().tracks.len(), tracks_before + 1);
+        assert_eq!(bass.track, at.track + 1, "just below");
+        let (source, line) = (s.clip(at).unwrap(), s.clip(bass).unwrap());
+        assert_eq!((line.start, line.length), (source.start, source.length));
+        assert!(!line.notes.is_empty() && line.notes.iter().all(|n| n.pitch < 76));
+        assert_eq!(
+            s.project().tracks[bass.track]
+                .instrument
+                .as_ref()
+                .and_then(Device::builtin_id),
+            Some("soundgineer")
+        );
+        // The same seed and style give the same line; a bad preset or an empty clip are refused.
+        let (again, _) = s.add_bass_line(at, BassStyle::Syncopated, 3, None).unwrap();
+        assert_eq!(s.clip(again).unwrap().notes, s.clip(bass).unwrap().notes);
+        assert!(
+            s.add_bass_line(at, BassStyle::Root, 1, Some("Nope"))
+                .is_err()
+        );
+        let ((empty, _), _) = s
+            .add_clip(0, Clip::default())
+            .map(|(a, c)| ((a, ()), c))
+            .unwrap();
+        assert!(s.add_bass_line(empty, BassStyle::Root, 1, None).is_err());
+        s.undo().unwrap();
+        s.undo().unwrap();
+    }
+}
+
 #[cfg(test)]
 mod drum_tests {
     use super::*;
