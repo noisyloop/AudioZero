@@ -6,6 +6,7 @@
 //! half-written file (and never damages one that was already there).
 
 use crate::engine::Engine;
+use crate::metadata::Auto;
 use crate::project::Project;
 use crate::sample::SamplePool;
 use crate::wav::WavWriter;
@@ -61,6 +62,9 @@ pub struct Settings {
     /// Seconds of silence-or-ring-out added after the last clip, for reverb and delay tails.
     /// Only used for [`Range::Song`].
     pub tail: f64,
+    /// Write the project's song info (artist, ISRC, ...) into the file. Nothing is written
+    /// when the project has none.
+    pub embed_metadata: bool,
 }
 
 impl Default for Settings {
@@ -70,6 +74,7 @@ impl Default for Settings {
             sample_rate: 48_000,
             range: Range::Song,
             tail: 2.0,
+            embed_metadata: true,
         }
     }
 }
@@ -156,6 +161,16 @@ pub fn export(
         ));
     }
 
+    // Song info is checked before any rendering, so a typo in the ISRC is found in a second,
+    // not after the export.
+    let mut info = project.metadata.clone();
+    info.sanitize();
+    info.validate()?;
+    let tags = (settings.embed_metadata && !info.is_empty()).then(|| {
+        let software = format!("AudioZero {}", env!("CARGO_PKG_VERSION"));
+        (info, Auto::for_project(project, &software))
+    });
+
     let rate = f64::from(settings.sample_rate);
     let mut engine = Engine::with_samples(project.clone(), rate, BLOCK, pool)
         .map_err(|e| format!("can't render the song: {e}"))?;
@@ -169,7 +184,14 @@ pub fn export(
             .map_err(|e| format!("can't create {}: {e}", folder.display()))?;
     }
     let part = part_path(path);
-    let result = write(&mut engine, settings, &part, frames, &mut progress);
+    let result = write(
+        &mut engine,
+        settings,
+        &part,
+        frames,
+        tags.as_ref().map(|(m, a)| (m, a)),
+        &mut progress,
+    );
     if let Err(e) = result {
         let _ = std::fs::remove_file(&part);
         return Err(e);
@@ -201,6 +223,7 @@ fn write(
     settings: &Settings,
     part: &Path,
     frames: usize,
+    tags: Option<(&crate::metadata::Metadata, &Auto)>,
     progress: &mut impl FnMut(usize, usize) -> bool,
 ) -> Result<(), String> {
     let bits = if settings.format == Format::Wav24 {
@@ -211,8 +234,18 @@ fn write(
     match settings.format {
         Format::Wav16 | Format::Wav24 => {
             let file = File::create(part).map_err(|e| format!("{}: {e}", part.display()))?;
-            let mut wav = WavWriter::new(BufWriter::new(file), settings.sample_rate, bits, frames)
-                .map_err(|e| e.to_string())?;
+            let chunks = tags
+                .map(|(m, a)| crate::tags::wav_chunks(m, a, settings.sample_rate, bits))
+                .unwrap_or_default();
+            let mut wav = WavWriter::with_chunks(
+                BufWriter::new(file),
+                settings.sample_rate,
+                bits,
+                frames,
+                &chunks.before_data,
+                chunks.after_data,
+            )
+            .map_err(|e| e.to_string())?;
             render(engine, frames, progress, |l, r| wav.write(l, r))?;
             wav.finish().map_err(|e| e.to_string())
         }
@@ -238,6 +271,12 @@ fn write(
                     "-f",
                     "mp3",
                 ])
+                // With song info, our own ID3 tag goes on the front instead of FFmpeg's.
+                .args(if tags.is_some() {
+                    &["-write_id3v2", "0"][..]
+                } else {
+                    &[][..]
+                })
                 .arg(part)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
@@ -259,13 +298,38 @@ fn write(
                 .map_err(|e| format!("FFmpeg: {e}"))?;
             finished?;
             if output.status.success() {
-                Ok(())
+                match tags {
+                    Some((m, a)) => prepend_tag(part, &crate::tags::id3v24(m, a)),
+                    None => Ok(()),
+                }
             } else {
                 let message = String::from_utf8_lossy(&output.stderr);
                 Err(format!("FFmpeg failed: {}", message.trim()))
             }
         }
     }
+}
+
+/// Puts `tag` (an ID3 tag) in front of the audio in `file`, by writing a new file and moving it
+/// over the old one.
+fn prepend_tag(file: &Path, tag: &[u8]) -> Result<(), String> {
+    if tag.is_empty() {
+        return Ok(());
+    }
+    let mut name = file.file_name().unwrap_or_default().to_os_string();
+    name.push(".tagged");
+    let tagged = file.with_file_name(name);
+    let copy = || -> std::io::Result<()> {
+        let mut out = BufWriter::new(File::create(&tagged)?);
+        std::io::Write::write_all(&mut out, tag)?;
+        std::io::copy(&mut File::open(file)?, &mut out)?;
+        std::io::Write::flush(&mut out)?;
+        std::fs::rename(&tagged, file)
+    };
+    copy().map_err(|e| {
+        let _ = std::fs::remove_file(&tagged);
+        format!("can't write the song info: {e}")
+    })
 }
 
 /// Renders `frames` frames a block at a time, handing each block to `sink`.
@@ -515,6 +579,137 @@ mod tests {
             "about the right length"
         );
         assert!(back.left().iter().any(|x| x.abs() > 0.05));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn song_info() -> crate::metadata::Metadata {
+        crate::metadata::Metadata {
+            title: "Night Drive".into(),
+            artist: "Jane Doe".into(),
+            isrc: "US-RC1-26-00001".into(),
+            producer: "Sam Producer".into(),
+            ..Default::default()
+        }
+    }
+
+    /// The chunk ids of a RIFF/WAVE file, in order.
+    fn chunk_ids(bytes: &[u8]) -> Vec<String> {
+        assert_eq!(&bytes[..4], b"RIFF");
+        assert_eq!(
+            u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize,
+            bytes.len() - 8,
+            "the RIFF size covers every chunk"
+        );
+        let (mut i, mut ids) = (12, Vec::new());
+        while i < bytes.len() {
+            let n = u32::from_le_bytes(bytes[i + 4..i + 8].try_into().unwrap()) as usize;
+            ids.push(String::from_utf8_lossy(&bytes[i..i + 4]).into_owned());
+            i += 8 + n + n % 2;
+        }
+        assert_eq!(i, bytes.len());
+        ids
+    }
+
+    #[test]
+    fn a_wav_carries_the_song_info_and_still_plays() {
+        let dir = temp_dir("meta-wav");
+        let mut project = demo::project();
+        project.metadata = song_info();
+        let plain = dir.join("plain.wav");
+        let tagged = dir.join("tagged.wav");
+        let loop_only = Settings {
+            range: Range::Loop,
+            ..Default::default()
+        };
+        let mut no_info = demo::project();
+        no_info.metadata = Default::default();
+        export(&no_info, &mut pool(), &loop_only, &plain, false, |_, _| {
+            true
+        })
+        .unwrap();
+        export(&project, &mut pool(), &loop_only, &tagged, false, |_, _| {
+            true
+        })
+        .unwrap();
+
+        assert_eq!(
+            chunk_ids(&std::fs::read(&plain).unwrap()),
+            ["fmt ", "data"],
+            "no info, no extras"
+        );
+        let bytes = std::fs::read(&tagged).unwrap();
+        assert_eq!(chunk_ids(&bytes), ["fmt ", "bext", "data", "LIST", "id3 "]);
+        // The audio is the same with or without the info.
+        let (a, b) = (decode_file(&plain).unwrap(), decode_file(&tagged).unwrap());
+        assert_eq!(a.frames(), b.frames());
+        assert_eq!(a.left(), b.left());
+        // And leaving it out is a setting.
+        let off = dir.join("off.wav");
+        let settings = Settings {
+            embed_metadata: false,
+            ..loop_only
+        };
+        export(&project, &mut pool(), &settings, &off, false, |_, _| true).unwrap();
+        assert_eq!(chunk_ids(&std::fs::read(&off).unwrap()), ["fmt ", "data"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_bad_identifier_stops_the_export_before_it_starts() {
+        let dir = temp_dir("meta-bad");
+        let mut project = demo::project();
+        project.metadata.isrc = "not-an-isrc".into();
+        let out = dir.join("x.wav");
+        let mut rendered = false;
+        let result = export(
+            &project,
+            &mut pool(),
+            &Settings::default(),
+            &out,
+            false,
+            |_, _| {
+                rendered = true;
+                true
+            },
+        );
+        assert!(result.unwrap_err().contains("ISRC"));
+        assert!(!rendered && !out.exists() && !part_path(&out).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_mp3_starts_with_the_id3_tag_when_ffmpeg_is_installed() {
+        if !has_ffmpeg() {
+            return;
+        }
+        let dir = temp_dir("meta-mp3");
+        let mut project = demo::project();
+        project.metadata = song_info();
+        let out = dir.join("t.mp3");
+        let settings = Settings {
+            format: Format::Mp3(128),
+            range: Range::Loop,
+            ..Default::default()
+        };
+        export(&project, &mut pool(), &settings, &out, false, |_, _| true).unwrap();
+        let bytes = std::fs::read(&out).unwrap();
+        assert_eq!(&bytes[..4], b"ID3\x04", "our ID3v2.4 tag is first");
+        let size = bytes[6..10]
+            .iter()
+            .fold(0usize, |n, b| (n << 7) | usize::from(*b));
+        let tag = &bytes[10..10 + size];
+        assert!(
+            tag.windows(4).any(|w| w == b"TSRC") && tag.windows(12).any(|w| w == b"USRC12600001")
+        );
+        assert_eq!(
+            bytes[..10 + size]
+                .windows(3)
+                .filter(|w| *w == b"ID3")
+                .count(),
+            1,
+            "just one tag"
+        );
+        assert!(bytes.len() > 10 + size + 1000, "the audio follows the tag");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

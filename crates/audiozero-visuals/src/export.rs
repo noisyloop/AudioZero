@@ -1,8 +1,10 @@
-//! Rendering a look over a song to a video file (through FFmpeg) or to PNG frames.
+//! Rendering a look over a song to a video file or to PNG frames. `.mp4` is written by the app
+//! itself (H.264 + AAC); `.mov`, `.mkv` and `.webm` go through FFmpeg.
 
 use crate::analysis::{Analyzer, RATE, Range, render_song};
 use crate::canvas::Canvas;
 use crate::looks::create_look;
+use crate::video::{Mp4Job, Next, write_mp4};
 use audiozero_engine::Project;
 use audiozero_engine::sample::SamplePool;
 use std::io::Write;
@@ -23,7 +25,7 @@ pub const FORMATS: [(&str, &str, u32, u32); 5] = [
     ("4k", "4K 16:9 (3840×2160)", 3840, 2160),
 ];
 
-/// Video containers written through FFmpeg, by file extension.
+/// Video file extensions: `.mp4` is built in, the others go through FFmpeg.
 pub const VIDEO_EXTENSIONS: [&str; 4] = ["mp4", "mov", "mkv", "webm"];
 
 /// What to render.
@@ -112,14 +114,22 @@ pub fn has_ffmpeg() -> bool {
         .is_ok_and(|s| s.success())
 }
 
+/// Whether `path` is an `.mp4`, which the app writes itself.
+fn is_mp4(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("mp4"))
+}
+
 fn is_video(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| VIDEO_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
-/// Renders `settings.look` over `project` to `out`: a video file if it ends in .mp4, .mov, .mkv
-/// or .webm (needs FFmpeg), otherwise a folder of PNG frames plus `audio.wav`. `progress` gets
+/// Renders `settings.look` over `project` to `out`: a video file if it ends in .mp4 (made by the
+/// app itself), .mov, .mkv or .webm (those need FFmpeg), otherwise a folder of PNG frames plus
+/// `audio.wav`. `progress` gets
 /// (frame, frames) as it goes and returns `false` to cancel, which removes a partial video.
 pub fn export(
     project: &Project,
@@ -130,9 +140,10 @@ pub fn export(
 ) -> Result<Exported, String> {
     settings.check()?;
     let video = is_video(out);
-    if video && !has_ffmpeg() {
+    if video && !is_mp4(out) && !has_ffmpeg() {
         return Err(
-            "exporting video needs FFmpeg (install it, or export to a folder for PNG frames)"
+            "that video format needs FFmpeg: save as .mp4 instead (no FFmpeg needed), or export \
+             to a folder for PNG frames"
                 .into(),
         );
     }
@@ -172,6 +183,51 @@ pub fn export(
             seconds: song.seconds(),
             path: out.to_path_buf(),
         });
+    }
+
+    if is_mp4(out) {
+        let stop = std::cell::Cell::new(false);
+        let job = Mp4Job {
+            width: w,
+            height: h,
+            fps: settings.fps,
+            rate: RATE as u32,
+            left: &song.left,
+            right: &song.right,
+            frames,
+        };
+        let result = write_mp4(
+            out,
+            &job,
+            |_, buffer| {
+                if stop.get() {
+                    return Next::Cancel;
+                }
+                look.draw(&mut canvas, &analyzer.next_frame());
+                canvas.to_rgba(buffer);
+                Next::Frame
+            },
+            |done| {
+                if !progress(done, frames) {
+                    stop.set(true);
+                }
+            },
+        );
+        return match result {
+            Ok(Next::Frame) if !stop.get() => Ok(Exported {
+                frames,
+                seconds: song.seconds(),
+                path: out.to_path_buf(),
+            }),
+            Ok(_) => {
+                let _ = std::fs::remove_file(out);
+                Err(CANCELLED.into())
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(out);
+                Err(e)
+            }
+        };
     }
 
     // The audio goes in a temporary file next to the output; FFmpeg muxes it in.
@@ -374,29 +430,67 @@ mod tests {
     }
 
     #[test]
-    fn exports_mp4_when_ffmpeg_is_installed() {
-        if !has_ffmpeg() {
-            eprintln!("FFmpeg isn't installed; skipping");
-            return;
-        }
+    fn exports_a_playable_mp4_without_ffmpeg() {
         let dir = temp("mp4");
         let out = dir.join("clip.mp4");
         let mut pool = SamplePool::new(RATE);
+        let mut last = 0;
         let result = export(
             &demo::project(),
             &mut pool,
             &short_settings("particles"),
             &out,
-            |_, _| true,
+            |done, _| {
+                last = done;
+                true
+            },
         )
         .unwrap();
-        assert_eq!(result.frames, 22);
-        let size = std::fs::metadata(&out).unwrap().len();
-        assert!(size > 1000, "a real file ({size} bytes)");
+        assert_eq!((result.frames, last), (22, 22));
         assert!(
             !out.with_extension("audiozero-audio.wav").exists(),
-            "the temporary audio is gone"
+            "no temporary audio: nothing here goes through FFmpeg"
         );
+
+        // Read the file back with an independent MP4 reader: a video and an audio track, every
+        // frame there, the first one a keyframe, and the audio as long as the song.
+        let file = std::fs::File::open(&out).unwrap();
+        let mut mp4 = mp4::read_mp4(file).unwrap();
+        let tracks: Vec<_> = mp4
+            .tracks()
+            .iter()
+            .map(|(id, t)| (*id, t.track_type().unwrap(), t.media_type().unwrap()))
+            .collect();
+        assert!(tracks.contains(&(1, mp4::TrackType::Video, mp4::MediaType::H264)));
+        assert!(tracks.contains(&(2, mp4::TrackType::Audio, mp4::MediaType::AAC)));
+        assert_eq!(mp4.sample_count(1).unwrap(), 22);
+        assert!(
+            mp4.read_sample(1, 1).unwrap().unwrap().is_sync,
+            "starts on a keyframe"
+        );
+        let seconds = mp4.duration().as_secs_f64();
+        assert!(
+            (seconds - result.seconds).abs() < 0.1,
+            "{seconds} vs {}",
+            result.seconds
+        );
+        let audio_frames = mp4.sample_count(2).unwrap() as f64;
+        assert!((audio_frames * 1024.0 / RATE - result.seconds).abs() < 0.1);
+
+        // And, where FFmpeg is around to check with, it decodes the whole file without a complaint.
+        if has_ffmpeg() {
+            let check = Command::new("ffmpeg")
+                .args(["-v", "error", "-i"])
+                .arg(&out)
+                .args(["-f", "null", "-"])
+                .output()
+                .unwrap();
+            assert!(
+                check.status.success() && check.stderr.is_empty(),
+                "FFmpeg: {}",
+                String::from_utf8_lossy(&check.stderr)
+            );
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -419,9 +513,6 @@ mod tests {
 
     #[test]
     fn cancelling_stops_and_cleans_up() {
-        if !has_ffmpeg() {
-            return;
-        }
         let dir = temp("cancel");
         let out = dir.join("clip.mp4");
         let mut pool = SamplePool::new(RATE);

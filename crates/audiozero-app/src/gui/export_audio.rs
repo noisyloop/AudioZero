@@ -4,6 +4,7 @@
 use super::{App, theme};
 use audiozero_engine::Project;
 use audiozero_engine::export::{self, CANCELLED, Format, MP3_RATES, Range, SAMPLE_RATES, Settings};
+use audiozero_engine::metadata::{Explicit, Metadata};
 use audiozero_engine::sample::SamplePool;
 use eframe::egui;
 use std::path::PathBuf;
@@ -17,6 +18,10 @@ pub(super) struct AudioExportDialog {
     path: String,
     replace: bool,
     ffmpeg: bool,
+    /// The song's credits and identifiers, edited here and kept in the project.
+    meta: Metadata,
+    /// Write them into the file.
+    embed: bool,
 }
 
 pub(super) struct AudioExportJob {
@@ -71,6 +76,8 @@ impl App {
             path: path.display().to_string(),
             replace: false,
             ffmpeg: export::has_ffmpeg(),
+            meta: self.session.project().metadata.clone(),
+            embed: true,
         });
     }
 
@@ -179,6 +186,33 @@ impl App {
                     ui.add(egui::TextEdit::singleline(&mut dialog.path).desired_width(360.0));
                     ui.end_row();
                 });
+            let filled = filled_fields(&dialog.meta);
+            let (bpm, key) = (
+                project.bpm,
+                audiozero_engine::music::key_name(project.key, &project.scale),
+            );
+            egui::CollapsingHeader::new(if filled > 0 {
+                format!("Song info (optional) · {filled} filled in")
+            } else {
+                "Song info (optional)".to_string()
+            })
+            .id_salt("song-info")
+            .default_open(false)
+            .show(ui, |ui| {
+                song_info_ui(ui, &mut dialog.meta, bpm, &key);
+                ui.add_enabled(
+                    !dialog.meta.is_empty(),
+                    egui::Checkbox::new(&mut dialog.embed, "Write the song info into the file"),
+                );
+            });
+            let problem = {
+                let mut m = dialog.meta.clone();
+                m.sanitize();
+                m.validate().err()
+            };
+            if let Some(problem) = &problem {
+                ui.colored_label(egui::Color32::from_rgb(224, 96, 96), problem);
+            }
             ui.checkbox(&mut dialog.replace, "Replace the file if it exists");
             let mut notes = vec![match length {
                 Some(seconds) => format!(
@@ -208,7 +242,10 @@ impl App {
                     }
                 } else {
                     start = ui
-                        .add_enabled(length.is_some(), egui::Button::new("Export"))
+                        .add_enabled(
+                            length.is_some() && problem.is_none(),
+                            egui::Button::new("Export"),
+                        )
                         .clicked();
                 }
                 if ui.button("Close").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
@@ -241,9 +278,20 @@ impl App {
             } else {
                 Range::Song
             },
+            embed_metadata: dialog.embed,
             ..Default::default()
         };
         let replace = dialog.replace;
+        // The song info is part of the song: keep what was typed, so it's saved with the project.
+        let mut meta = dialog.meta.clone();
+        meta.sanitize();
+        if let Err(problem) = meta.validate() {
+            self.status = problem;
+            return;
+        }
+        if meta != self.session.project().metadata {
+            self.set_without_undo(|p| p.metadata = meta);
+        }
         let project: Project = self.session.project().clone();
         let folder = crate::project_folder(self.file.as_deref());
         let (done, total, cancel) = (
@@ -282,6 +330,144 @@ impl App {
     }
 }
 
+/// How many of the song-info fields have something in them.
+fn filled_fields(m: &Metadata) -> usize {
+    [
+        &m.title,
+        &m.artist,
+        &m.album_artist,
+        &m.album,
+        &m.release_date,
+        &m.genre,
+        &m.composer,
+        &m.lyricist,
+        &m.producer,
+        &m.mixer,
+        &m.label,
+        &m.isrc,
+        &m.upc,
+        &m.iswc,
+        &m.copyright,
+        &m.phonogram,
+        &m.language,
+        &m.comment,
+    ]
+    .iter()
+    .filter(|f| !f.trim().is_empty())
+    .count()
+        + usize::from(m.track_number > 0)
+        + usize::from(m.explicit != Explicit::Unspecified)
+}
+
+/// One line of text with a label and a hint.
+fn text_row(ui: &mut egui::Ui, label: &str, value: &mut String, hint: &str) {
+    ui.label(label);
+    ui.add(
+        egui::TextEdit::singleline(value)
+            .hint_text(hint)
+            .desired_width(330.0)
+            .char_limit(audiozero_engine::metadata::MAX_FIELD_CHARS),
+    );
+    ui.end_row();
+}
+
+/// The fields of the song info: the credits, the identifiers and the rights lines.
+fn song_info_ui(ui: &mut egui::Ui, m: &mut Metadata, bpm: f64, key: &str) {
+    ui.label(
+        egui::RichText::new(
+            "Everything here is optional. It's saved with the song and written into the file \
+             for streaming services, distributors and players to read.",
+        )
+        .color(theme::text_dim()),
+    );
+    egui::ScrollArea::vertical()
+        .max_height(280.0)
+        .auto_shrink([false, true])
+        .show(ui, |ui| {
+            egui::Grid::new("song-info-grid")
+                .num_columns(2)
+                .spacing([12.0, 6.0])
+                .show(ui, |ui| {
+                    text_row(ui, "Title", &mut m.title, "Song title");
+                    text_row(ui, "Artist", &mut m.artist, "Performing artist(s)");
+                    text_row(ui, "Album artist", &mut m.album_artist, "If different");
+                    text_row(ui, "Album / release", &mut m.album, "Album, EP or single");
+                    ui.label("Track");
+                    ui.horizontal(|ui| {
+                        ui.add(egui::DragValue::new(&mut m.track_number).range(0..=9999));
+                        ui.label("of");
+                        ui.add(egui::DragValue::new(&mut m.track_total).range(0..=9999));
+                        ui.label(egui::RichText::new("0 = not set").color(theme::text_dim()));
+                    });
+                    ui.end_row();
+                    text_row(
+                        ui,
+                        "Release date",
+                        &mut m.release_date,
+                        "YYYY, YYYY-MM or YYYY-MM-DD",
+                    );
+                    text_row(ui, "Genre", &mut m.genre, "");
+                    text_row(ui, "Composer", &mut m.composer, "Who wrote the music");
+                    text_row(ui, "Lyricist", &mut m.lyricist, "Who wrote the words");
+                    text_row(ui, "Producer", &mut m.producer, "");
+                    text_row(ui, "Mixed by", &mut m.mixer, "");
+                    text_row(ui, "Label", &mut m.label, "Record label or publisher");
+                    text_row(
+                        ui,
+                        "ISRC",
+                        &mut m.isrc,
+                        "US-RC1-26-00001 (identifies this recording)",
+                    );
+                    text_row(
+                        ui,
+                        "UPC / EAN",
+                        &mut m.upc,
+                        "Barcode of the release, 12 or 13 digits",
+                    );
+                    text_row(
+                        ui,
+                        "ISWC",
+                        &mut m.iswc,
+                        "T-034.524.680-1 (identifies the composition)",
+                    );
+                    text_row(
+                        ui,
+                        "\u{a9} line",
+                        &mut m.copyright,
+                        "2026 Jane Doe (owner of the music)",
+                    );
+                    text_row(
+                        ui,
+                        "\u{2117} line",
+                        &mut m.phonogram,
+                        "2026 Jane Doe Records (owner of the recording)",
+                    );
+                    text_row(ui, "Language", &mut m.language, "eng, spa, jpn ...");
+                    ui.label("Explicit");
+                    egui::ComboBox::from_id_salt("song-info-explicit")
+                        .selected_text(m.explicit.label())
+                        .show_ui(ui, |ui| {
+                            for e in Explicit::ALL {
+                                ui.selectable_value(&mut m.explicit, e, e.label());
+                            }
+                        });
+                    ui.end_row();
+                    ui.label("Comment");
+                    ui.add(
+                        egui::TextEdit::multiline(&mut m.comment)
+                            .desired_rows(2)
+                            .desired_width(330.0)
+                            .char_limit(audiozero_engine::metadata::MAX_COMMENT_CHARS),
+                    );
+                    ui.end_row();
+                });
+        });
+    ui.checkbox(
+        &mut m.include_tempo_and_key,
+        format!("Include tempo and key ({bpm:.0} BPM, {key})"),
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,5 +482,16 @@ mod tests {
         assert_eq!(with_extension("a.b.mp3", Format::Wav16), "a.b.wav");
         assert_eq!(size_text(812), "1 KB");
         assert_eq!(size_text(3_400_000), "3.4 MB");
+    }
+
+    #[test]
+    fn counts_the_filled_fields() {
+        let mut m = Metadata::default();
+        assert_eq!(filled_fields(&m), 0);
+        m.title = "x".into();
+        m.artist = "  ".into();
+        m.track_number = 3;
+        m.explicit = Explicit::Clean;
+        assert_eq!(filled_fields(&m), 3);
     }
 }

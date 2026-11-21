@@ -248,11 +248,7 @@ impl App {
         let folder =
             crate::project_folder(self.file.as_deref()).unwrap_or_else(crate::default_folder);
         let ffmpeg = audiozero_visuals::has_ffmpeg();
-        let path = if ffmpeg {
-            folder.join(format!("{stem} {look}.mp4"))
-        } else {
-            folder.join(format!("{stem} {look} frames"))
-        };
+        let path = folder.join(format!("{stem} {look}.mp4"));
         self.export_dialog = Some(ExportDialog {
             look,
             format,
@@ -340,11 +336,13 @@ impl App {
                 });
             ui.checkbox(&mut dialog.replace, "Replace the file if it exists");
             let note = if dialog.ffmpeg {
-                "End the name with .mp4, .mov, .mkv or .webm for a video with the song's audio; \
-                 anything else saves PNG frames and audio.wav in a folder."
+                "End the name with .mp4 for a video with the song's audio, ready to upload \
+                 (.mov, .mkv and .webm work too). Anything else saves PNG frames and audio.wav \
+                 in a folder."
             } else {
-                "FFmpeg isn't installed, so this saves PNG frames and audio.wav in a folder. \
-                 Install FFmpeg to export .mp4, .mov, .mkv or .webm directly."
+                "End the name with .mp4 for a video with the song's audio, ready to upload. \
+                 (.mov, .mkv and .webm need FFmpeg, which isn't installed.) Anything else saves \
+                 PNG frames and audio.wav in a folder."
             };
             ui.label(egui::RichText::new(note).color(super::theme::text_dim()));
             ui.horizontal(|ui| {
@@ -381,9 +379,12 @@ impl App {
             .extension()
             .and_then(|e| e.to_str())
             .is_some_and(|e| VIDEO_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()));
-        if is_video && !dialog.ffmpeg {
-            self.status =
-                "Exporting video needs FFmpeg; choose a folder name for PNG frames.".into();
+        let is_mp4 = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("mp4"));
+        if is_video && !is_mp4 && !dialog.ffmpeg {
+            self.status = "That video format needs FFmpeg. Save as .mp4 instead.".into();
             return;
         }
         if path.as_os_str().is_empty() {

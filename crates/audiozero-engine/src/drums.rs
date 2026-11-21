@@ -200,7 +200,7 @@ const fn rim(freq: f32) -> Sound {
     }
 }
 
-pub static KITS: [Kit; 6] = [
+pub static KITS: [Kit; 9] = [
     Kit {
         id: "techno",
         name: "Techno",
@@ -344,6 +344,87 @@ pub static KITS: [Kit; 6] = [
             cymbal(560.0, 1.0, 9000.0),
         ],
     },
+    Kit {
+        id: "dnb",
+        name: "Drum & bass",
+        sounds: [
+            // Short and punchy, to leave room at 174 BPM; a bright, cracking snare.
+            kick(56.0, 5.5, 0.03, 0.24, 0.4, 0.3),
+            rim(1800.0),
+            snare(215.0, 0.16, 0.8, 3200.0),
+            louder(clap(0.2, 1700.0), 0.9),
+            snare(250.0, 0.07, 0.5, 3800.0),
+            tone(100.0, 2.2, 0.06, 0.28),
+            hat(360.0, 0.03, 9500.0),
+            tone(150.0, 2.2, 0.05, 0.24),
+            shaker(0.06, 9000.0, 0.005),
+            tone(225.0, 2.2, 0.05, 0.2),
+            hat(360.0, 0.2, 9500.0),
+            tone(420.0, 1.3, 0.02, 0.14),
+            Sound {
+                drive: 0.35,
+                ..tone(43.0, 1.4, 0.05, 1.1)
+            },
+            cymbal(430.0, 1.5, 8000.0),
+            tone(1400.0, 9.0, 0.15, 0.3),
+            cymbal(600.0, 0.7, 9500.0),
+        ],
+    },
+    Kit {
+        id: "halftime",
+        name: "Halftime",
+        sounds: [
+            // Heavy and dark: a long kick, a big slow snare, lots of sub.
+            kick(42.0, 7.0, 0.06, 0.6, 0.3, 0.55),
+            rim(1250.0),
+            snare(160.0, 0.4, 0.9, 1700.0),
+            louder(clap(0.4, 1000.0), 0.9),
+            snare(140.0, 0.55, 0.95, 1300.0),
+            tone(78.0, 2.6, 0.11, 0.55),
+            hat(320.0, 0.035, 8000.0),
+            tone(115.0, 2.6, 0.1, 0.5),
+            shaker(0.09, 7500.0, 0.01),
+            tone(175.0, 2.6, 0.09, 0.42),
+            hat(320.0, 0.4, 8000.0),
+            tone(250.0, 1.4, 0.05, 0.25),
+            Sound {
+                drive: 0.6,
+                ..tone(36.0, 1.6, 0.09, 1.7)
+            },
+            cymbal(370.0, 2.2, 6000.0),
+            tone(1100.0, 9.0, 0.3, 0.6),
+            cymbal(500.0, 1.2, 8000.0),
+        ],
+    },
+    Kit {
+        id: "jazz",
+        name: "Jazz",
+        sounds: [
+            // An acoustic-leaning kit: a soft round kick, a brushy snare, a long ride.
+            kick(62.0, 2.2, 0.025, 0.26, 0.08, 0.05),
+            Sound {
+                cutoff: 4500.0,
+                ..rim(1000.0)
+            },
+            snare(205.0, 0.2, 0.6, 1900.0),
+            louder(clap(0.2, 1100.0), 0.6),
+            // The ghost-note snare: quiet and short.
+            louder(snare(215.0, 0.09, 0.5, 2100.0), 0.6),
+            tone(98.0, 1.5, 0.05, 0.4),
+            // The hi-hat closed with the foot: a soft "chick".
+            hat(280.0, 0.035, 5500.0),
+            tone(132.0, 1.5, 0.05, 0.36),
+            // A brush sweep.
+            shaker(0.22, 3800.0, 0.05),
+            tone(176.0, 1.5, 0.04, 0.3),
+            hat(280.0, 0.3, 5500.0),
+            tone(520.0, 1.1, 0.02, 0.12),
+            tone(55.0, 1.1, 0.03, 0.6),
+            cymbal(330.0, 2.4, 5000.0),
+            tone(660.0, 2.0, 0.05, 0.2),
+            cymbal(440.0, 1.6, 6000.0),
+        ],
+    },
 ];
 
 /// The kit with this id, or the first one.
@@ -373,7 +454,17 @@ const fn p(
     }
 }
 
-const KIT_NAMES: &[&str] = &["Techno", "House", "Dubstep", "Hip hop", "Lo-fi", "Trap"];
+const KIT_NAMES: &[&str] = &[
+    "Techno",
+    "House",
+    "Dubstep",
+    "Hip hop",
+    "Lo-fi",
+    "Trap",
+    "Drum & bass",
+    "Halftime",
+    "Jazz",
+];
 const FIRST_LEVEL: usize = 5;
 const PARAM_COUNT: usize = FIRST_LEVEL + PADS;
 
@@ -384,7 +475,7 @@ const fn level(name: &'static str, label: &'static str) -> Param {
 /// The rack's settings: the kit, volume, tune, decay and tone for all pads, then a level for
 /// each pad.
 pub static PARAMS: [Param; PARAM_COUNT] = [
-    p("kit", "Kit", 0.0, 5.0, 0.0, "", Kind::Choice(KIT_NAMES)),
+    p("kit", "Kit", 0.0, 8.0, 0.0, "", Kind::Choice(KIT_NAMES)),
     p("volume", "Volume", 0.0, 1.0, 0.7, "", Kind::Linear),
     p("tune", "Tune", -12.0, 12.0, 0.0, "st", Kind::Linear),
     p("decay", "Decay", 0.4, 2.5, 1.0, "x", Kind::Log),
@@ -414,7 +505,17 @@ pub const SECTIONS: [(&str, std::ops::Range<usize>); 2] = [
 ];
 
 /// The presets are the kits: picking one switches the kit and puts the rest back to normal.
-pub const PRESETS: [&str; 6] = ["Techno", "House", "Dubstep", "Hip hop", "Lo-fi", "Trap"];
+pub const PRESETS: [&str; 9] = [
+    "Techno",
+    "House",
+    "Dubstep",
+    "Hip hop",
+    "Lo-fi",
+    "Trap",
+    "Drum & bass",
+    "Halftime",
+    "Jazz",
+];
 
 pub fn preset(name: &str) -> Option<&'static [(&'static str, f32)]> {
     Some(match name {
@@ -424,6 +525,9 @@ pub fn preset(name: &str) -> Option<&'static [(&'static str, f32)]> {
         "Hip hop" => &[("kit", 3.0)],
         "Lo-fi" => &[("kit", 4.0)],
         "Trap" => &[("kit", 5.0)],
+        "Drum & bass" => &[("kit", 6.0)],
+        "Halftime" => &[("kit", 7.0)],
+        "Jazz" => &[("kit", 8.0)],
         _ => return None,
     })
 }
@@ -718,7 +822,9 @@ pub struct Beat {
     pub genre: &'static str,
     /// The tempo it feels right at.
     pub bpm: f64,
-    /// How far the off-beat sixteenths are pushed late, as a fraction of a sixteenth.
+    /// How far the off-beat sixteenths are pushed late, as a fraction of a sixteenth. The jazz
+    /// beats use a negative swing: their off-beats are written on the fourth sixteenth of a beat
+    /// and pulled early onto the last triplet, which is where a swung eighth note falls.
     pub swing: f64,
     pub lines: &'static [(u8, &'static str)],
 }
@@ -735,9 +841,10 @@ const PERC: u8 = 47;
 const SUB: u8 = 48;
 const CRASH: u8 = 49;
 const FX: u8 = 50;
+const RIDE: u8 = 51;
 
 macro_rules! beat {
-    ($id:literal, $name:literal, $genre:literal, $bpm:literal, $swing:literal, [$(($pad:expr, $line:literal)),* $(,)?]) => {
+    ($id:literal, $name:literal, $genre:literal, $bpm:expr, $swing:expr, [$(($pad:expr, $line:literal)),* $(,)?]) => {
         Beat {
             id: $id,
             name: $name,
@@ -749,7 +856,7 @@ macro_rules! beat {
     };
 }
 
-pub static BEATS: [Beat; 18] = [
+pub static BEATS: [Beat; 53] = [
     // ---- techno: four on the floor, off-beat open hats
     beat!(
         "techno-basic",
@@ -1005,6 +1112,492 @@ pub static BEATS: [Beat; 18] = [
             (SN, "............X..............x...."),
             (CH, "x.xxx.x.xxx.x.xxx.xxx.x.xxx.x.xx"),
             (RIM, "......o.......o......o.......o.."),
+        ]
+    ),
+    // ---- more techno
+    beat!(
+        "techno-acid",
+        "Acid",
+        "techno",
+        128.0,
+        0.0,
+        [
+            (K, "X...X...X...X..."),
+            (CL, "....X.......X..."),
+            (OH, "..x...x...x...x."),
+            (SH, "xxoxxxoxxxoxxxox"),
+            (PERC, "..o..o....o..o.."),
+        ]
+    ),
+    beat!(
+        "techno-industrial",
+        "Industrial",
+        "techno",
+        138.0,
+        0.0,
+        [
+            (K, "X...X...X...X.x."),
+            (SN2, "....X.......X..."),
+            (CH, "xoxoxoxoxoxoxoxo"),
+            (RIM, "..x..x..x..x..x."),
+            (FX, "..........o....."),
+        ]
+    ),
+    beat!(
+        "techno-broken",
+        "Broken",
+        "techno",
+        130.0,
+        0.0,
+        [
+            (K, "X..x..x...x.X..."),
+            (CL, "....X.......X..."),
+            (CH, "x.x.x.x.x.x.x.x."),
+            (OH, "......x.......x."),
+            (PERC, ".o.......o.....o"),
+        ]
+    ),
+    // ---- more house
+    beat!(
+        "house-garage",
+        "Garage 2-step",
+        "house",
+        132.0,
+        0.15,
+        [
+            (K, "X.....x...X....."),
+            (CL, "....X.......X..."),
+            (CH, "x.x.x.x.x.x.x.x."),
+            (SH, ".o.o.o.o.o.o.o.o"),
+            (RIM, ".......o.....o.."),
+        ]
+    ),
+    beat!(
+        "house-disco",
+        "Disco",
+        "house",
+        118.0,
+        0.0,
+        [
+            (K, "X...X...X...X..."),
+            (CL, "....X.......X..."),
+            (OH, "..X...X...X...X."),
+            (CH, "x.oxx.oxx.oxx.ox"),
+            (PERC, "x...x...x...x..."),
+        ]
+    ),
+    beat!(
+        "house-tech",
+        "Tech house",
+        "house",
+        126.0,
+        0.0,
+        [
+            (K, "X...X...X...X..."),
+            (CL, "....X.......X..."),
+            (CH, "..x...x...x...x."),
+            (SH, "oxoxoxoxoxoxoxox"),
+            (PERC, "...x..x....x..x."),
+            (RIM, ".x.....x.x......"),
+        ]
+    ),
+    // ---- more dubstep
+    beat!(
+        "dubstep-riddim",
+        "Riddim",
+        "dubstep",
+        140.0,
+        0.0,
+        [
+            (K, "X.......x.......X..x....x......."),
+            (SN, "........X...............X......."),
+            (CH, "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x."),
+            (SUB, "X.......x.......X.......x......."),
+        ]
+    ),
+    beat!(
+        "dubstep-tearout",
+        "Tearout",
+        "dubstep",
+        145.0,
+        0.0,
+        [
+            (K, "X.....x...x.....X.x...x.....x..."),
+            (SN, "........X...............X.....xx"),
+            (CH, "x.xxx.xxx.xxx.xxx.xxx.xxx.xxx.xx"),
+            (CRASH, "X..............................."),
+            (FX, "..............o...............o."),
+        ]
+    ),
+    beat!(
+        "dubstep-deep",
+        "Deep 140",
+        "dubstep",
+        140.0,
+        0.0,
+        [
+            (K, "X.........x.....X..............."),
+            (SUB, "X.........x.....X..............."),
+            (SN, "........X...............X......."),
+            (RIM, "...o..o......o.....o..o......o.."),
+            (SH, "o.o.o.o.o.o.o.o.o.o.o.o.o.o.o.o."),
+        ]
+    ),
+    // ---- more hip hop
+    beat!(
+        "hiphop-oldschool",
+        "Old school",
+        "hiphop",
+        96.0,
+        0.0,
+        [
+            (K, "X.....X.X......."),
+            (SN, "....X.......X..."),
+            (CH, "x.x.x.x.x.x.x.x."),
+            (OH, "..............x."),
+        ]
+    ),
+    beat!(
+        "hiphop-swingbounce",
+        "Swing bounce",
+        "hiphop",
+        92.0,
+        0.2,
+        [
+            (K, "X..x....x.X....."),
+            (CL, "....X.......X..."),
+            (CH, "x.xxx.x.x.xxx.x."),
+            (SH, "....o.......o..."),
+        ]
+    ),
+    beat!(
+        "hiphop-westcoast",
+        "West coast",
+        "hiphop",
+        94.0,
+        0.0,
+        [
+            (K, "X.....x...X..x.."),
+            (CL, "....X.......X..."),
+            (SN, "....x.......x..."),
+            (CH, "xoxoxoxoxoxoxoxo"),
+            (OH, "..............x."),
+            (PERC, ".......o........"),
+        ]
+    ),
+    // ---- more lo-fi
+    beat!(
+        "lofi-drizzle",
+        "Drizzle",
+        "lofi",
+        72.0,
+        0.22,
+        [
+            (K, "X......x..X....."),
+            (SN, "....x.......x..."),
+            (CH, "x.x.x.x.x.x.x.x."),
+            (SH, ".o...o...o...o.."),
+            (RIM, ".......o.......o"),
+        ]
+    ),
+    beat!(
+        "lofi-jazzy",
+        "Jazzy",
+        "lofi",
+        80.0,
+        0.25,
+        [
+            (K, "X.....x....x...."),
+            (RIM, "....x.......x..."),
+            (RIDE, "x...x.x.x...x.x."),
+            (SN2, ".........o.....o"),
+        ]
+    ),
+    beat!(
+        "lofi-latenight",
+        "Late night",
+        "lofi",
+        68.0,
+        0.18,
+        [
+            (K, "X.........x.x..."),
+            (SN, "....x.......x..o"),
+            (CH, "x.xxx.x.x.xxx.x."),
+            (PERC, "..o.......o....."),
+        ]
+    ),
+    // ---- more trap
+    beat!(
+        "trap-bounce",
+        "Bounce",
+        "trap",
+        140.0,
+        0.0,
+        [
+            (K, "X.....x...x.....X..x..x...x....."),
+            (SUB, "X.....x...x.....X..x..x...x....."),
+            (CL, "........X...............X......."),
+            (CH, "x.x.x.x.x.x.xxxxx.x.x.x.x.x.x.x."),
+            (OH, "......................x........."),
+        ]
+    ),
+    beat!(
+        "trap-dark",
+        "Dark",
+        "trap",
+        130.0,
+        0.0,
+        [
+            (K, "X.............x.X.....x........."),
+            (SUB, "X.............x.X.....x........."),
+            (SN, "........X...............X......."),
+            (CH, "x..x..x.x..x..x.x..x..x.xxxxxxxx"),
+            (RIM, "....o.......o.......o.......o..."),
+            (FX, "..............................o."),
+        ]
+    ),
+    beat!(
+        "trap-plugg",
+        "Plugg",
+        "trap",
+        150.0,
+        0.0,
+        [
+            (K, "X.......x.....x.X.......x.x....."),
+            (SUB, "X.......x.....x.X.......x.x....."),
+            (CL, "........X...............X......."),
+            (CH, "x.x.x.x.x.x.x.x.x.x.x.x.x.xxx.x."),
+            (PERC, "...o......o........o......o....."),
+        ]
+    ),
+    // ---- drum and bass: fast breaks, snare on 2 and 4
+    beat!(
+        "dnb-twostep",
+        "Two-step",
+        "dnb",
+        174.0,
+        0.0,
+        [
+            (K, "X.........X....."),
+            (SN, "....X.......X..."),
+            (CH, "x.x.x.x.x.x.x.x."),
+        ]
+    ),
+    beat!(
+        "dnb-amen",
+        "Amen-style break",
+        "dnb",
+        170.0,
+        0.0,
+        [
+            (K, "X.X.......XX....X.X.......X....."),
+            (SN, "....X..o.o..X..o....X..o.o....X."),
+            (RIDE, "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x."),
+            (CRASH, "X..............................."),
+        ]
+    ),
+    beat!(
+        "dnb-roller",
+        "Roller",
+        "dnb",
+        174.0,
+        0.0,
+        [
+            (K, "X.........X..x.."),
+            (SN, "....X.......X..."),
+            (SN2, ".......o.o.....o"),
+            (CH, "x.xxx.xxx.xxx.xx"),
+            (SUB, "X.........X....."),
+        ]
+    ),
+    beat!(
+        "dnb-jungle",
+        "Jungle",
+        "dnb",
+        165.0,
+        0.0,
+        [
+            (K, "X.....X...X.....X..X......X....."),
+            (SN, "....X....X..X.......X..X.X..X..x"),
+            (CH, "x.xox.xox.xox.xox.xox.xox.xox.xo"),
+            (PERC, "..o...........o...o...........o."),
+        ]
+    ),
+    beat!(
+        "dnb-liquid",
+        "Liquid",
+        "dnb",
+        172.0,
+        0.0,
+        [
+            (K, "X.........X....."),
+            (SN, "....X.......X..."),
+            (RIDE, "x.x.x.x.x.x.x.x."),
+            (SH, ".o.o.o.o.o.o.o.o"),
+            (RIM, "..o......o......"),
+            (SN2, ".......o.......o"),
+        ]
+    ),
+    beat!(
+        "dnb-neuro",
+        "Neuro",
+        "dnb",
+        174.0,
+        0.0,
+        [
+            (K, "X..x......X....."),
+            (SUB, "X.........X....."),
+            (SN, "....X.......X..x"),
+            (CH, "x.x.xxx.x.x.xxx."),
+            (FX, "...............o"),
+        ]
+    ),
+    // ---- halftime: drum and bass tempo, snare once a bar
+    beat!(
+        "halftime-basic",
+        "Halftime",
+        "halftime",
+        160.0,
+        0.0,
+        [
+            (K, "X.........x....."),
+            (SN, "........X......."),
+            (CH, "x.x.x.x.x.x.x.x."),
+        ]
+    ),
+    beat!(
+        "halftime-stomp",
+        "Stomp",
+        "halftime",
+        170.0,
+        0.0,
+        [
+            (K, "X......x..x.....X.....x...x....."),
+            (SUB, "X...............X..............."),
+            (SN, "........X...............X.....o."),
+            (CH, "x...x...x...x...x...x...x.x.x..."),
+        ]
+    ),
+    beat!(
+        "halftime-skitter",
+        "Skitter",
+        "halftime",
+        165.0,
+        0.0,
+        [
+            (K, "X.....x........."),
+            (SN, "........X......."),
+            (CH, "xxx.x.xxx.x.xxxx"),
+            (RIM, "....o.......o..."),
+        ]
+    ),
+    beat!(
+        "halftime-swagger",
+        "Swagger",
+        "halftime",
+        150.0,
+        0.15,
+        [
+            (K, "X..x......x....."),
+            (SN, "........X......."),
+            (CL, "........X......."),
+            (CH, "x.xox.xox.xox.xo"),
+            (OH, "..............x."),
+        ]
+    ),
+    beat!(
+        "halftime-space",
+        "Space",
+        "halftime",
+        168.0,
+        0.0,
+        [
+            (K, "X...............X.........x....."),
+            (SUB, "X...............X..............."),
+            (SN, "........X...............X......."),
+            (RIM, "...o.......o.......o......o....."),
+            (SH, "o.o.o.o.o.o.o.o.o.o.o.o.o.o.o.o."),
+            (FX, "..............o................."),
+        ]
+    ),
+    // ---- jazz
+    beat!(
+        "jazz-swing",
+        "Swing",
+        "jazz",
+        140.0,
+        -0.33,
+        [
+            (RIDE, "x...x..xx...x..x"),
+            (CH, "....x.......x..."),
+            (K, "o...o...o...o..."),
+            (SN2, ".......o........"),
+        ]
+    ),
+    beat!(
+        "jazz-bebop",
+        "Bebop",
+        "jazz",
+        176.0,
+        -0.33,
+        [
+            (RIDE, "x...x..xx...x..xx...x..xx...x..x"),
+            (CH, "....x.......x.......x.......x..."),
+            (SN2, "...o.......o...........ox......o"),
+            (K, "...............x...........x...."),
+        ]
+    ),
+    beat!(
+        "jazz-brushes",
+        "Brushes ballad",
+        "jazz",
+        66.0,
+        -0.33,
+        [
+            (SH, "x...x...x...x..."),
+            (SN2, "....o..o....o..."),
+            (CH, "....x.......x..."),
+            (K, "o.......o......."),
+            (RIDE, "x.......x......o"),
+        ]
+    ),
+    beat!(
+        "jazz-shuffle",
+        "Shuffle",
+        "jazz",
+        120.0,
+        -0.33,
+        [
+            (RIDE, "x..xx..xx..xx..x"),
+            (SN, "....X.......X..."),
+            (K, "X.......X..x...."),
+            (CH, "....x.......x..."),
+        ]
+    ),
+    beat!(
+        "jazz-bossa",
+        "Bossa nova",
+        "jazz",
+        130.0,
+        0.0,
+        [
+            (RIM, "x..x..x...x..x..x..x..x...x..x.."),
+            (K, "X..xX..xX..xX..xX..xX..xX..xX..x"),
+            (CH, "oooooooooooooooooooooooooooooooo"),
+        ]
+    ),
+    beat!(
+        "jazz-funk",
+        "Jazz funk",
+        "jazz",
+        100.0,
+        0.0,
+        [
+            (K, "X..x..x...x.X..."),
+            (SN, "....X.......X..."),
+            (SN2, ".......o.o.....o"),
+            (CH, "x.x.x.x.x.x.x..."),
+            (OH, "..............x."),
         ]
     ),
 ];
@@ -1273,7 +1866,11 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), BEATS.len(), "unique ids");
         for kit in &KITS {
-            assert_eq!(beats_for(kit.id).count(), 3, "three beats for {}", kit.name);
+            assert!(
+                beats_for(kit.id).count() >= 5,
+                "plenty of beats for {}",
+                kit.name
+            );
         }
         for beat in &BEATS {
             assert!(
@@ -1281,7 +1878,7 @@ mod tests {
                 "{} has a kit",
                 beat.id
             );
-            assert!((60.0..=180.0).contains(&beat.bpm) && (0.0..=0.33).contains(&beat.swing));
+            assert!((60.0..=180.0).contains(&beat.bpm) && (-0.34..=0.33).contains(&beat.swing));
             let bars = beat.bars();
             for (pad, line) in beat.lines {
                 assert!(pad_name(*pad).is_some(), "{}: pad {pad}", beat.id);

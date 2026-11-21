@@ -36,8 +36,9 @@ Sound card (the window's Audio > Audio settings saves these; the options are for
                      the sound crackles
 
 Audio-reactive video:
-  --video OUT        Render visuals for the song to OUT: a .mp4, .mov, .mkv or .webm video
-                     with the song's audio (needs FFmpeg), or a folder of PNG frames + audio.wav
+  --video OUT        Render visuals for the song to OUT: a .mp4 video with the song's audio
+                     (built in), a .mov, .mkv or .webm (these need FFmpeg), or a folder of PNG
+                     frames + audio.wav
   --still OUT.png    Render a single frame (with --at SECONDS) instead
   --look ID          spectrum (default), rings, particles or fractal-mandelbulb, -menger, -sierpinski, -apollonian, -kali, -tetra
   --format F         widescreen (default), shorts, square, portrait, 4k, or WIDTHxHEIGHT
