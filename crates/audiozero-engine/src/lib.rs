@@ -38,6 +38,7 @@ pub mod music;
 pub mod operator;
 pub mod progressions;
 pub mod project;
+pub mod safe_fs;
 pub mod sample;
 pub mod session;
 pub mod soundgineer;

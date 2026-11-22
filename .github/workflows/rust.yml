@@ -29,6 +29,16 @@ jobs:
           TAG: ${{ inputs.release }}
         run: bash scripts/check-release.sh "$TAG"
 
+  # Known-vulnerable or yanked dependencies, and dependencies from anywhere but crates.io and the
+  # pinned Nusick commit (deny.toml). Releases wait for it.
+  deny:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans sources
+
   linux:
     needs: guard
     runs-on: ubuntu-24.04
@@ -88,7 +98,7 @@ jobs:
   # Publishes the three builds as a GitHub Release, when a tag was given.
   release:
     if: inputs.release != ''
-    needs: [linux, build]
+    needs: [deny, linux, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

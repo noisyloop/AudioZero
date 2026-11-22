@@ -188,7 +188,7 @@ cargo test --workspace                                        # all tests
 
 `--output-device`, `--input-device`, `--rate` and `--buffer` work with the window, `--play` and `--mcp`. A device is an id from `--devices`, or a name or part of one. They apply to that run only; the window's Audio settings are what's saved, in `settings.json` under `~/.config/audiozero` (Linux), `~/Library/Application Support/AudioZero` (macOS) or `%APPDATA%\AudioZero` (Windows).
 
-On Linux, building needs the ALSA headers (`libasound2-dev`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0`. Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio input and output), `midir` (MIDI input) and `eframe`/`egui` (the window).
+On Linux, building needs the ALSA headers (`libasound2-dev`; on Arch, `alsa-lib`), and running the window needs an OpenGL driver and `libxkbcommon-x11-0` (Arch: `libxkbcommon-x11`, plus `ffmpeg` if you want MP3, WebM or MOV export). Desktop installs normally already have them. The direct dependencies are `nusick-dsp` (Nusick's DSP, pinned to a commit), `serde`/`serde_json` (project files), `symphonia` (pure-Rust audio file decoding), `rtrb` (the lock-free command queue), `cpal` (audio input and output), `midir` (MIDI input) and `eframe`/`egui` (the window).
 
 ## Audio-reactive visuals
 

@@ -121,7 +121,8 @@ fn write(folder: &Path, name: &str, sample: Sample) -> Result<Written, String> {
     std::fs::create_dir_all(folder)
         .map_err(|e| format!("can't create {}: {e}", folder.display()))?;
     let path = unique_wav(folder, name);
-    let file = std::fs::File::create(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let file = audiozero_engine::safe_fs::create_new(&path)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
     audiozero_engine::wav::write_stereo_24(
         std::io::BufWriter::new(file),
         sample.rate().round() as u32,

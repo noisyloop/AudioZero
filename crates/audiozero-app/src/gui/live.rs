@@ -196,7 +196,7 @@ impl App {
             .get(track)
             .map_or("Track".into(), |t| t.name.clone());
         let path = take_file_name(&folder, &name);
-        let written = std::fs::File::create(&path).and_then(|f| {
+        let written = audiozero_engine::safe_fs::create_new(&path).and_then(|f| {
             audiozero_engine::wav::write_stereo_24(
                 std::io::BufWriter::new(f),
                 sample.rate().round() as u32,

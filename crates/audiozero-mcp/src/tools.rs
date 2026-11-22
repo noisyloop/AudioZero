@@ -1319,13 +1319,29 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
             let target = match a.container.as_deref().unwrap_or("mp4") {
                 "mp4" => format!("{name}.mp4"),
                 "webm" => format!("{name}.webm"),
-                "frames" => name,
+                "frames" => name.clone(),
                 other => {
                     return Err(format!(
                         "unknown container \"{other}\"; use mp4, webm or frames"
                     ));
                 }
             };
+            check_export_budget()?;
+            if target == name {
+                let project = s.session.project();
+                let beats = if a.loop_only {
+                    project.loop_end - project.loop_start
+                } else {
+                    project.end_beats()
+                };
+                let frames = beats * 60.0 / project.bpm * f64::from(settings.fps);
+                if frames > MAX_PNG_FRAMES {
+                    return Err(format!(
+                        "that would be {frames:.0} PNG files; the limit is {MAX_PNG_FRAMES:.0}. \
+                         Use the loop, a lower fps, or the mp4 or webm container"
+                    ));
+                }
+            }
             let path = s.save.folder.join(&target);
             if path.exists() {
                 return Err(format!("{target} already exists; choose another name"));
@@ -1348,6 +1364,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 &path,
                 |_, _| true,
             )?;
+            count_export();
             Ok(json!({
                 "exported": target,
                 "frames": done.frames,
@@ -1518,6 +1535,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 },
                 ..Default::default()
             };
+            check_export_budget()?;
             let target = format!("{}.{}", plain_name(&a.name)?, format.extension());
             let path = s.save.folder.join(&target);
             let mut pool =
@@ -1537,6 +1555,7 @@ pub fn call(s: &mut Ctx<'_>, name: &str, arguments: Value) -> Result<Value, Stri
                 false,
                 |_, _| true,
             )?;
+            count_export();
             Ok(json!({ "exported": target, "seconds": done.seconds, "bytes": done.bytes }))
         }
         "save" => {
@@ -1675,6 +1694,28 @@ fn project_summary(s: &Ctx<'_>) -> Value {
 /// or a hidden file.
 fn file_name(name: &str) -> Result<String, String> {
     plain_name(name).map(|n| format!("{n}.azproj"))
+}
+
+/// Exports one server session may make. An assistant that loops (or is steered by text it read)
+/// can't fill the disk one file at a time; the user can restart the server for more.
+const MAX_EXPORTS: usize = 25;
+/// Most frames the PNG-frames container may write in one call (an hour of 60 fps would be
+/// 216,000 files, potentially terabytes).
+const MAX_PNG_FRAMES: f64 = 3_600.0;
+
+static EXPORTS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+fn check_export_budget() -> Result<(), String> {
+    if EXPORTS.load(std::sync::atomic::Ordering::Relaxed) >= MAX_EXPORTS {
+        return Err(format!(
+            "this session has already made {MAX_EXPORTS} exports; restart the server to allow more"
+        ));
+    }
+    Ok(())
+}
+
+fn count_export() {
+    EXPORTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 }
 
 fn plain_name(name: &str) -> Result<String, String> {
