@@ -13,7 +13,7 @@ workspace = true
 
 [dependencies]
 # Nusick's DSP (MIT, no dependencies of its own), pinned to a commit.
-nusick-dsp = { git = "https://github.com/noisyloop/Nusick", rev = "d1a18879c96c73fe573150e20eb3c5ca04781f73" }
+nusick-dsp = { git = "https://github.com/noisyloop/Nusick", rev = "e440ec4c806ab7a8e2e8edbce5bd0e265b474c6d" }
 rtrb = "0.4.1"
 # Pure-Rust audio decoding for audio clips: WAV, AIFF, FLAC, MP3 and Ogg Vorbis.
 symphonia = { version = "0.5.4", default-features = false, features = ["wav", "pcm", "adpcm", "aiff", "flac", "mp3", "ogg", "vorbis"] }
