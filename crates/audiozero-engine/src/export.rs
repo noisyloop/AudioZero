@@ -233,7 +233,8 @@ fn write(
     };
     match settings.format {
         Format::Wav16 | Format::Wav24 => {
-            let file = File::create(part).map_err(|e| format!("{}: {e}", part.display()))?;
+            let file =
+                crate::safe_fs::create_new(part).map_err(|e| format!("{}: {e}", part.display()))?;
             let chunks = tags
                 .map(|(m, a)| crate::tags::wav_chunks(m, a, settings.sample_rate, bits))
                 .unwrap_or_default();
@@ -252,6 +253,8 @@ fn write(
         Format::Mp3(kbps) => {
             // FFmpeg reads a WAV from its standard input and writes the MP3 itself. 24-bit
             // in, so the encoder gets everything we have.
+            // Reserve the name ourselves first (never through a link); FFmpeg then overwrites it.
+            drop(crate::safe_fs::create_new(part).map_err(|e| format!("{}: {e}", part.display()))?);
             let mut child = Command::new("ffmpeg")
                 .args([
                     "-hide_banner",
@@ -277,7 +280,7 @@ fn write(
                 } else {
                     &[][..]
                 })
-                .arg(part)
+                .arg(crate::safe_fs::ffmpeg_path(part))
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
                 .stderr(Stdio::piped())
@@ -320,7 +323,7 @@ fn prepend_tag(file: &Path, tag: &[u8]) -> Result<(), String> {
     name.push(".tagged");
     let tagged = file.with_file_name(name);
     let copy = || -> std::io::Result<()> {
-        let mut out = BufWriter::new(File::create(&tagged)?);
+        let mut out = BufWriter::new(crate::safe_fs::create_new(&tagged)?);
         std::io::Write::write_all(&mut out, tag)?;
         std::io::copy(&mut File::open(file)?, &mut out)?;
         std::io::Write::flush(&mut out)?;

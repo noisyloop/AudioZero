@@ -450,11 +450,21 @@ impl Project {
     }
 
     pub fn load(path: &Path) -> Result<Self, ProjectError> {
-        let size = std::fs::metadata(path)?.len();
-        if size > limits::MAX_FILE_BYTES {
-            return Err(ProjectError::TooLarge(size));
+        let meta = std::fs::metadata(path)?;
+        // A link to /dev/zero or a FIFO reports a length of 0 but never ends, so only regular
+        // files are read, and never more than the limit (the file can also grow while we read).
+        if !meta.is_file() {
+            return Err(ProjectError::WrongFormat);
         }
-        Self::from_json(&std::fs::read_to_string(path)?)
+        if meta.len() > limits::MAX_FILE_BYTES {
+            return Err(ProjectError::TooLarge(meta.len()));
+        }
+        let mut text = String::new();
+        std::io::Read::read_to_string(
+            &mut std::io::Read::take(std::fs::File::open(path)?, limits::MAX_FILE_BYTES + 1),
+            &mut text,
+        )?;
+        Self::from_json(&text)
     }
 
     /// Writes to a temporary file next to `path` and renames it, so a crash mid-save never
@@ -463,8 +473,15 @@ impl Project {
         let mut tmp = path.as_os_str().to_owned();
         tmp.push(".tmp");
         let tmp = std::path::PathBuf::from(tmp);
-        std::fs::write(&tmp, self.to_json())?;
-        std::fs::rename(&tmp, path)?;
+        // Never through a link: a folder from someone else could hold `song.azproj.tmp` pointing
+        // at one of the user's files (security review, Rust app review, finding 2).
+        let mut file = crate::safe_fs::create_new(&tmp)?;
+        let written = std::io::Write::write_all(&mut file, self.to_json().as_bytes());
+        drop(file);
+        if let Err(e) = written.and_then(|()| std::fs::rename(&tmp, path)) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e.into());
+        }
         Ok(())
     }
 
@@ -805,5 +822,32 @@ mod tests {
         project.save(&path).unwrap();
         assert_eq!(Project::load(&path).unwrap(), project);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_never_writes_through_a_link() {
+        use std::os::unix::fs::symlink;
+        let dir = std::env::temp_dir().join(format!("audiozero-save-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let victim = dir.join("victim.txt");
+        std::fs::write(&victim, "keep me").unwrap();
+        let song = dir.join("song.azproj");
+        symlink(&victim, dir.join("song.azproj.tmp")).unwrap();
+        assert!(Project::default().save(&song).is_err());
+        assert_eq!(std::fs::read(&victim).unwrap(), b"keep me");
+        assert!(!song.exists(), "nothing was renamed into place");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn load_refuses_files_that_are_not_regular() {
+        // /dev/zero reports a length of 0 and never ends: it used to be read until memory ran out.
+        assert!(matches!(
+            Project::load(Path::new("/dev/zero")),
+            Err(ProjectError::WrongFormat)
+        ));
     }
 }

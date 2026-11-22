@@ -1,5 +1,7 @@
 # AudioZero security review
 
+> **Update (Nov 2026):** the findings below were written against the original C++/JUCE app, which is now legacy. They are all addressed in the Rust app (see the code comments citing them). A second review of the Rust app, covering everything added since, is at the end of this file: [Rust app review](#rust-app-review-linux--arch).
+
 **Scope:** `main` at `3f17796` (arrangement DAW, Operator, VST3 hosting, CI). Reviewed: project load/save (`src/model/ProjectIO.cpp`), sample decoding (`src/model/Project.cpp`), plugin hosting (`src/plugins/PluginManager.cpp`), audio engine (`src/engine/AudioEngine.cpp`), import/drag-and-drop (`src/ui/Session.cpp`, `src/ui/Browser.cpp`), startup (`src/Main.cpp`, `src/ui/MainComponent.cpp`), build and CI (`CMakeLists.txt`, `.github/workflows/`).
 
 The behaviours listed below were checked against the JUCE 8.0.10 sources (`CharacterFunctions::readDoubleValue`, `jlimit`, `WavAudioFormatReader`). None of the findings were run against a live build.
@@ -208,3 +210,72 @@ The roadmap's MCP server will expose `Session` operations to an AI client. That 
 - **Confirmation:** destructive or expensive operations (export, overwriting saves, deleting tracks, loading third-party plugins) should require confirmation in the UI or an explicit capability setting.
 - **Same validation as file load:** every numeric argument goes through the same `readFinite`/limits layer as project loading, so the two can't drift apart. Rate-limit calls so a runaway agent can't stall the message thread.
 - **Undo and audit:** every MCP edit goes through the undo stack (already true for arrangement edits; extend it to devices) and is listed in a visible activity log, so the user can see and revert what the assistant did.
+
+
+---
+
+## Rust app review (Linux / Arch)
+
+**Scope:** `main` at `1b78c4c` (v0.14.0), all five crates, `scripts/` and `.github/workflows/`, reviewed for Linux and Arch. The method was reading every place that spawns a process, opens a socket, writes a file, reads untrusted data or builds a name from project data, then **testing** the suspicious ones rather than trusting the read:
+
+- a mutation fuzzer (not committed) corrupted numbers and strings in the demo project 5,000 ways, then loaded, sanitised, built an engine and rendered 3 s each: **0 panics, 0 non-finite or over-loud samples, none slow**; 2,550 were rejected by validation and 2,450 rendered;
+- proof-of-concept runs for each finding below, re-run after the fix;
+- `cargo deny check advisories bans sources` on the real `Cargo.lock` (379 packages across Linux, Windows and macOS): **no advisories, no yanked crates**.
+
+### What already holds
+
+- `unsafe_code = "forbid"` workspace-wide, and no `unsafe` in the vendored `oxideav-aac`.
+- **No plugin code is loaded.** `audiozero-host` only lists bundles (without following links) and resolves by identity, never by a path from a project (original finding 1).
+- **MCP:** stdio only, no listener, 8 MB message cap, no tool takes a path, names are letters/digits/space/`-`/`_` only, nothing is ever replaced, every call is logged. I checked all 38 tools; the "no file system primitives" claim is true.
+- **Decoding** is bounded (rate, channels, 10 minutes per file, 1 GiB per file, one hour in the pool) and refuses devices and FIFOs.
+- Project, preset and settings loading are size-capped, schema-checked and clamped; presets and tuned audio use `create_new`.
+- `ffmpeg` is started with an argument list, never through a shell, so nothing is interpreted.
+- The release workflow takes its tag from `env`, not by interpolating it into a script, and the guard job runs before any build.
+
+### Findings
+
+| # | Severity | Finding | Status |
+| --- | --- | --- | --- |
+| 1 | Medium | Writes follow symbolic links, so a project folder from someone else can make a save or export overwrite the user's own files | Fixed |
+| 2 | Low | `Project::load` reads without bound from a link to `/dev/zero` or a FIFO | Fixed |
+| 3 | Low | The MCP export tools have no quota, and the PNG-frames container can write terabytes | Fixed |
+| 4 | Low | Output paths reach `ffmpeg` as bare arguments (a name such as `-i`, or a URL, would be parsed as an option or protocol) | Fixed |
+| 5 | Low | No dependency policy: advisories, yanked crates and sources were never checked | Fixed |
+| 6 | Info | Remaining notes (below) | |
+
+### 1. Writes follow links (Medium)
+
+This is the same class as finding 9 but for **writes**. Collaborators pass folders around as zips, and archives can hold symbolic links. `fs::write` and `File::create` follow a link at the final path component:
+
+- `Project::save` wrote `song.azproj.tmp` with `fs::write`, then renamed it. A folder containing `song.azproj.tmp -> ~/something-precious` made an ordinary Ctrl+S **overwrite that file with the project JSON**, and the rename then turned `song.azproj` itself into the link. **Reproduced** before the fix.
+- Recordings, bounces, WAV and MP3 exports (`.part`, `.tagged`), and the video export's frames, `audio.wav` and temporary audio file were created with `File::create` after an `exists()` check, which a dangling link passes. The result is a new file created at a path the sender chose.
+
+**Fix:** `audiozero_engine::safe_fs::create_new` opens with `O_EXCL`, never follows a link, replaces only a leftover regular file, and refuses links and folders. It is used by `Project::save`, the audio export (including reserving the name before FFmpeg writes it), the tag step, bounce and recording, and the video export's side files. Tests: `save_never_writes_through_a_link`, and `safe_fs`'s own link tests (a live link and a dangling one).
+
+The file a user picks in a Save dialog and the final MP4 are still opened normally: that is the user's own choice of path.
+
+### 2. Unbounded read of a special file (Low)
+
+`Project::load` checked `metadata().len()` and then read the whole file, but a link to `/dev/zero` or a FIFO reports a length of 0. **Reproduced:** the process read until it hit a 2 GB memory cap. On a desktop with no cap that is an out-of-memory kill, and a link in a received folder is enough to trigger it. **Fix:** only regular files are read, and never more than the limit (`take`). Test: `load_refuses_files_that_are_not_regular`.
+
+### 3. MCP exports have no budget (Low)
+
+The plan for the MCP server called for a quota or a confirmation on expensive operations, and exports were never limited. A looping or steered assistant could write exports until the disk was full; `export_video` with `container: "frames"` at 60 fps for an hour is 216,000 PNGs. **Fix:** at most 25 exports per server session (restart the server for more), and the frames container is refused above 3,600 files, with a message suggesting the loop, a lower fps or mp4/webm.
+
+### 4. Paths as FFmpeg arguments (Low)
+
+Output and temporary paths were passed as bare arguments. FFmpeg has no `--`, so a relative name starting with `-` is an option, and a string such as `http://host/x.mp4` is a network location. Every path AudioZero builds today is absolute (a dialog, or `~/Music/AudioZero`), so this was not exploitable, but `--video out` takes a path from the command line. **Fix:** `safe_fs::ffmpeg_path` adds a `file:` prefix, so FFmpeg always treats it as a local file.
+
+### 5. Dependency policy (Low)
+
+There was no `deny.toml` and no advisory check. **Added:** `deny.toml` (advisories, yanked = deny, wildcards, only crates.io plus the pinned Nusick commit), a `deny` job in `rust.yml` that releases wait for, `publish = false` on the workspace crates, and Dependabot for Cargo and Actions. Result today: clean. (Nusick's `deny.toml` also enforces licenses; AudioZero's allow-list hasn't been audited, so it isn't enabled here.)
+
+### 6. Info and Arch notes
+
+- **Arch:** nothing here is distribution-specific. The settings path follows `XDG_CONFIG_HOME`; the plugin search paths include `/usr/lib/vst3` and `/usr/lib/clap` as Arch installs them; `ffmpeg` is found on `PATH` and is optional (WAV and MP4 need none). The README now names the Arch packages (`alsa-lib`, `libxkbcommon-x11`, `ffmpeg`). Build with `cargo build --release --locked` so you get the reviewed `Cargo.lock`, and check a download with `sha256sum -c SHA256SUMS.txt`.
+- **Sandboxing is still the real boundary.** Running the MCP server under `bwrap` or `systemd-run --user -p PrivateNetwork=yes` with a read-only home except `~/Music/AudioZero` is cheap on Linux and covers anything not found here.
+- **Absolute sample paths** in a project are still allowed (with an audio extension, a regular file, a size cap). A project can still probe whether such a file exists, through the error message. The original review suggested asking the user first; not done.
+- **Third-party Actions** are pinned by tag, not commit SHA. Dependabot will keep them current once pinned; the SHAs need looking up and checking.
+- **Builds are unsigned**, as before. `SHA256SUMS.txt` is published with each release.
+- **Test-only** temporary folders in `/tmp` use predictable names (`audiozero-test-<pid>`). That matters only when running the test suite on a shared machine.
+- **The MCP export budget** is a process-wide counter, so a test suite that makes many exports in one process would share it. Today's tests stay well under 25.

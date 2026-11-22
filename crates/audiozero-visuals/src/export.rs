@@ -157,7 +157,8 @@ pub fn export(
 
     let wav_for = |dir: &Path| dir.join("audio.wav");
     let write_wav = |path: &Path| -> Result<(), String> {
-        let file = std::fs::File::create(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let file = audiozero_engine::safe_fs::create_new(path)
+            .map_err(|e| format!("{}: {e}", path.display()))?;
         audiozero_engine::wav::write_stereo_16(
             std::io::BufWriter::new(file),
             RATE as u32,
@@ -282,10 +283,10 @@ pub fn export(
             "rgba",
         ])
         .args(["-s", &size, "-r", &fps, "-i", "-", "-i"])
-        .arg(&audio)
+        .arg(audiozero_engine::safe_fs::ffmpeg_path(&audio))
         .args(["-map", "0:v", "-map", "1:a", "-shortest"])
         .args(codec)
-        .arg(out)
+        .arg(audiozero_engine::safe_fs::ffmpeg_path(out))
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -354,7 +355,8 @@ pub fn still(
 }
 
 fn write_png(path: &Path, w: usize, h: usize, rgba: &[u8]) -> Result<(), String> {
-    let file = std::fs::File::create(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let file = audiozero_engine::safe_fs::create_new(path)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
     let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), w as u32, h as u32);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
