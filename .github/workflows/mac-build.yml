@@ -25,19 +25,19 @@ jobs:
           hdiutil create -volname "AudioZero" -srcfolder "dist/dmg-root" -ov -format UDZO "dist/AudioZero-macOS-unsigned.dmg"
           hdiutil verify "dist/AudioZero-macOS-unsigned.dmg"
       - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AudioZero-macOS-DMG-unsigned
           path: dist/AudioZero-macOS-unsigned.dmg
           if-no-files-found: error
       - name: Upload Operator VST3
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AudioZero-Operator-VST3-macOS
           path: build/AudioZeroOperator_artefacts/Release/VST3/
           if-no-files-found: error
       - name: Upload app bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AudioZero-macOS-app-unsigned
           path: build/AudioZero_artefacts/Release/AudioZero.app
