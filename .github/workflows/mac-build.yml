@@ -6,7 +6,7 @@ jobs:
   macos:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure
         run: cmake -S . -B build -G Xcode -DCMAKE_BUILD_TYPE=Release -DAUDIOZERO_BUILD_TESTS=ON
       - name: Build AudioZero, Operator VST3 and tests

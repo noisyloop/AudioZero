@@ -19,7 +19,7 @@ jobs:
   guard:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: inputs.release != ''
         with:
           fetch-depth: 0
@@ -34,7 +34,7 @@ jobs:
   deny:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check advisories bans sources
@@ -43,7 +43,7 @@ jobs:
     needs: guard
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install ALSA headers (for audio and MIDI)
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
       - name: Format
@@ -76,7 +76,7 @@ jobs:
       - name: Skip macOS unless asked
         if: matrix.os == 'macos-latest' && !inputs.macos && inputs.release == ''
         run: echo "macOS not requested; skipping." && exit 0
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
       - name: Install ALSA headers
         if: runner.os == 'Linux'
