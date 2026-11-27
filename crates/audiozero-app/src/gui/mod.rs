@@ -10,6 +10,7 @@ mod arrangement;
 mod audio_settings;
 mod audio_tools;
 mod chords;
+mod controller;
 mod devices;
 mod export_audio;
 mod live;
@@ -183,6 +184,8 @@ struct App {
     title: String,
     /// Every MIDI input, playing the live target track.
     midi: Option<MidiIn>,
+    /// A game controller (DualShock 4) as an instrument.
+    controller: controller::ControllerUi,
     /// The audio input, open while an audio track is armed.
     audio_in: Option<AudioIn>,
     /// The track that records, if any.
@@ -217,6 +220,7 @@ impl App {
         audiozero_engine::soundgineer::warm_up();
         let mut audio = Output::open(&settings);
         let (midi, midi_status) = connect_midi(&mut audio, &ctx);
+        let ctx_for_controller = ctx.clone();
         let audio_note = audio.note.clone();
         let mut app = Self {
             status: audio.description.clone(),
@@ -247,6 +251,7 @@ impl App {
             allow_close: false,
             title: String::new(),
             midi,
+            controller: controller::ControllerUi::new(&ctx_for_controller),
             audio_in: None,
             armed: None,
             recording: None,
@@ -871,6 +876,9 @@ impl App {
                 if ui.button("Audio settings…").clicked() {
                     self.open_audio_dialog();
                 }
+                if ui.button("Controller…").clicked() {
+                    self.controller.window_open = true;
+                }
             });
             if ui
                 .add_enabled(self.can_export_audio(), egui::Button::new("Export"))
@@ -1374,6 +1382,7 @@ impl eframe::App for App {
         self.handle_drops_and_close(&ctx);
         self.watch_devices();
         self.live_input(&ctx);
+        self.controller_frame(&ctx);
         self.visuals_frame(&ctx);
         self.shortcuts(&ctx);
 
@@ -1404,6 +1413,7 @@ impl eframe::App for App {
             .show(ui, |ui| self.arrangement(ui));
         self.dialogs(&ctx);
         self.audio_dialog(&ctx);
+        self.controller_window(&ctx);
         self.export_ui(&ctx);
         self.audio_export_ui(&ctx);
         self.tune_ui(&ctx);
