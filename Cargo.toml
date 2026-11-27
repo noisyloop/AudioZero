@@ -6,6 +6,7 @@ members = [
     "crates/audiozero-mcp",
     "crates/audiozero-visuals",
     "crates/audiozero-app",
+    "crates/audiozero-controller",
 ]
 
 [workspace.package]
