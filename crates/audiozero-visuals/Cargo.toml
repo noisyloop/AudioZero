@@ -14,7 +14,7 @@ workspace = true
 
 [dependencies]
 audiozero-engine = { path = "../audiozero-engine" }
-png = "0.17.16"
+png = "0.18.1"
 bytes = "1"
 # Built-in MP4 export, so sharing a video needs no FFmpeg: H.264 from Cisco's OpenH264 (compiled
 # from source into the app), AAC-LC from a pure-Rust encoder, and an MP4 writer.
