@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install ALSA headers (for audio and MIDI)
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
       - name: Format
         run: cargo fmt --all --check
       - name: Lint
@@ -80,7 +80,7 @@ jobs:
         if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
       - name: Install ALSA headers
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
       - name: Build
         if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
         run: cargo build --release --locked -p audiozero-app
