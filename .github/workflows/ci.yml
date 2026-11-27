@@ -14,7 +14,7 @@ jobs:
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Upload Windows app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AudioZero-Windows
           path: |
@@ -41,7 +41,7 @@ jobs:
       - name: Screenshot the real UI
         run: xvfb-run -a -s "-screen 0 1920x1200x24" build/AudioZero_artefacts/Release/AudioZero --screenshot linux-ui.png --tab devices
       - name: Upload Linux build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AudioZero-Linux
           path: |

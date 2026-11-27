@@ -89,7 +89,7 @@ jobs:
         run: cargo test --workspace --locked
       - name: Upload the app
         if: matrix.os != 'macos-latest' || inputs.macos || inputs.release != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: audiozero-${{ matrix.name }}
           path: target/release/${{ matrix.binary }}
