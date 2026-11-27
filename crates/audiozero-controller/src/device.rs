@@ -148,9 +148,8 @@ impl Controllers {
     /// Events that arrived since the last call.
     pub fn events(&self) -> Vec<RawEvent> {
         let events: Vec<RawEvent> = self.events.try_iter().collect();
-        let _ = self
-            .pending
-            .fetch_update(Relaxed, Relaxed, |n| Some(n.saturating_sub(events.len())));
+        // Every event was counted before it was sent, so this can't go below zero.
+        self.pending.fetch_sub(events.len(), Relaxed);
         events
     }
 
